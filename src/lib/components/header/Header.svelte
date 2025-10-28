@@ -36,8 +36,11 @@
 </script>
 
 <header
-  class="h-16 bg-surface border-b border-border px-6 flex items-center gap-4"
->
+  class="h-14 bg-surface border-b border-border flex items-center gap-4 px-4"
+>   
+  <!-- Profile dropdown -->
+  <ProfileDropdown {isAuthenticated} />
+
   <!-- Search bar -->
   <div class="flex-1">
     <SearchBar bind:value={searchQuery} />
@@ -45,7 +48,4 @@
 
   <!-- Filter dropdown -->
   <FilterDropdown selected={filterType} onSelect={handleFilterSelect} />
-
-  <!-- Profile dropdown -->
-  <ProfileDropdown {isAuthenticated} />
 </header>
