@@ -1,64 +1,67 @@
-export type ContentType = 'text' | 'code' | 'link' | 'color' | 'image' | 'file'
+export type ContentType = "text" | "code" | "link" | "color" | "image" | "file";
 
 export interface ClipboardItem {
-  id: string
-  contentType: ContentType
-  contentText: string | null
-  contentMetadata: Record<string, any>
+  id: string;
+  contentType: ContentType;
+  contentText: string | null;
+  contentMetadata: Record<string, any>;
   
+  // Source info - NUEVO: para saber de qué app se copió
+  sourceApp: string | null;
+
   // Files (futuro)
-  fileUrl: string | null
-  fileName: string | null
-  fileSizeBytes: number | null
-  fileMimeType: string | null
-  
+  fileUrl: string | null;
+  fileName: string | null;
+  fileSizeBytes: number | null;
+  fileMimeType: string | null;
+
   // Organization
-  isFavorite: boolean
-  isSnippet: boolean
-  snippetName: string | null
-  
+  isFavorite: boolean;
+  isSnippet: boolean;
+  snippetName: string | null;
+
   // Timestamps
-  createdAt: Date
-  updatedAt: Date
-  
+  createdAt: Date;
+  updatedAt: Date;
+
   // Sync (futuro - Pro)
-  synced: boolean
-  serverId: string | null
+  synced: boolean;
+  serverId: string | null;
 }
 
 export interface CreateClipboardItemDto {
-  contentType: ContentType
-  contentText: string
-  contentMetadata?: Record<string, any>
+  contentType: ContentType;
+  contentText: string;
+  contentMetadata?: Record<string, any>;
 }
 
 export interface UpdateClipboardItemDto {
-  contentText?: string
-  isFavorite?: boolean
-  isSnippet?: boolean
-  snippetName?: string
+  contentText?: string;
+  isFavorite?: boolean;
+  isSnippet?: boolean;
+  snippetName?: string;
 }
 
 // Repository interface (contrato)
 export interface ClipboardRepository {
   // Queries
-  getItems(options?: GetItemsOptions): Promise<ClipboardItem[]>
-  getItem(id: string): Promise<ClipboardItem | null>
-  searchItems(query: string): Promise<ClipboardItem[]>
-  getFavorites(): Promise<ClipboardItem[]>
-  getSnippets(): Promise<ClipboardItem[]>
-  
+  getItems(options?: GetItemsOptions): Promise<ClipboardItem[]>;
+  getItem(id: string): Promise<ClipboardItem | null>;
+  searchItems(query: string): Promise<ClipboardItem[]>;
+  getFavorites(): Promise<ClipboardItem[]>;
+  getSnippets(): Promise<ClipboardItem[]>;
+
   // Mutations
-  createItem(data: CreateClipboardItemDto): Promise<ClipboardItem>
-  updateItem(id: string, data: UpdateClipboardItemDto): Promise<ClipboardItem>
-  deleteItem(id: string): Promise<void>
-  clearAll(): Promise<void>
+  createItem(data: CreateClipboardItemDto): Promise<ClipboardItem>;
+  updateItem(id: string, data: UpdateClipboardItemDto): Promise<ClipboardItem>;
+  deleteItem(id: string): Promise<void>;
+  clearAll(): Promise<void>;
 }
 
 export interface GetItemsOptions {
-  limit?: number
-  offset?: number
-  contentType?: ContentType
-  isFavorite?: boolean
-  isSnippet?: boolean
+  limit?: number;
+  offset?: number;
+  contentType?: ContentType;
+  isFavorite?: boolean;
+  isSnippet?: boolean;
 }

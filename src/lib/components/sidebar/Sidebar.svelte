@@ -1,0 +1,49 @@
+<script lang="ts">
+    import type { ClipboardItem } from '$lib/types'
+    import SidebarItem from './SidebarItem.svelte'
+    import Spinner from '$lib/components/ui/Spinner.svelte'
+    import Icon from '$lib/components/icons/Icon.svelte'
+
+    interface Props {
+      items: ClipboardItem[]
+      isLoading?: boolean
+    }
+
+    let { items, isLoading = false }: Props = $props()
+  </script>
+
+  <aside
+    class="w-sidebar h-full bg-surface border-r border-border flex flex-col"
+  >
+    <!-- Header -->
+    <div class="px-4 py-4 border-b border-color-border">
+      <h2 class="text-sm font-semibold text-color-text-muted uppercase tracking-wide">
+        History
+      </h2>
+    </div>
+
+    <!-- Items list -->
+    <div class="flex-1 overflow-y-auto">
+      {#if isLoading}
+        <div class="flex items-center justify-center h-32">
+          <Spinner size="md" />
+        </div>
+      {:else if items.length === 0}
+        <div class="flex flex-col items-center justify-center h-full px-4 text-center">
+          <Icon name="text" size={48} class="text-text-muted mb-4" />
+          <p class="text-sm text-color-text-muted">
+            No items yet
+          </p>
+          <p class="text-xs text-color-text-muted mt-1">
+            Copy something to get started
+          </p>
+        </div>
+      {:else}
+        <div class="py-1">
+          {#each items as item (item.id)}
+            <SidebarItem {item} />
+          {/each}
+        </div>
+      {/if}
+    </div>
+  </aside>

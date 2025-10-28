@@ -1,17 +1,86 @@
 <script lang="ts">
-  import { invoke } from "@tauri-apps/api/core";
+  import ContentViewer from "$lib/components/content/ContentViewer.svelte";
+  import ItemInfo from "$lib/components/content/ItemInfo.svelte";
+  import Header from "$lib/components/header/Header.svelte";
+  import Sidebar from "$lib/components/sidebar/Sidebar.svelte";
+  import { clipboardStore } from "$lib/stores/clipboard.svelte";
+  import { uiStore } from "$lib/stores/ui.svelte";
+  import type { ContentType } from "$lib/types";
+  import { onMount } from "svelte";
 
-  let name = $state("");
-  let greetMsg = $state("");
+  // Local state
+  let searchQuery = $state("");
+  let filterType = $state<"all" | "favorites" | ContentType>("all");
+  let debouncedSearchQuery = $state("");
+  let searchTimeoutId: number | null = null;
 
-  async function greet(event: Event) {
-    event.preventDefault();
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    greetMsg = await invoke("greet", { name });
-  }
+  // Debounced search
+  $effect(() => {
+    if (searchTimeoutId !== null) {
+      clearTimeout(searchTimeoutId);
+    }
+
+    searchTimeoutId = window.setTimeout(() => {
+      debouncedSearchQuery = searchQuery;
+    }, 300);
+
+    return () => {
+      if (searchTimeoutId !== null) {
+        clearTimeout(searchTimeoutId);
+      }
+    };
+  });
+
+  // Filtered items based on search and filter type
+  const filteredItems = $derived(() => {
+    let items = clipboardStore.items;
+
+    // Apply filter type
+    if (filterType === "favorites") {
+      items = items.filter((item) => item.isFavorite);
+    } else if (filterType !== "all") {
+      items = items.filter((item) => item.contentType === filterType);
+    }
+
+    // Apply search query
+    if (debouncedSearchQuery.trim()) {
+      const query = debouncedSearchQuery.toLowerCase();
+      items = items.filter((item) =>
+        item.contentText?.toLowerCase().includes(query)
+      );
+    }
+
+    return items;
+  });
+
+  // Selected item
+  const selectedItem = $derived(
+    clipboardStore.items.find((item) => item.id === uiStore.selectedItemId) ||
+      null
+  );
+
+  // Load items on mount
+  onMount(() => {
+    clipboardStore.loadItems();
+  });
 </script>
 
-<main class="bg-background">
-    <h1 class="text-3xl text-text">Welcome to Tauri!</h1>
-</main>
+<div class="h-screen w-screen overflow-hidden flex flex-col bg-background">
+  <!-- Header -->
+  <Header bind:searchQuery bind:filterType isAuthenticated={false} />
 
+  <!-- Main content area -->
+  <div class="flex-1 flex overflow-hidden">
+    <!-- Sidebar (30%) -->
+    <Sidebar items={filteredItems()} isLoading={clipboardStore.isLoading} />
+
+    <!-- Right panel (70%) -->
+    <div class="flex-1 flex flex-col">
+      <!-- Content viewer (top) -->
+      <ContentViewer item={selectedItem} />
+
+      <!-- Item info (bottom) -->
+      <ItemInfo item={selectedItem} />
+    </div>
+  </div>
+</div>
