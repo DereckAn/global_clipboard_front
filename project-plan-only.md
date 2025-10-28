@@ -210,7 +210,6 @@ Definir entidades y contratos del dominio.
 **Definir**:
 - `interface AppSettings`
   - maxLocalItems, autoSaveClipboard
-  - theme ('light' | 'dark' | 'system')
   - showHotkey, enableAnalytics
 - `const DEFAULT_SETTINGS` con valores por defecto
 
