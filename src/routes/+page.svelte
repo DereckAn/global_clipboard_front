@@ -9,9 +9,10 @@
     // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
     greetMsg = await invoke("greet", { name });
   }
+//   import "../app.css";
 </script>
 
-<main class="container">
+<main class="container bg-white dark:bg-gray-900">
   <h1>Welcome to Tauri + Svelte</h1>
 
   <div class="row">
@@ -34,7 +35,9 @@
   <p>{greetMsg}</p>
 </main>
 
-<style>
+<style lang="postcss">
+@reference "tailwindcss";
+
 .logo.vite:hover {
   filter: drop-shadow(0 0 2em #747bff);
 }
