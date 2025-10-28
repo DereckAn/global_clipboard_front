@@ -7,7 +7,7 @@ export type ContentType =
   | "image"
   | "file";
 
-export interface ClipboardItem {
+export interface ClipboardEntry {
   id: string;
   contentType: ContentType;
   contentText: string | null;
@@ -33,13 +33,13 @@ export interface ClipboardItem {
   serverId: string | null;
 }
 
-export interface CreateClipboardItemDto {
+export interface CreateClipboardEntryDto {
   contentType: ContentType;
   contentText: string;
   contentMetadata?: Record<string, any>;
 }
 
-export interface UpdateClipboardItemDto {
+export interface UpdateClipboardEntryDto {
   contentText?: string;
   isFavorite?: boolean;
   isSnippet?: boolean;
@@ -49,15 +49,15 @@ export interface UpdateClipboardItemDto {
 // Repository interface (contrato)
 export interface ClipboardRepository {
   // Queries
-  getItems(options?: GetItemsOptions): Promise<ClipboardItem[]>;
-  getItem(id: string): Promise<ClipboardItem | null>;
-  searchItems(query: string): Promise<ClipboardItem[]>;
-  getFavorites(): Promise<ClipboardItem[]>;
-  getSnippets(): Promise<ClipboardItem[]>;
+  getItems(options?: GetItemsOptions): Promise<ClipboardEntry[]>;
+  getItem(id: string): Promise<ClipboardEntry | null>;
+  searchItems(query: string): Promise<ClipboardEntry[]>;
+  getFavorites(): Promise<ClipboardEntry[]>;
+  getSnippets(): Promise<ClipboardEntry[]>;
 
   // Mutations
-  createItem(data: CreateClipboardItemDto): Promise<ClipboardItem>;
-  updateItem(id: string, data: UpdateClipboardItemDto): Promise<ClipboardItem>;
+  createItem(data: CreateClipboardEntryDto): Promise<ClipboardEntry>;
+  updateItem(id: string, data: UpdateClipboardEntryDto): Promise<ClipboardEntry>;
   deleteItem(id: string): Promise<void>;
   clearAll(): Promise<void>;
 }
