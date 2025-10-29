@@ -3,6 +3,7 @@
     import SidebarItem from './SidebarItem.svelte'
     import Spinner from '$lib/components/ui/Spinner.svelte'
     import Icon from '$lib/components/icons/Icon.svelte'
+    import { groupItemsByDate } from '$lib/utils/date'
 
     interface Props {
       items: ClipboardItem[]
@@ -10,6 +11,9 @@
     }
 
     let { items, isLoading = false }: Props = $props()
+
+    // Group items by date
+    const groupedItems = $derived(groupItemsByDate(items))
   </script>
 
   <aside
@@ -39,9 +43,21 @@
           </p>
         </div>
       {:else}
-        <div class="py-1">
-          {#each items as item (item.id)}
-            <SidebarItem {item} />
+        <div class="py-2">
+          {#each groupedItems as group}
+            <!-- Group header -->
+            <div class="px-4 py-2 sticky top-0 bg-surface border-b border-border">
+              <h3 class="text-xs font-semibold text-color-text-muted uppercase tracking-wider">
+                {group.label}
+              </h3>
+            </div>
+
+            <!-- Group items -->
+            <div class="py-1">
+              {#each group.items as item (item.id)}
+                <SidebarItem {item} />
+              {/each}
+            </div>
           {/each}
         </div>
       {/if}

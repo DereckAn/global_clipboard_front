@@ -3,12 +3,13 @@
   import type { ClipboardItem } from "$lib/types";
   import {
     detectColorFormat,
-    formatDate,
     formatFileSize,
     getCharacterCount,
     getContentTypeIcon,
     getWordCount,
   } from "$lib/utils/format";
+  import { formatTimestamp } from "$lib/utils/date";
+  import { getLanguageInfo } from "$lib/utils/languages";
 
   interface Props {
     item: ClipboardItem | null;
@@ -23,21 +24,20 @@
       ? detectColorFormat(item.contentText)
       : null
   );
+  const languageInfo = $derived(
+    item?.contentType === "code" && item.codeLanguage
+      ? getLanguageInfo(item.codeLanguage)
+      : null
+  );
 </script>
 
-<div class="h-64 bg-surface flex flex-col">
+<div class="h-32 bg-surface flex flex-col">
   {#if !item}
     <!-- Empty state -->
     <div class="flex-1 flex items-center justify-center px-6 text-center">
       <p class="text-sm text-text-muted">No information to display</p>
     </div>
   {:else}
-    <!-- Info header -->
-    <div class="px-6 py-3 border-b border-border">
-      <h3 class="text-sm font-semibold text-text uppercase tracking-wide">
-        Information
-      </h3>
-    </div>
 
     <!-- Info grid -->
     <div class="flex-1 overflow-y-auto px-6 py-4">
@@ -52,12 +52,12 @@
         </div>
 
         <!-- Created At -->
-        <div class="flex items-start gap-2">
+        <div class="col-span-2 flex items-start gap-2">
           <dt class="text-text-muted flex items-center gap-1">
             <Icon name="clock" size={14} />
             <span>Created</span>
           </dt>
-          <dd class="text-text">{formatDate(item.createdAt)}</dd>
+          <dd class="text-text">{formatTimestamp(item.createdAt)}</dd>
         </div>
 
         <!-- Characters -->
@@ -103,6 +103,17 @@
           <div class="flex items-start gap-2">
             <dt class="text-text-muted">Format</dt>
             <dd class="text-text">{colorFormat}</dd>
+          </div>
+        {/if}
+
+        <!-- Code language (if code) -->
+        {#if languageInfo}
+          <div class="flex items-start gap-2">
+            <dt class="text-text-muted">Language</dt>
+            <dd class="text-text flex items-center gap-2">
+              <Icon name={languageInfo.iconName} size={14} fill={languageInfo.color} strokeWidth={0} />
+              <span>{languageInfo.name}</span>
+            </dd>
           </div>
         {/if}
 

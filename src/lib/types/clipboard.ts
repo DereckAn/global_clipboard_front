@@ -5,9 +5,10 @@ export interface ClipboardItem {
   contentType: ContentType;
   contentText: string | null;
   contentMetadata: Record<string, any>;
-  
+
   // Source info - NUEVO: para saber de qué app se copió
   sourceApp: string | null;
+  codeLanguage: string | null;
 
   // Files (futuro)
   fileUrl: string | null;

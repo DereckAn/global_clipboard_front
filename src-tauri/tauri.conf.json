@@ -12,9 +12,11 @@
   "app": {
     "windows": [
       {
-        "title": "global_clipboard",
+        "title": "Global Clipboard",
         "width": 800,
-        "height": 600
+        "height": 500,
+        "resizable": false,
+        "center": true
       }
     ],
     "security": {

@@ -5,14 +5,16 @@
   import Sidebar from "$lib/components/sidebar/Sidebar.svelte";
   import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
-  import type { ContentType } from "$lib/types";
-  import { onMount } from "svelte";
+  import type { ClipboardItem, ContentType } from "$lib/types";
+  import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+  import { onDestroy, onMount } from "svelte";
 
   // Local state
   let searchQuery = $state("");
   let filterType = $state<"all" | "favorites" | ContentType>("all");
   let debouncedSearchQuery = $state("");
   let searchTimeoutId: number | null = null;
+  let unlistenClipboard: UnlistenFn | null = null;
 
   // Debounced search
   $effect(() => {
@@ -59,9 +61,50 @@
       null
   );
 
+  // Helper to deserialize clipboard item from event
+  function deserializeClipboardItem(item: any): ClipboardItem {
+    return {
+      ...item,
+      createdAt: new Date(item.created_at),
+      updatedAt: new Date(item.updated_at),
+      contentType: item.content_type,
+      contentText: item.content_text,
+      contentMetadata: item.content_metadata
+        ? JSON.parse(item.content_metadata)
+        : {},
+      sourceApp: item.source_app,
+      fileUrl: item.file_url,
+      fileName: item.file_name,
+      fileSizeBytes: item.file_size_bytes,
+      fileMimeType: item.file_mime_type,
+      isFavorite: item.is_favorite,
+      isSnippet: item.is_snippet,
+      snippetName: item.snippet_name,
+      synced: item.synced,
+      serverId: item.server_id,
+    };
+  }
+
   // Load items on mount
-  onMount(() => {
-    clipboardStore.loadItems();
+  onMount(async () => {
+    // Load initial clipboard items
+    await clipboardStore.loadItems();
+
+    // Listening for new clipboard items
+    unlistenClipboard = await listen<any>("clipboard-item-added", (event) => {
+      console.log("New clipboard item received:", event.payload);
+      const newItem = deserializeClipboardItem(event.payload);
+
+      // Add to store (prepend to beginning)
+      clipboardStore.items = [newItem, ...clipboardStore.items];
+    });
+  });
+
+  // Cleanup on destroy
+  onDestroy(() => {
+    if (unlistenClipboard) {
+      unlistenClipboard();
+    }
   });
 </script>
 
