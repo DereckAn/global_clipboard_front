@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from "$lib/components/icons/Icon.svelte";
+  import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import {
     tauriConvertColor,
     tauriExtractDomain,
@@ -85,6 +86,12 @@
   // Copy handlers
   const handleCopy = async (text: string) => {
     try {
+      // Delete current item first
+      if (item?.id) {
+        await clipboardStore.deleteItem(item.id);
+      }
+
+      // Copy to clipboard (monitor will create new item automatically)
       await tauriWriteToClipboard(text);
       copied = true;
       setTimeout(() => {
@@ -139,7 +146,7 @@
             <div class="flex items-center gap-3 flex-1 min-w-0">
               <!-- Small color preview -->
               <div
-                class="w-8 h-8 rounded-full border-2 border-border flex-shrink-0"
+                class="w-8 h-8 rounded-full border-2 border-border shrink-0"
                 style="background-color: {rgbPreview};"
               ></div>
 

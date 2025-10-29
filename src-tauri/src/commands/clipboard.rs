@@ -79,3 +79,10 @@ pub fn read_from_clipboard() -> Result<String, String> {
 pub fn write_to_clipboard(text: String) -> Result<(), String> {
     write_clipboard(&text)
 }
+
+#[tauri::command]
+pub fn remove_duplicate_items(state: State<Mutex<AppState>>) -> Result<usize, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.remove_duplicates().map_err(|e| e.to_string())
+}

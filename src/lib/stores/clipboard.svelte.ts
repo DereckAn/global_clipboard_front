@@ -1,3 +1,4 @@
+import { tauriRemoveDuplicates } from "$lib/tauri/commands";
 import { clipboardRepository } from "$lib/tauri/storage";
 import type {
   ClipboardItem,
@@ -92,6 +93,19 @@ class ClipboardStore {
       return await clipboardRepository.searchItems(query);
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to search";
+      throw err;
+    }
+  }
+
+  // Remove duplicates
+  async removeDuplicates() {
+    try {
+      const deletedCount = await tauriRemoveDuplicates();
+      await this.loadItems(); // Reload items
+      return deletedCount;
+    } catch (err) {
+      this.error =
+        err instanceof Error ? err.message : "Failed to remove duplicates";
       throw err;
     }
   }

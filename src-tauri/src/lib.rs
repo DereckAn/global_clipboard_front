@@ -4,7 +4,6 @@ mod commands;
 mod db;
 
 use clipboard::ClipboardMonitor;
-use commands::links::fetch_link_metadata;
 use commands::AppState;
 use std::sync::Mutex;
 use tauri::Manager;
@@ -59,6 +58,7 @@ pub fn run() {
             commands::convert_color_formats,
             commands::extract_domain_from_url,
             commands::fetch_link_metadata,
+            commands::remove_duplicate_items,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

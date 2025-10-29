@@ -57,6 +57,10 @@
   const handleDoubleClick = async () => {
     if (item.contentText) {
       try {
+        // Delete current item first
+        await clipboardStore.deleteItem(item.id);
+
+        // Copy to clipboard (monitor will create new item automatically)
         await tauriWriteToClipboard(item.contentText);
         console.log("Copied to clipboard");
       } catch (err) {

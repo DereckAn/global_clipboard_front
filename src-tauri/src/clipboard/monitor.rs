@@ -1,5 +1,5 @@
 use crate::clipboard::operations::read_clipboard;
-use crate::clipboard::types::{detect_content_type, get_source_app, detect_code_language};
+use crate::clipboard::types::{detect_code_language, detect_content_type, get_source_app};
 use crate::db::models::CreateClipboardItemDto;
 use crate::db::repository::ClipboardRepository;
 use std::sync::Arc;
@@ -72,27 +72,46 @@ impl ClipboardMonitor {
 
                         // Save to database
                         if let Ok(repo) = ClipboardRepository::new(&repo_path) {
-                            let dto = CreateClipboardItemDto {
-                                content_type,
-                                content_text: current_content.clone(),
-                                content_metadata: None,
-                                source_app,
-                                code_language,
-                            };
-
-                            match repo.create_item(dto) {
-                                Ok(item) => {
-                                    println!("Saved clipboard item: {}", item.id);
-
-                                    // Emit event to frontend
-                                    if let Err(e) = app_handle.emit("clipboard-item-added", &item) {
-                                        eprintln!(
-                                            "Failed to emit clipboard-item-added event: {}",
-                                            e
-                                        );
+                            // Check if last item has same content (deduplication)
+                            let should_save = match repo.get_items() {
+                                Ok(items) => {
+                                    if let Some(last_item) = items.first() {
+                                        // Only save if content is different from last item
+                                        last_item.content_text.as_ref() != Some(&current_content)
+                                    } else {
+                                        true
                                     }
                                 }
-                                Err(e) => eprintln!("Failed to save clipboard item: {}", e),
+                                Err(_) => true, // Save if can't check
+                            };
+
+                            if should_save {
+                                let dto = CreateClipboardItemDto {
+                                    content_type,
+                                    content_text: current_content.clone(),
+                                    content_metadata: None,
+                                    source_app,
+                                    code_language,
+                                };
+
+                                match repo.create_item(dto) {
+                                    Ok(item) => {
+                                        println!("Saved clipboard item: {}", item.id);
+
+                                        // Emit event to frontend
+                                        if let Err(e) =
+                                            app_handle.emit("clipboard-item-added", &item)
+                                        {
+                                            eprintln!(
+                                                "Failed to emit clipboard-item-added event: {}",
+                                                e
+                                            );
+                                        }
+                                    }
+                                    Err(e) => eprintln!("Failed to save clipboard item: {}", e),
+                                }
+                            } else {
+                                println!("Skipping duplicate clipboard content");
                             }
                         }
 

@@ -198,4 +198,18 @@ impl ClipboardRepository {
 
         items.collect()
     }
+    pub fn remove_duplicates(&self) -> Result<usize> {
+        // Delete duplicate items, keeping only the most recent one for each content
+        let deleted = self.conn.execute(
+            "DELETE FROM clipboard_items
+               WHERE id NOT IN (
+                   SELECT MIN(id)
+                   FROM clipboard_items
+                   GROUP BY content_text
+               )",
+            [],
+        )?;
+
+        Ok(deleted)
+    }
 }

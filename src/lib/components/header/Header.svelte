@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from "$lib/components/icons/Icon.svelte";
+  import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import type { ContentType } from "$lib/types";
   import FilterDropdown from "./FilterDropdown.svelte";
   import ProfileDropdown from "./ProfileDropdown.svelte";
@@ -20,6 +22,8 @@
     onFilterChange,
   }: Props = $props();
 
+  let isCleaningDuplicates = $state(false);
+
   // Handle search changes
   $effect(() => {
     if (onSearchChange) {
@@ -33,11 +37,25 @@
       onFilterChange(value);
     }
   };
+
+  const handleCleanDuplicates = async () => {
+    if (isCleaningDuplicates) return;
+
+    isCleaningDuplicates = true;
+    try {
+      const deleted = await clipboardStore.removeDuplicates();
+      console.log(`Removed ${deleted} duplicate items`);
+    } catch (err) {
+      console.error("Failed to clean duplicates:", err);
+    } finally {
+      isCleaningDuplicates = false;
+    }
+  };
 </script>
 
 <header
   class="h-14 bg-surface border-b border-border flex items-center gap-4 px-4"
->   
+>
   <!-- Profile dropdown -->
   <ProfileDropdown {isAuthenticated} />
 
@@ -45,6 +63,16 @@
   <div class="flex-1">
     <SearchBar bind:value={searchQuery} />
   </div>
+
+  <!-- Clean duplicates button -->
+  <button
+    onclick={handleCleanDuplicates}
+    disabled={isCleaningDuplicates}
+    class="p-2 hover:bg-surface-hover rounded transition-colors disabled:opacity-50"
+    title="Remove duplicate items"
+  >
+    <Icon name="trash" size={18} class="text-text-muted" />
+  </button>
 
   <!-- Filter dropdown -->
   <FilterDropdown selected={filterType} onSelect={handleFilterSelect} />

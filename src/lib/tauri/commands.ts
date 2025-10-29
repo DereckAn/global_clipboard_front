@@ -134,3 +134,9 @@ export async function tauriFetchLinkMetadata(
 ): Promise<LinkMetadata> {
   return await invoke("fetch_link_metadata", { url });
 }
+
+// Remove duplicate items
+export async function tauriRemoveDuplicates(): Promise<number> {
+  return await invoke("remove_duplicate_items");
+}
+
