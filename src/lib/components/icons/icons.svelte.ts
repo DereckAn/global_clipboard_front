@@ -40,7 +40,6 @@ export const iconPaths = {
     "M8 2v4 M16 2v4 M3 10h18 M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z",
   clock:
     "M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M12 6v6l4 2",
-  // Programming Languages Icons (simplified/stylized versions)
   // JavaScript
   javascript: `M3 3h18v18H3V3zm16.525 
   13.707c-.131-.821-.666-1.511-2.252-2.155-.552-.259-1.165-.438-1.349
@@ -223,4 +222,7 @@ export const iconPaths = {
   cpp: `M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 
   2 12 2zm-1 17.5v-3H9v-2h2v-3h2v3h2v2h-2v3h-2zm7-3h-2v2h-2v-2h-2v-2h
   2v-2h2v2h2v2z`,
+
+  loader:
+    "M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83",
 };

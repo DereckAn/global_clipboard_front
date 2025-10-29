@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/icons/Icon.svelte";
   import type { ClipboardItem } from "$lib/types";
+  import { formatTimestamp } from "$lib/utils/date";
   import {
     detectColorFormat,
     formatFileSize,
@@ -8,7 +9,6 @@
     getContentTypeIcon,
     getWordCount,
   } from "$lib/utils/format";
-  import { formatTimestamp } from "$lib/utils/date";
   import { getLanguageInfo } from "$lib/utils/languages";
 
   interface Props {
@@ -38,7 +38,6 @@
       <p class="text-sm text-text-muted">No information to display</p>
     </div>
   {:else}
-
     <!-- Info grid -->
     <div class="flex-1 overflow-y-auto px-6 py-4">
       <dl class="grid grid-cols-2 gap-x-4 gap-y-4 text-sm">
@@ -111,7 +110,16 @@
           <div class="flex items-start gap-2">
             <dt class="text-text-muted">Language</dt>
             <dd class="text-text flex items-center gap-2">
-              <Icon name={languageInfo.iconName} size={14} fill={languageInfo.color} strokeWidth={0} />
+              <div
+                class="w-5 h-5 rounded flex items-center justify-center"
+                style="background-color: {languageInfo.color};"
+              >
+                <img
+                  src={languageInfo.svgPath}
+                  alt={languageInfo.name}
+                  class="w-4 h-4 object-contain"
+                />
+              </div>
               <span>{languageInfo.name}</span>
             </dd>
           </div>

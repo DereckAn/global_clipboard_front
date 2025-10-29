@@ -30,7 +30,9 @@
   const isColor = $derived(item.contentType === "color");
   const isLink = $derived(item.contentType === "link");
   const isCode = $derived(item.contentType === "code");
-  const languageInfo = $derived(isCode ? getLanguageInfo(item.codeLanguage) : null);
+  const languageInfo = $derived(
+    isCode ? getLanguageInfo(item.codeLanguage) : null
+  );
 
   // Load favicon for links
   $effect(() => {
@@ -47,7 +49,7 @@
     }
   });
 
-  // Handlers (same as before)
+  // Handlers
   const handleClick = () => {
     uiStore.selectItem(item.id);
   };
@@ -56,7 +58,7 @@
     if (item.contentText) {
       try {
         await tauriWriteToClipboard(item.contentText);
-        console.log("Copied to clipboard (no store)");
+        console.log("Copied to clipboard");
       } catch (err) {
         console.error("Failed to copy:", err);
       }
@@ -112,10 +114,10 @@
 
 <div
   class={cn(
-    "group relative flex items-center gap-3 px-3 py-3 cursor-pointer transition-colors border-l-2",
+    "group relative flex items-center gap-3 px-3 py-2 text-sm cursor-pointer transition-colors border-l-2",
     isSelected
-      ? "bg-[var(--color-surface-hover)] border-[var(--color-primary)]"
-      : "bg-transparent border-transparent hover:bg-[var(--color-surface-hover)]"
+      ? "bg-surface-hover border-primary"
+      : "bg-transparent border-transparent hover:bg-surface-hover"
   )}
   onclick={handleClick}
   ondblclick={handleDoubleClick}
@@ -125,14 +127,14 @@
 >
   <!-- Icon with favorite toggle -->
   <div
-    class="relative flex-shrink-0 w-8 h-8 flex items-center justify-center transition-colors"
+    class="relative shrink-0 w-8 h-8 flex items-center justify-center transition-colors"
     onmouseenter={() => (isHoveringIcon = true)}
     onmouseleave={() => (isHoveringIcon = false)}
     onclick={handleToggleFavorite}
     onkeydown={handleFavoriteKeyDown}
     role="button"
     tabindex="0"
-    aria-label={item.isFavorite ? "Remove from favorites" : "Add tofavorites"}
+    aria-label={item.isFavorite ? "Remove from favorites" : "Add to favorites"}
   >
     {#if isHoveringIcon && !item.isFavorite}
       <!-- Show white star on hover -->
@@ -142,13 +144,13 @@
       <Icon
         name="starFilled"
         size={20}
-        class="text-[var(--color-favorite)]"
+        class="text-favorite"
         fill="currentColor"
       />
     {:else if isColor && item.contentText}
       <!-- Show color circle for color type -->
       <div
-        class="w-6 h-6 rounded-full border-2border-[var(--color-border)]"
+        class="w-6 h-6 rounded-full border-2 border-border"
         style="background-color: {item.contentText};"
       ></div>
     {:else if isLink && faviconUrl}
@@ -164,35 +166,29 @@
             ?.classList.remove("hidden");
         }}
       />
-      <Icon
-        name="link"
-        size={20}
-        class="text-[var(--color-text)] hidden fallback-icon"
-      />
+      <Icon name="link" size={20} class="text-text hidden fallback-icon" />
     {:else if isCode && languageInfo}
-      <!-- Show language icon for code -->
+      <!-- Show language SVG icon for code -->
       <div
         class="w-7 h-7 rounded flex items-center justify-center p-1"
         style="background-color: {languageInfo.color};"
         title={languageInfo.name}
       >
-        <Icon
-          name={languageInfo.iconName}
-          size={18}
-          class="text-white"
-          strokeWidth={0}
-          fill="white"
+        <img
+          src={languageInfo.svgPath}
+          alt={languageInfo.name}
+          class="w-full h-full object-contain"
         />
       </div>
     {:else}
       <!-- Show type icon -->
-      <Icon name={iconName} size={20} class="text-[var(--color-text)]" />
+      <Icon name={iconName} size={20} class="text-text" />
     {/if}
   </div>
 
   <!-- Content text -->
   <div class="flex-1 min-w-0">
-    <p class="text-sm text-[var(--color-text)] truncate">
+    <p class="text-sm text-text truncate">
       {displayText}
     </p>
   </div>
@@ -201,33 +197,29 @@
   {#if !showDeleteConfirm}
     <button
       onclick={handleDeleteClick}
-      class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-[var(--color-danger)]/20 rounded"
+      class="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-danger/20 rounded"
       aria-label="Delete item"
     >
-      <Icon
-        name="trash"
-        size={16}
-        class="text-[var(--color-text-muted)] hover:text-[var(--color-danger)]"
-      />
+      <Icon name="trash" size={16} class="text-text-muted hover:text-danger" />
     </button>
   {:else}
     <!-- Confirmation buttons -->
-    <div class="flex items-center gap-1 flex-shrink-0">
+    <div class="flex items-center gap-1 shrink-0">
       <button
         onclick={handleConfirmDelete}
         disabled={isDeleting}
-        class="p-1 hover:bg-[var(--color-danger)]/20 rounded transition-colors disabled:opacity-50"
+        class="p-1 hover:bg-danger/20 rounded transition-colors disabled:opacity-50"
         aria-label="Confirm delete"
       >
-        <Icon name="check" size={16} class="text-[var(--color-danger)]" />
+        <Icon name="check" size={16} class="text-danger" />
       </button>
       <button
         onclick={handleCancelDelete}
         disabled={isDeleting}
-        class="p-1 hover:bg-[var(--color-surface)] rounded transition-colors disabled:opacity-50"
+        class="p-1 hover:bg-surface rounded transition-colors disabled:opacity-50"
         aria-label="Cancel delete"
       >
-        <Icon name="x" size={16} class="text-[var(--color-text-muted)]" />
+        <Icon name="x" size={16} class="text-text-muted" />
       </button>
     </div>
   {/if}

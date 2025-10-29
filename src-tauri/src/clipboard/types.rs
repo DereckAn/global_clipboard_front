@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 /// Detecta el tipo de contenido basado en el texto
 pub fn detect_content_type(text: &str) -> String {
     // URL detection
@@ -19,152 +21,328 @@ pub fn detect_content_type(text: &str) -> String {
     "text".to_string()
 }
 
-/// Detecta el lenguaje de programación basado en el contenido
+/// Detecta el lenguaje de programación usando scoring system
 pub fn detect_code_language(text: &str) -> Option<String> {
-    // HTML/XML
-    if text.contains("<!DOCTYPE")
-        || text.contains("<html")
-        || text.contains("</") && text.contains("/>")
-    {
-        return Some("html".to_string());
-    }
+    let mut scores: HashMap<&str, i32> = HashMap::new();
+    let text_lower = text.to_lowercase();
+    let lines: Vec<&str> = text.lines().collect();
 
-    // Svelte (component with script tags)
-    if text.contains("<script")
-        && text.contains("</script>")
-        && (text.contains("$:") || text.contains("export let"))
-    {
-        return Some("svelte".to_string());
-    }
-
-    // Vue
-    if text.contains("<template>") || text.contains("<script setup>") {
-        return Some("vue".to_string());
-    }
-
-    // React/JSX
-    if (text.contains("import React")
-        || text.contains("from 'react'")
-        || text.contains("from \"react\""))
-        || (text.contains("className=") && text.contains("=>"))
-    {
-        return Some("react".to_string());
-    }
-
-    // TypeScript
-    if text.contains("interface ")
-        || text.contains("type ") && text.contains(":")
-        || text.contains(": string")
-        || text.contains(": number")
-    {
-        return Some("typescript".to_string());
-    }
-
-    // JavaScript
-    if text.contains("function ")
-        || text.contains("const ")
-        || text.contains("let ")
-        || text.contains("var ")
-        || text.contains("=>")
-    {
-        return Some("javascript".to_string());
-    }
-
-    // Python
-    if text.contains("def ")
-        || text.contains("import ") && !text.contains("from \"")
-        || text.contains("print(")
-        || text.contains("self.")
-    {
-        return Some("python".to_string());
-    }
-
-    // Rust
-    if text.contains("fn ")
-        || text.contains("impl ")
-        || text.contains("struct ")
-        || text.contains("pub ")
-        || text.contains("let mut")
-    {
-        return Some("rust".to_string());
-    }
-
-    // Go
-    if text.contains("package ")
-        || text.contains("func ") && text.contains("{")
-        || text.contains("import (")
-    {
-        return Some("go".to_string());
-    }
-
-    // Java
-    if text.contains("public class ")
+    // Swift detection
+    if text.contains("import SwiftUI")
         || text.contains(
-            "public 
-  static void main",
+            "import 
+  UIKit",
         )
-        || text.contains("System.out.println")
     {
-        return Some("java".to_string());
+        *scores.entry("swift").or_insert(0) += 15;
+    }
+    if text.contains("var ") && text.contains(": ") && text.contains("{") {
+        *scores.entry("swift").or_insert(0) += 5;
+    }
+    if text.contains("func ") && text.contains("->") {
+        *scores.entry("swift").or_insert(0) += 8;
+    }
+    if text.contains("@State") || text.contains("@Binding") || text.contains("@ObservedObject") {
+        *scores.entry("swift").or_insert(0) += 10;
+    }
+    if text.contains("struct ") && text.contains(": View") {
+        *scores.entry("swift").or_insert(0) += 12;
     }
 
-    // C/C++
-    if text.contains("#include") || text.contains("int main(") || text.contains("std::") {
-        return Some("cpp".to_string());
+    // Dart/Flutter detection
+    if text.contains("import 'package:flutter/") {
+        *scores.entry("dart").or_insert(0) += 15;
     }
-
-    // CSS
-    if text.contains("{")
-        && text.contains("}")
-        && (text.contains(":") && text.contains(";"))
-        && !text.contains("function")
-        && !text.contains("const")
+    if text.contains("Widget ")
+        || text.contains("StatelessWidget")
+        || text.contains("StatefulWidget")
     {
-        return Some("css".to_string());
+        *scores.entry("dart").or_insert(0) += 12;
+    }
+    if text.contains("@override") && text.contains("Widget build") {
+        *scores.entry("dart").or_insert(0) += 10;
+    }
+    if text.contains("MaterialApp") || text.contains("Scaffold") {
+        *scores.entry("dart").or_insert(0) += 8;
     }
 
-    // JSON
+    // Docker/Dockerfile detection
+    if text.starts_with("FROM ") || lines.iter().any(|l| l.trim().starts_with("FROM ")) {
+        *scores.entry("docker").or_insert(0) += 15;
+    }
+    if text.contains("RUN ") || text.contains("COPY ") || text.contains("ADD ") {
+        *scores.entry("docker").or_insert(0) += 8;
+    }
+    if text.contains("WORKDIR ") || text.contains("EXPOSE ") || text.contains("CMD ") {
+        *scores.entry("docker").or_insert(0) += 6;
+    }
+    if text.contains("ENTRYPOINT") || text.contains("ENV ") {
+        *scores.entry("docker").or_insert(0) += 5;
+    }
+
+    // Kotlin detection
+    if text.contains("package ") && text.contains("import ") && text.contains("fun ") {
+        *scores.entry("kotlin").or_insert(0) += 10;
+    }
+    if text.contains("class ") && text.contains(": ") && text.contains("()") {
+        *scores.entry("kotlin").or_insert(0) += 5;
+    }
+    if text.contains("val ") || text.contains("var ") {
+        *scores.entry("kotlin").or_insert(0) += 3;
+    }
+    if text.contains("fun main") || text.contains("suspend fun") {
+        *scores.entry("kotlin").or_insert(0) += 8;
+    }
+
+    // C# detection
+    if text.contains("using System")
+        || text.contains(
+            "using 
+  UnityEngine",
+        )
+    {
+        *scores.entry("csharp").or_insert(0) += 12;
+    }
+    if text.contains("namespace ") && text.contains("class ") {
+        *scores.entry("csharp").or_insert(0) += 10;
+    }
+    if text.contains("public class")
+        || text.contains(
+            "private 
+  class",
+        )
+    {
+        *scores.entry("csharp").or_insert(0) += 8;
+    }
+    if text.contains("async Task") || text.contains("await ") {
+        *scores.entry("csharp").or_insert(0) += 7;
+    }
+
+    // TypeScript detection (before JavaScript)
+    if text.contains("interface ") || text.contains("type ") && text.contains("=") {
+        *scores.entry("typescript").or_insert(0) += 10;
+    }
+    if text.contains(": string") || text.contains(": number") || text.contains(": boolean") {
+        *scores.entry("typescript").or_insert(0) += 8;
+    }
+    if text.contains("export interface")
+        || text.contains(
+            "export 
+  type",
+        )
+    {
+        *scores.entry("typescript").or_insert(0) += 12;
+    }
+    if text.contains("<T>") || text.contains("<T,") {
+        *scores.entry("typescript").or_insert(0) += 5;
+    }
+
+    // React/JSX detection
+    if text.contains("import React")
+        || text.contains(
+            "from 
+  'react'",
+        )
+        || text.contains("from \"react\"")
+    {
+        *scores.entry("react").or_insert(0) += 12;
+    }
+    if text.contains("useState") || text.contains("useEffect") || text.contains("useContext") {
+        *scores.entry("react").or_insert(0) += 10;
+    }
+    if text.contains("className=") && text.contains("return (") {
+        *scores.entry("react").or_insert(0) += 8;
+    }
+    if text.contains("export default") && text.contains("=>") {
+        *scores.entry("react").or_insert(0) += 5;
+    }
+
+    // Svelte detection
+    if text.contains("<script") && text.contains("</script>") {
+        if text.contains("$:") || text.contains("export let") || text.contains("$state") {
+            *scores.entry("svelte").or_insert(0) += 15;
+        }
+    }
+
+    // Vue detection
+    if text.contains("<template>") || text.contains("<script setup>") {
+        *scores.entry("vue").or_insert(0) += 15;
+    }
+    if text.contains("defineProps") || text.contains("defineEmits") {
+        *scores.entry("vue").or_insert(0) += 10;
+    }
+
+    // HTML detection
+    if (text.contains("<!DOCTYPE") || text.contains("<html")) {
+        *scores.entry("html").or_insert(0) += 15;
+    }
+    if text.contains("<head>") || text.contains("<body>") {
+        *scores.entry("html").or_insert(0) += 10;
+    }
+
+    // Python detection
+    if text.starts_with("#!/usr/bin/env python") || text.starts_with("#!/usr/bin/python") {
+        *scores.entry("python").or_insert(0) += 15;
+    }
+    if text.contains("def ") && text.contains(":") {
+        *scores.entry("python").or_insert(0) += 10;
+    }
+    if text.contains("import ") && !text.contains("from \"") && !text.contains("from '") {
+        *scores.entry("python").or_insert(0) += 5;
+    }
+    if text.contains("print(") || text.contains("self.") {
+        *scores.entry("python").or_insert(0) += 7;
+    }
+    if text.contains("if __name__ == \"__main__\":") {
+        *scores.entry("python").or_insert(0) += 12;
+    }
+
+    // Rust detection
+    if text.contains("fn ") && (text.contains("{") || text.contains("->")) {
+        *scores.entry("rust").or_insert(0) += 10;
+    }
+    if text.contains("impl ") || text.contains("struct ") {
+        *scores.entry("rust").or_insert(0) += 8;
+    }
+    if text.contains("pub ") && (text.contains("fn ") || text.contains("struct ")) {
+        *scores.entry("rust").or_insert(0) += 7;
+    }
+    if text.contains("let mut") || text.contains("&mut ") {
+        *scores.entry("rust").or_insert(0) += 6;
+    }
+    if text.contains("use ") && text.contains("::") {
+        *scores.entry("rust").or_insert(0) += 5;
+    }
+
+    // Go detection
+    if text.contains("package main") {
+        *scores.entry("go").or_insert(0) += 12;
+    }
+    if text.contains("func ") && text.contains("{") {
+        *scores.entry("go").or_insert(0) += 10;
+    }
+    if text.contains("import (") || (text.contains("import \"") && text.contains("\"")) {
+        *scores.entry("go").or_insert(0) += 8;
+    }
+    if text.contains("func main()") {
+        *scores.entry("go").or_insert(0) += 15;
+    }
+    if text.contains(":=") {
+        *scores.entry("go").or_insert(0) += 5;
+    }
+
+    // Java detection
+    if text.contains("public class ") || text.contains("private class ") {
+        *scores.entry("java").or_insert(0) += 10;
+    }
+    if text.contains("public static void main") {
+        *scores.entry("java").or_insert(0) += 15;
+    }
+    if text.contains("System.out.println") {
+        *scores.entry("java").or_insert(0) += 12;
+    }
+    if text.contains("@Override") || text.contains("@Autowired") {
+        *scores.entry("java").or_insert(0) += 7;
+    }
+
+    // C/C++ detection
+    if text.contains("#include") {
+        *scores.entry("cpp").or_insert(0) += 12;
+    }
+    if text.contains("int main(") || text.contains("void main(") {
+        *scores.entry("cpp").or_insert(0) += 10;
+    }
+    if text.contains("std::") || text.contains("cout <<") {
+        *scores.entry("cpp").or_insert(0) += 8;
+    }
+
+    // CSS detection
+    if text.contains("{") && text.contains("}") && text.contains(":") && text.contains(";") {
+        if !text.contains("function") && !text.contains("const") && !text.contains("let") {
+            *scores.entry("css").or_insert(0) += 8;
+        }
+    }
+    if text.contains("@media") || text.contains("@keyframes") {
+        *scores.entry("css").or_insert(0) += 10;
+    }
+
+    // JSON detection
     if (text.trim().starts_with("{") && text.trim().ends_with("}"))
         || (text.trim().starts_with("[") && text.trim().ends_with("]"))
     {
         if text.contains("\":") || text.contains("\": ") {
-            return Some("json".to_string());
+            *scores.entry("json").or_insert(0) += 12;
         }
     }
 
-    // Markdown
-    if text.contains("# ") || text.contains("## ") || text.contains("```") {
-        return Some("markdown".to_string());
-    }
-
-    // SQL
-    if text.to_uppercase().contains("SELECT ")
-        || text.to_uppercase().contains("INSERT INTO")
-        || text.to_uppercase().contains("CREATE TABLE")
+    // SQL detection
+    if text_lower.contains("select ")
+        && text_lower.contains(
+            "from 
+  ",
+        )
     {
-        return Some("sql".to_string());
+        *scores.entry("sql").or_insert(0) += 12;
+    }
+    if text_lower.contains("insert into") || text_lower.contains("update ") {
+        *scores.entry("sql").or_insert(0) += 10;
+    }
+    if text_lower.contains("create table") || text_lower.contains("alter table") {
+        *scores.entry("sql").or_insert(0) += 10;
     }
 
-    // PHP
-    if text.contains("<?php") || text.contains("$_") {
-        return Some("php".to_string());
+    // Markdown detection
+    if text.contains("# ") || text.contains("## ") || text.contains("### ") {
+        *scores.entry("markdown").or_insert(0) += 8;
+    }
+    if text.contains("```") {
+        *scores.entry("markdown").or_insert(0) += 10;
+    }
+    if text.contains("[") && text.contains("](") {
+        *scores.entry("markdown").or_insert(0) += 6;
     }
 
-    // Ruby
-    if text.contains("def ") && text.contains("end") || text.contains("puts ") {
-        return Some("ruby".to_string());
+    // PHP detection
+    if text.contains("<?php") {
+        *scores.entry("php").or_insert(0) += 15;
+    }
+    if text.contains("$_GET") || text.contains("$_POST") || text.contains("$_SERVER") {
+        *scores.entry("php").or_insert(0) += 10;
     }
 
-    // Shell/Bash
-    if text.starts_with("#!/bin/bash")
-        || text.starts_with("#!/bin/sh")
-        || text.contains("echo ")
-        || text.contains("export ")
-    {
-        return Some("bash".to_string());
+    // Ruby detection
+    if text.contains("def ") && text.contains("end") {
+        *scores.entry("ruby").or_insert(0) += 10;
+    }
+    if text.contains("puts ") || text.contains("require ") {
+        *scores.entry("ruby").or_insert(0) += 7;
     }
 
-    None
+    // Bash/Shell detection
+    if text.starts_with("#!/bin/bash") || text.starts_with("#!/bin/sh") {
+        *scores.entry("bash").or_insert(0) += 15;
+    }
+    if text.contains("echo ") || text.contains("export ") {
+        *scores.entry("bash").or_insert(0) += 5;
+    }
+
+    // JavaScript detection (lowest priority, as it's common)
+    if text.contains("function ") || text.contains("const ") || text.contains("let ") {
+        *scores.entry("javascript").or_insert(0) += 5;
+    }
+    if text.contains("console.log") {
+        *scores.entry("javascript").or_insert(0) += 7;
+    }
+    if text.contains("=>") && !scores.contains_key("typescript") {
+        *scores.entry("javascript").or_insert(0) += 3;
+    }
+
+    // Return language with highest score (minimum 5 points)
+    scores
+        .into_iter()
+        .filter(|(_, score)| *score >= 5)
+        .max_by_key(|(_, score)| *score)
+        .map(|(lang, _)| lang.to_string())
 }
 
 fn is_color(text: &str) -> bool {
@@ -223,6 +401,9 @@ fn is_code(text: &str) -> bool {
         ";",
         "package ",
         "interface ",
+        "func ",
+        "using ",
+        "namespace ",
     ];
 
     let indicator_count = code_indicators
@@ -236,10 +417,5 @@ fn is_code(text: &str) -> bool {
 
 /// Get source app name (placeholder - requires platform-specific implementation)
 pub fn get_source_app() -> Option<String> {
-    // TODO: Implement platform-specific source app detection
-    // For now, return None
-    // On macOS: use NSWorkspace
-    // On Windows: use GetForegroundWindow + GetWindowText
-    // On Linux: use X11/Wayland APIs
     None
 }
