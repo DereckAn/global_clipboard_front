@@ -1,4 +1,9 @@
-import { tauriRemoveDuplicates } from "$lib/tauri/commands";
+import {
+  tauriCountItems,
+  tauriGetItemsPaginated,
+  tauriRemoveDuplicates,
+  tauriSearchItemsPaginated,
+} from "$lib/tauri/commands";
 import { clipboardRepository } from "$lib/tauri/storage";
 import type {
   ClipboardItem,
@@ -12,13 +17,28 @@ class ClipboardStore {
   isLoading = $state(false);
   error = $state<string | null>(null);
 
-  // Load items
+  // Paginación
+  totalItems = $state(0);
+  currentPage = $state(0);
+  pageSize = $state(100); // 100 items por página para móviles
+  hasMore = $state(true);
+  isLoadingMore = $state(false);
+
+  // Load items (primera página)
   async loadItems(options?: GetItemsOptions) {
     this.isLoading = true;
     this.error = null;
+    this.currentPage = 0;
 
     try {
-      this.items = await clipboardRepository.getItems(options);
+      // Cargar primera página
+      this.items = await tauriGetItemsPaginated(this.pageSize, 0);
+
+      // Obtener total de items
+      this.totalItems = await tauriCountItems();
+
+      // Verificar si hay más
+      this.hasMore = this.items.length < this.totalItems;
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to load items";
       console.error("Failed to load items:", err);
@@ -27,11 +47,40 @@ class ClipboardStore {
     }
   }
 
+  // NUEVO: Cargar más items (siguiente página)
+  async loadMore() {
+    if (!this.hasMore || this.isLoadingMore) return;
+
+    this.isLoadingMore = true;
+    this.error = null;
+
+    try {
+      this.currentPage++;
+      const offset = this.currentPage * this.pageSize;
+
+      const moreItems = await tauriGetItemsPaginated(this.pageSize, offset);
+
+      // Agregar nuevos items al final
+      this.items = [...this.items, ...moreItems];
+
+      // Verificar si hay más
+      this.hasMore = this.items.length < this.totalItems;
+    } catch (err) {
+      this.error =
+        err instanceof Error ? err.message : "Failed to load more items";
+      console.error("Failed to load more:", err);
+      this.currentPage--; // Revertir el incremento
+    } finally {
+      this.isLoadingMore = false;
+    }
+  }
+
   // Create item
   async createItem(data: CreateClipboardItemDto) {
     try {
       const newItem = await clipboardRepository.createItem(data);
       this.items = [newItem, ...this.items];
+      this.totalItems++;
       return newItem;
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to create item";
@@ -58,6 +107,7 @@ class ClipboardStore {
     try {
       await clipboardRepository.deleteItem(id);
       this.items = this.items.filter((item) => item.id !== id);
+      this.totalItems--;
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to delete item";
       throw err;
@@ -77,20 +127,24 @@ class ClipboardStore {
     try {
       await clipboardRepository.clearAll();
       this.items = [];
+      this.totalItems = 0;
+      this.currentPage = 0;
+      this.hasMore = false;
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to clear items";
       throw err;
     }
   }
 
-  // Search
+  // Search (ya no usa el método viejo)
   async search(query: string) {
     if (!query.trim()) {
       return [];
     }
 
     try {
-      return await clipboardRepository.searchItems(query);
+      // Buscar con paginación (primeros 100 resultados)
+      return await tauriSearchItemsPaginated(query, 100, 0);
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to search";
       throw err;
@@ -101,7 +155,7 @@ class ClipboardStore {
   async removeDuplicates() {
     try {
       const deletedCount = await tauriRemoveDuplicates();
-      await this.loadItems(); // Reload items
+      await this.loadItems(); // Recargar items
       return deletedCount;
     } catch (err) {
       this.error =

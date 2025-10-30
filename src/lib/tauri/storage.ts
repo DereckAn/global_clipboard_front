@@ -10,16 +10,20 @@ import {
   tauriCreateItem,
   tauriDeleteItem,
   tauriGetItem,
-  tauriGetItems,
-  tauriSearchItems,
+  tauriGetItemsPaginated,
+  tauriSearchItemsPaginated,
   tauriUpdateItem,
 } from "./commands";
 
 class TauriClipboardRepository implements ClipboardRepository {
   async getItems(options?: GetItemsOptions): Promise<ClipboardItem[]> {
-    let items = await tauriGetItems();
+    // Use paginated version with default limit
+    const limit = options?.limit || 100;
+    const offset = options?.offset || 0;
 
-    // Apply filters
+    let items = await tauriGetItemsPaginated(limit, offset);
+
+    // Apply filters (client-side for now)
     if (options?.contentType) {
       items = items.filter((item) => item.contentType === options.contentType);
     }
@@ -32,15 +36,6 @@ class TauriClipboardRepository implements ClipboardRepository {
       items = items.filter((item) => item.isSnippet === options.isSnippet);
     }
 
-    // Apply pagination
-    if (options?.offset !== undefined) {
-      items = items.slice(options.offset);
-    }
-
-    if (options?.limit !== undefined) {
-      items = items.slice(0, options.limit);
-    }
-
     return items;
   }
 
@@ -49,7 +44,8 @@ class TauriClipboardRepository implements ClipboardRepository {
   }
 
   async searchItems(query: string): Promise<ClipboardItem[]> {
-    return await tauriSearchItems(query);
+    // Use paginated search with default limit
+    return await tauriSearchItemsPaginated(query, 100, 0);
   }
 
   async getFavorites(): Promise<ClipboardItem[]> {

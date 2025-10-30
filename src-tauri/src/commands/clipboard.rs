@@ -8,12 +8,7 @@ pub struct AppState {
     pub db_path: String,
 }
 
-#[tauri::command]
-pub fn get_clipboard_items(state: State<Mutex<AppState>>) -> Result<Vec<ClipboardItem>, String> {
-    let app_state = state.lock().map_err(|e| e.to_string())?;
-    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
-    repo.get_items().map_err(|e| e.to_string())
-}
+// Removed: Use get_clipboard_items_paginated() instead for better performance
 
 #[tauri::command]
 pub fn get_clipboard_item(
@@ -60,15 +55,7 @@ pub fn clear_all_clipboard_items(state: State<Mutex<AppState>>) -> Result<(), St
     repo.clear_all().map_err(|e| e.to_string())
 }
 
-#[tauri::command]
-pub fn search_clipboard_items(
-    query: String,
-    state: State<Mutex<AppState>>,
-) -> Result<Vec<ClipboardItem>, String> {
-    let app_state = state.lock().map_err(|e| e.to_string())?;
-    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
-    repo.search_items(&query).map_err(|e| e.to_string())
-}
+// Removed: Use search_clipboard_items_paginated() instead for better performance
 
 #[tauri::command]
 pub fn read_from_clipboard() -> Result<String, String> {
@@ -85,4 +72,36 @@ pub fn remove_duplicate_items(state: State<Mutex<AppState>>) -> Result<usize, St
     let app_state = state.lock().map_err(|e| e.to_string())?;
     let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
     repo.remove_duplicates().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_clipboard_items_paginated(
+    limit: i64,
+    offset: i64,
+    state: State<Mutex<AppState>>,
+) -> Result<Vec<ClipboardItem>, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.get_items_paginated(limit, offset)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn count_clipboard_items(state: State<Mutex<AppState>>) -> Result<i64, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.count_items().map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn search_clipboard_items_paginated(
+    query: String,
+    limit: i64,
+    offset: i64,
+    state: State<Mutex<AppState>>,
+) -> Result<Vec<ClipboardItem>, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.search_items_paginated(&query, limit, offset)
+        .map_err(|e| e.to_string())
 }

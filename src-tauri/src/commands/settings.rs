@@ -1,8 +1,8 @@
 use std::fs;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Manager, Runtime};
 
 #[tauri::command]
-pub fn get_setting(app: AppHandle, key: String) -> Result<String, String> {
+pub fn get_setting<R: Runtime>(app: AppHandle<R>, key: String) -> Result<String, String> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
     let settings_file = app_data_dir.join("settings.json");
@@ -18,11 +18,15 @@ pub fn get_setting(app: AppHandle, key: String) -> Result<String, String> {
         .get(&key)
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| format!("Setting '{}' not found", key))
+        .ok_or_else(|| format!("Setting '{key}' not found"))
 }
 
 #[tauri::command]
-pub fn save_setting(app: AppHandle, key: String, value: String) -> Result<(), String> {
+pub fn save_setting<R: Runtime>(
+    app: AppHandle<R>,
+    key: String,
+    value: String,
+) -> Result<(), String> {
     let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
 
     let settings_file = app_data_dir.join("settings.json");
@@ -47,11 +51,32 @@ pub fn save_setting(app: AppHandle, key: String, value: String) -> Result<(), St
 
 #[tauri::command]
 pub fn update_global_hotkey(app: AppHandle, new_hotkey: String) -> Result<(), String> {
-    // Guardar el setting
-    save_setting(app.clone(), "hotkey".to_string(), new_hotkey.clone())?;
+    println!("Updating hotkey to: {new_hotkey}");
 
-    println!("New hotkey saved: {}", new_hotkey);
-    println!("NOTE: You must restart the app for the new hotkey to take effect");
+    // Save the setting first
+    save_setting(app.clone(), "hotkey".to_string(), new_hotkey.clone())?;
+    println!("Setting saved");
+
+    // Unregister all existing shortcuts AND handlers
+    crate::shortcuts::unregister_all_shortcuts(&app)?;
+    println!("All shortcuts unregistered");
+
+    // Small delay to ensure cleanup is complete
+    std::thread::sleep(std::time::Duration::from_millis(100));
+
+    // Register the new shortcut using the helper function
+    crate::shortcuts::register_shortcut(&app, &new_hotkey)?;
+    println!("New shortcut registered successfully");
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn get_current_shortcut(app: AppHandle) -> Result<String, String> {
+    get_setting(app, "hotkey".to_string()).or_else(|_| Ok("CommandOrControl+Shift+V".to_string()))
+}
+
+#[tauri::command]
+pub fn unregister_shortcut(app: AppHandle) -> Result<(), String> {
+    crate::shortcuts::unregister_all_shortcuts(&app)
 }

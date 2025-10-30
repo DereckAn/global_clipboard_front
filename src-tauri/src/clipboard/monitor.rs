@@ -73,7 +73,7 @@ impl ClipboardMonitor {
                         // Save to database
                         if let Ok(repo) = ClipboardRepository::new(&repo_path) {
                             // Check if last item has same content (deduplication)
-                            let should_save = match repo.get_items() {
+                            let should_save = match repo.get_items_paginated(1, 0) {
                                 Ok(items) => {
                                     if let Some(last_item) = items.first() {
                                         // Only save if content is different from last item
@@ -103,12 +103,11 @@ impl ClipboardMonitor {
                                             app_handle.emit("clipboard-item-added", &item)
                                         {
                                             eprintln!(
-                                                "Failed to emit clipboard-item-added event: {}",
-                                                e
+                                                "Failed to emit clipboard-item-added event: {e}"
                                             );
                                         }
                                     }
-                                    Err(e) => eprintln!("Failed to save clipboard item: {}", e),
+                                    Err(e) => eprintln!("Failed to save clipboard item: {e}"),
                                 }
                             } else {
                                 println!("Skipping duplicate clipboard content");

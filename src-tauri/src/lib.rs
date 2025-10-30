@@ -2,12 +2,12 @@ mod clipboard;
 mod colors;
 mod commands;
 mod db;
+mod shortcuts;
 
 use clipboard::ClipboardMonitor;
 use commands::AppState;
 use std::sync::Mutex;
 use tauri::Manager;
-use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -33,7 +33,7 @@ pub fn run() {
             let db_path = app_data_dir.join("clipboard.db");
             let db_path_str = db_path.to_str().unwrap().to_string();
 
-            println!("Database path: {}", db_path_str);
+            println!("Database path: {db_path_str}");
 
             // Initialize app state
             app.manage(Mutex::new(AppState {
@@ -48,7 +48,7 @@ pub fn run() {
                 monitor.start().await;
             });
 
-            // NUEVO: Leer hotkey guardado o usar default
+            // Read saved hotkey or use default
             let saved_hotkey = match app.path().app_data_dir() {
                 Ok(app_data_dir) => {
                     let settings_file = app_data_dir.join("settings.json");
@@ -73,48 +73,45 @@ pub fn run() {
                 Err(_) => "CommandOrControl+Shift+V".to_string(),
             };
 
-            println!("Registering global hotkey: {}", saved_hotkey);
+            println!("Registering global hotkey: {saved_hotkey}");
 
-            // Registrar hotkey global con el valor guardado
+            // Register initial shortcut using the helper function
             let app_handle = app.handle().clone();
-            let hotkey = saved_hotkey.clone();
-            app.handle()
-                .plugin(
-                    tauri_plugin_global_shortcut::Builder::new()
-                        .with_shortcuts([hotkey.as_str()])?
-                        .with_handler(move |_app, shortcut, event| {
-                            if event.state == ShortcutState::Pressed {
-                                println!("Hotkey pressed: {:?}", shortcut);
-                                if let Err(e) =
-                                    commands::toggle_window_visibility(app_handle.clone())
-                                {
-                                    eprintln!("Failed to toggle window: {}", e);
-                                }
-                            }
-                        })
-                        .build(),
-                )
-                .expect("Failed to register global shortcut");
-
-            println!("Clipboard manager initialized");
-            println!("Global hotkey: {}", saved_hotkey);
+            match shortcuts::register_shortcut_upon_start(&app_handle, &saved_hotkey) {
+                Ok(_) => {
+                    println!("Clipboard manager initialized");
+                    println!("Global hotkey registered: {saved_hotkey}");
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to register global shortcut '{saved_hotkey}': {e}");
+                    eprintln!("The application will continue without the global shortcut.");
+                    eprintln!("You can try changing it in Settings.");
+                }
+            }
 
             Ok(())
         })
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                window.hide().unwrap();
-                api.prevent_close();
+            match event {
+                tauri::WindowEvent::CloseRequested { api, .. } => {
+                    window.hide().unwrap();
+                    api.prevent_close();
+                }
+                tauri::WindowEvent::Focused(focused) => {
+                    // Ocultar cuando pierde el foco
+                    if !focused {
+                        let _ = window.hide();
+                    }
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
-            commands::get_clipboard_items,
             commands::get_clipboard_item,
             commands::create_clipboard_item,
             commands::update_clipboard_item,
             commands::delete_clipboard_item,
             commands::clear_all_clipboard_items,
-            commands::search_clipboard_items,
             commands::read_from_clipboard,
             commands::write_to_clipboard,
             commands::convert_color_formats,
@@ -124,7 +121,12 @@ pub fn run() {
             commands::toggle_window_visibility,
             commands::get_setting,
             commands::save_setting,
-            commands::update_global_hotkey
+            commands::update_global_hotkey,
+            commands::get_current_shortcut,
+            commands::unregister_shortcut,
+            commands::get_clipboard_items_paginated,
+            commands::count_clipboard_items,
+            commands::search_clipboard_items_paginated,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

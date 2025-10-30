@@ -34,7 +34,7 @@
   });
 
   // Filtered items based on search and filter type
-  const filteredItems = $derived(() => {
+  const filteredItems = $derived.by(() => {
     let items = clipboardStore.items;
 
     // Apply filter type
@@ -44,9 +44,10 @@
       items = items.filter((item) => item.contentType === filterType);
     }
 
-    // Apply search query
+    // Apply search query - ACTUALIZADO para usar la búsqueda paginada
     if (debouncedSearchQuery.trim()) {
       const query = debouncedSearchQuery.toLowerCase();
+      // Usar la búsqueda en items ya cargados (rápido)
       items = items.filter((item) =>
         item.contentText?.toLowerCase().includes(query)
       );
@@ -115,7 +116,7 @@
   <!-- Main content area -->
   <div class="flex-1 flex overflow-hidden">
     <!-- Sidebar (30%) -->
-    <Sidebar items={filteredItems()} isLoading={clipboardStore.isLoading} />
+    <Sidebar items={filteredItems} isLoading={clipboardStore.isLoading} />
 
     <!-- Right panel (70%) -->
     <div class="flex-1 flex flex-col">

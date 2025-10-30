@@ -14,40 +14,7 @@ impl ClipboardRepository {
         Ok(Self { conn })
     }
 
-    pub fn get_items(&self) -> Result<Vec<ClipboardItem>> {
-        let mut stmt = self.conn.prepare(
-            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
-                      file_url, file_name, file_size_bytes, file_mime_type,
-                      is_favorite, is_snippet, snippet_name,
-                      created_at, updated_at, synced, server_id
-               FROM clipboard_items
-               ORDER BY created_at DESC",
-        )?;
-
-        let items = stmt.query_map([], |row| {
-            Ok(ClipboardItem {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                content_text: row.get(2)?,
-                content_metadata: row.get(3)?,
-                source_app: row.get(4)?,
-                code_language: row.get(5)?,
-                file_url: row.get(6)?,
-                file_name: row.get(7)?,
-                file_size_bytes: row.get(8)?,
-                file_mime_type: row.get(9)?,
-                is_favorite: row.get(10)?,
-                is_snippet: row.get(11)?,
-                snippet_name: row.get(12)?,
-                created_at: row.get(13)?,
-                updated_at: row.get(14)?,
-                synced: row.get(15)?,
-                server_id: row.get(16)?,
-            })
-        })?;
-
-        items.collect()
-    }
+    // Removed: Use get_items_paginated() instead for better performance
 
     pub fn get_item(&self, id: &str) -> Result<Option<ClipboardItem>> {
         let mut stmt = self.conn.prepare(
@@ -162,19 +129,35 @@ impl ClipboardRepository {
         Ok(())
     }
 
-    pub fn search_items(&self, query: &str) -> Result<Vec<ClipboardItem>> {
-        let search_term = format!("%{}%", query);
-        let mut stmt = self.conn.prepare(
-            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
-                      file_url, file_name, file_size_bytes, file_mime_type,
-                      is_favorite, is_snippet, snippet_name,
-                      created_at, updated_at, synced, server_id
-               FROM clipboard_items
-               WHERE content_text LIKE ?1
-               ORDER BY created_at DESC",
+    // Removed: Use search_items_paginated() instead for better performance
+    pub fn remove_duplicates(&self) -> Result<usize> {
+        // Delete duplicate items, keeping only the most recent one for each content
+        let deleted = self.conn.execute(
+            "DELETE FROM clipboard_items
+               WHERE id NOT IN (
+                   SELECT MIN(id)
+                   FROM clipboard_items
+                   GROUP BY content_text
+               )",
+            [],
         )?;
 
-        let items = stmt.query_map([search_term], |row| {
+        Ok(deleted)
+    }
+
+    // Get items con paginación
+    pub fn get_items_paginated(&self, limit: i64, offset: i64) -> Result<Vec<ClipboardItem>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
+                    file_url, file_name, file_size_bytes, file_mime_type,
+                    is_favorite, is_snippet, snippet_name,
+                    created_at, updated_at, synced, server_id
+             FROM clipboard_items
+             ORDER BY created_at DESC
+             LIMIT ?1 OFFSET ?2",
+        )?;
+
+        let items = stmt.query_map([limit, offset], |row| {
             Ok(ClipboardItem {
                 id: row.get(0)?,
                 content_type: row.get(1)?,
@@ -198,18 +181,58 @@ impl ClipboardRepository {
 
         items.collect()
     }
-    pub fn remove_duplicates(&self) -> Result<usize> {
-        // Delete duplicate items, keeping only the most recent one for each content
-        let deleted = self.conn.execute(
-            "DELETE FROM clipboard_items
-               WHERE id NOT IN (
-                   SELECT MIN(id)
-                   FROM clipboard_items
-                   GROUP BY content_text
-               )",
-            [],
+
+    // NUEVO: Contar total de items
+    pub fn count_items(&self) -> Result<i64> {
+        let mut stmt = self.conn.prepare("SELECT COUNT(*) FROM clipboard_items")?;
+        let count: i64 = stmt.query_row([], |row| row.get(0))?;
+        Ok(count)
+    }
+
+    // NUEVO: Búsqueda con paginación
+    pub fn search_items_paginated(
+        &self,
+        query: &str,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<ClipboardItem>> {
+        let search_term = format!("%{query}%");
+        let mut stmt = self.conn.prepare(
+            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
+                    file_url, file_name, file_size_bytes, file_mime_type,
+                    is_favorite, is_snippet, snippet_name,
+                    created_at, updated_at, synced, server_id
+             FROM clipboard_items
+             WHERE content_text LIKE ?1
+             ORDER BY created_at DESC
+             LIMIT ?2 OFFSET ?3",
         )?;
 
-        Ok(deleted)
+        let items = stmt.query_map(
+            [search_term, limit.to_string(), offset.to_string()],
+            |row| {
+                Ok(ClipboardItem {
+                    id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    content_text: row.get(2)?,
+                    content_metadata: row.get(3)?,
+                    source_app: row.get(4)?,
+                    code_language: row.get(5)?,
+                    file_url: row.get(6)?,
+                    file_name: row.get(7)?,
+                    file_size_bytes: row.get(8)?,
+                    file_mime_type: row.get(9)?,
+                    is_favorite: row.get(10)?,
+                    is_snippet: row.get(11)?,
+                    snippet_name: row.get(12)?,
+                    created_at: row.get(13)?,
+                    updated_at: row.get(14)?,
+                    synced: row.get(15)?,
+                    server_id: row.get(16)?,
+                })
+            },
+        )?;
+
+        items.collect()
     }
 }

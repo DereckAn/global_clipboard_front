@@ -140,11 +140,10 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     }
 
     // Svelte detection
-    if text.contains("<script") && text.contains("</script>") {
-        if text.contains("$:") || text.contains("export let") || text.contains("$state") {
+    if text.contains("<script") && text.contains("</script>")
+        && (text.contains("$:") || text.contains("export let") || text.contains("$state")) {
             *scores.entry("svelte").or_insert(0) += 15;
         }
-    }
 
     // Vue detection
     if text.contains("<template>") || text.contains("<script setup>") {
@@ -239,23 +238,20 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     }
 
     // CSS detection
-    if text.contains("{") && text.contains("}") && text.contains(":") && text.contains(";") {
-        if !text.contains("function") && !text.contains("const") && !text.contains("let") {
+    if text.contains("{") && text.contains("}") && text.contains(":") && text.contains(";")
+        && !text.contains("function") && !text.contains("const") && !text.contains("let") {
             *scores.entry("css").or_insert(0) += 8;
         }
-    }
     if text.contains("@media") || text.contains("@keyframes") {
         *scores.entry("css").or_insert(0) += 10;
     }
 
     // JSON detection
-    if (text.trim().starts_with("{") && text.trim().ends_with("}"))
-        || (text.trim().starts_with("[") && text.trim().ends_with("]"))
-    {
-        if text.contains("\":") || text.contains("\": ") {
+    if ((text.trim().starts_with("{") && text.trim().ends_with("}"))
+        || (text.trim().starts_with("[") && text.trim().ends_with("]")))
+        && (text.contains("\":") || text.contains("\": ")) {
             *scores.entry("json").or_insert(0) += 12;
         }
-    }
 
     // SQL detection
     if text_lower.contains("select ")

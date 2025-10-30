@@ -31,10 +31,7 @@ function deserializeClipboardItem(item: any): ClipboardItem {
   };
 }
 
-export async function tauriGetItems(): Promise<ClipboardItem[]> {
-  const items = await invoke<any[]>("get_clipboard_items");
-  return items.map(deserializeClipboardItem);
-}
+// Removed: Use tauriGetItemsPaginated() instead for better performance
 
 export async function tauriGetItem(id: string): Promise<ClipboardItem | null> {
   const item = await invoke<any | null>("get_clipboard_item", { id });
@@ -78,12 +75,7 @@ export async function tauriDeleteItem(id: string): Promise<void> {
   await invoke("delete_clipboard_item", { id });
 }
 
-export async function tauriSearchItems(
-  query: string
-): Promise<ClipboardItem[]> {
-  const items = await invoke<any[]>("search_clipboard_items", { query });
-  return items.map(deserializeClipboardItem);
-}
+// Removed: Use tauriSearchItemsPaginated() instead for better performance
 
 export async function tauriClearAllItems(): Promise<void> {
   await invoke("clear_all_clipboard_items");
@@ -156,4 +148,41 @@ export async function tauriUpdateGlobalHotkey(
   newHotkey: string
 ): Promise<void> {
   await invoke("update_global_hotkey", { newHotkey });
+}
+
+export async function tauriGetCurrentShortcut(): Promise<string> {
+  return await invoke("get_current_shortcut");
+}
+
+export async function tauriUnregisterShortcut(): Promise<void> {
+  await invoke("unregister_shortcut");
+}
+
+// Pagination
+export async function tauriGetItemsPaginated(
+  limit: number,
+  offset: number
+): Promise<ClipboardItem[]> {
+  const items = await invoke<any[]>("get_clipboard_items_paginated", {
+    limit,
+    offset,
+  });
+  return items.map(deserializeClipboardItem);
+}
+
+export async function tauriCountItems(): Promise<number> {
+  return await invoke<number>("count_clipboard_items");
+}
+
+export async function tauriSearchItemsPaginated(
+  query: string,
+  limit: number,
+  offset: number
+): Promise<ClipboardItem[]> {
+  const items = await invoke<any[]>("search_clipboard_items_paginated", {
+    query,
+    limit,
+    offset,
+  });
+  return items.map(deserializeClipboardItem);
 }
