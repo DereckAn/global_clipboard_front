@@ -41,3 +41,5 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 
 # Async runtime (para el monitor del clipboard)
 tokio = { version = "1", features = ["full"] }
+tauri-plugin-notification = "2.3.3"
+tauri-plugin-global-shortcut = "2.3.1"

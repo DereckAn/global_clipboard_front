@@ -10,13 +10,17 @@
     "frontendDist": "../build"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Global Clipboard",
         "width": 800,
         "height": 500,
         "resizable": false,
-        "center": true
+        "fullscreen": false,
+        "center": true,
+        "visible": true,
+        "skipTaskbar": true
       }
     ],
     "security": {
@@ -36,6 +40,25 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "dmg": {
+        "appPosition": {
+          "x": 180,
+          "y": 170
+        },
+        "applicationFolderPosition": {
+          "x": 480,
+          "y": 170
+        },
+        "windowSize": {
+          "height": 400,
+          "width": 660
+        }
+      },
+      "files": {},
+      "hardenedRuntime": true,
+      "minimumSystemVersion": "10.13"
+    }
   }
 }
