@@ -140,3 +140,20 @@ export async function tauriRemoveDuplicates(): Promise<number> {
   return await invoke("remove_duplicate_items");
 }
 
+// Settings
+export async function tauriGetSetting(key: string): Promise<string> {
+  return await invoke("get_setting", { key });
+}
+
+export async function tauriSaveSetting(
+  key: string,
+  value: string
+): Promise<void> {
+  await invoke("save_setting", { key, value });
+}
+
+export async function tauriUpdateGlobalHotkey(
+  newHotkey: string
+): Promise<void> {
+  await invoke("update_global_hotkey", { newHotkey });
+}

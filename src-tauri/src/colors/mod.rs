@@ -1,4 +1,4 @@
-use palette::{FromColor, Hsl, Hsv, IntoColor, Oklch, Srgb, Srgba};
+use palette::{ Hsl, IntoColor, Oklch, Srgb, Srgba};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

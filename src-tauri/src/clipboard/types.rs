@@ -95,23 +95,13 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     }
 
     // C# detection
-    if text.contains("using System")
-        || text.contains(
-            "using 
-  UnityEngine",
-        )
-    {
+    if text.contains("using System") || text.contains("using UnityEngine") {
         *scores.entry("csharp").or_insert(0) += 12;
     }
     if text.contains("namespace ") && text.contains("class ") {
         *scores.entry("csharp").or_insert(0) += 10;
     }
-    if text.contains("public class")
-        || text.contains(
-            "private 
-  class",
-        )
-    {
+    if text.contains("public class") || text.contains("private class") {
         *scores.entry("csharp").or_insert(0) += 8;
     }
     if text.contains("async Task") || text.contains("await ") {
@@ -125,12 +115,7 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     if text.contains(": string") || text.contains(": number") || text.contains(": boolean") {
         *scores.entry("typescript").or_insert(0) += 8;
     }
-    if text.contains("export interface")
-        || text.contains(
-            "export 
-  type",
-        )
-    {
+    if text.contains("export interface") || text.contains("export type") {
         *scores.entry("typescript").or_insert(0) += 12;
     }
     if text.contains("<T>") || text.contains("<T,") {
@@ -139,10 +124,7 @@ pub fn detect_code_language(text: &str) -> Option<String> {
 
     // React/JSX detection
     if text.contains("import React")
-        || text.contains(
-            "from 
-  'react'",
-        )
+        || text.contains("from 'react'")
         || text.contains("from \"react\"")
     {
         *scores.entry("react").or_insert(0) += 12;
@@ -173,7 +155,7 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     }
 
     // HTML detection
-    if (text.contains("<!DOCTYPE") || text.contains("<html")) {
+    if text.contains("<!DOCTYPE") || text.contains("<html") {
         *scores.entry("html").or_insert(0) += 15;
     }
     if text.contains("<head>") || text.contains("<body>") {

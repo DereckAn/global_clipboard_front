@@ -7,18 +7,18 @@ use clipboard::ClipboardMonitor;
 use commands::AppState;
 use std::sync::Mutex;
 use tauri::Manager;
-use tauri_plugin_global_shortcut::{ ShortcutState};
+use tauri_plugin_global_shortcut::ShortcutState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
-        // .plugin(tauri_plugin_global_shortcut::Builder::new().build()) 
+        // .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // Ocultar del Dock en macOS
             #[cfg(target_os = "macos")]
-              app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
 
             // Get app data directory
             let app_data_dir = app
@@ -48,12 +48,40 @@ pub fn run() {
                 monitor.start().await;
             });
 
-            // NUEVO: Registrar hotkey global (Command+Shift+V en Mac, Ctrl+Shift+V en Windows/Linux)
+            // NUEVO: Leer hotkey guardado o usar default
+            let saved_hotkey = match app.path().app_data_dir() {
+                Ok(app_data_dir) => {
+                    let settings_file = app_data_dir.join("settings.json");
+                    if settings_file.exists() {
+                        match std::fs::read_to_string(&settings_file) {
+                            Ok(contents) => {
+                                match serde_json::from_str::<serde_json::Value>(&contents) {
+                                    Ok(settings) => settings
+                                        .get("hotkey")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("CommandOrControl+Shift+V")
+                                        .to_string(),
+                                    Err(_) => "CommandOrControl+Shift+V".to_string(),
+                                }
+                            }
+                            Err(_) => "CommandOrControl+Shift+V".to_string(),
+                        }
+                    } else {
+                        "CommandOrControl+Shift+V".to_string()
+                    }
+                }
+                Err(_) => "CommandOrControl+Shift+V".to_string(),
+            };
+
+            println!("Registering global hotkey: {}", saved_hotkey);
+
+            // Registrar hotkey global con el valor guardado
             let app_handle = app.handle().clone();
+            let hotkey = saved_hotkey.clone();
             app.handle()
                 .plugin(
                     tauri_plugin_global_shortcut::Builder::new()
-                        .with_shortcuts(["CommandOrControl+Shift+V"])?
+                        .with_shortcuts([hotkey.as_str()])?
                         .with_handler(move |_app, shortcut, event| {
                             if event.state == ShortcutState::Pressed {
                                 println!("Hotkey pressed: {:?}", shortcut);
@@ -69,7 +97,7 @@ pub fn run() {
                 .expect("Failed to register global shortcut");
 
             println!("Clipboard manager initialized");
-            println!("Global hotkey: CommandOrControl+Shift+V");
+            println!("Global hotkey: {}", saved_hotkey);
 
             Ok(())
         })
@@ -93,7 +121,10 @@ pub fn run() {
             commands::extract_domain_from_url,
             commands::fetch_link_metadata,
             commands::remove_duplicate_items,
-            commands::toggle_window_visibility, // NUEVO
+            commands::toggle_window_visibility,
+            commands::get_setting,
+            commands::save_setting,
+            commands::update_global_hotkey
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

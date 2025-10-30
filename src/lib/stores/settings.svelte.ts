@@ -1,10 +1,17 @@
+import { tauriGetSetting, tauriUpdateGlobalHotkey } from "$lib/tauri/commands";
 import { DEFAULT_SETTINGS } from "$lib/types";
 
+interface Settings {
+  hotkey: string;
+}
 class SettingsStore {
   maxLocalItems = $state(DEFAULT_SETTINGS.maxLocalItems);
   autoSaveClipboard = $state(DEFAULT_SETTINGS.autoSaveClipboard);
   showHotkey = $state(DEFAULT_SETTINGS.showHotkey);
   enableAnalytics = $state(DEFAULT_SETTINGS.enableAnalytics);
+  hotkey = $state<string>("CommandOrControl+Shift+V");
+  isLoading = $state(false);
+  error = $state<string | null>(null);
 
   constructor() {
     // Load from localStorage
@@ -53,6 +60,40 @@ class SettingsStore {
     this.showHotkey = DEFAULT_SETTINGS.showHotkey;
     this.enableAnalytics = DEFAULT_SETTINGS.enableAnalytics;
     this.save();
+  }
+
+  async loadSettings() {
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      const savedHotkey = await tauriGetSetting("hotkey");
+      if (savedHotkey) {
+        this.hotkey = savedHotkey;
+      }
+    } catch (err) {
+      // Si no existe el archivo, usar el default
+      console.log("No saved hotkey found, using default");
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async saveHotkey(newHotkey: string) {
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      await tauriUpdateGlobalHotkey(newHotkey);
+      this.hotkey = newHotkey;
+      return true;
+    } catch (err) {
+      this.error = err instanceof Error ? err.message : "Failed to save hotkey";
+      console.error("Failed to save hotkey:", err);
+      return false;
+    } finally {
+      this.isLoading = false;
+    }
   }
 
   private save() {

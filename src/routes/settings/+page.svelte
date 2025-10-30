@@ -1,20 +1,33 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import Icon from "$lib/components/icons/Icon.svelte";
+  import HotkeyRecorder from "$lib/components/settings/HotkeyRecorder.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Input from "$lib/components/ui/Input.svelte";
   import { settingsStore } from "$lib/stores/settings.svelte";
+  import { onMount } from "svelte";
 
   let maxLocalItems = $state(settingsStore.maxLocalItems.toString());
   let autoSaveClipboard = $state(settingsStore.autoSaveClipboard);
   let showHotkey = $state(settingsStore.showHotkey);
   let enableAnalytics = $state(settingsStore.enableAnalytics);
+  let globalHotkey = $state(settingsStore.hotkey);
+  let hotkeyFeedback = $state<{
+    type: "success" | "error";
+    message: string;
+  } | null>(null);
+
+  onMount(async () => {
+    await settingsStore.loadSettings();
+    globalHotkey = settingsStore.hotkey;
+  });
 
   const handleBack = () => {
     goto("/");
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // AGREGADO: async
     // Convert string to number
     const maxItems = parseInt(maxLocalItems, 10);
     if (!isNaN(maxItems)) {
@@ -31,7 +44,28 @@
 
     settingsStore.updateShowHotkey(showHotkey);
 
-    // Show success message (simple console for now)
+    // Save global hotkey if changed
+    if (globalHotkey !== settingsStore.hotkey) {
+      const success = await settingsStore.saveHotkey(globalHotkey);
+      if (success) {
+        hotkeyFeedback = {
+          type: "success",
+          message: "Hotkey saved! Restart the app for changes to take effect.",
+        };
+      } else {
+        hotkeyFeedback = {
+          type: "error",
+          message: "Failed to save hotkey. Please try again.",
+        };
+      }
+
+      // Clear feedback after 5 seconds
+      setTimeout(() => {
+        hotkeyFeedback = null;
+      }, 5000);
+    }
+
+    // Show success message
     console.log("Settings saved!");
 
     // Go back
@@ -45,6 +79,7 @@
       autoSaveClipboard = settingsStore.autoSaveClipboard;
       showHotkey = settingsStore.showHotkey;
       enableAnalytics = settingsStore.enableAnalytics;
+      globalHotkey = "CommandOrControl+Shift+V";
     }
   };
 </script>
@@ -146,23 +181,32 @@
             </button>
           </div>
 
-          <!-- Show hotkey -->
           <div>
-            <label
-              for="hotkey-input"
-              class="block text-sm font-medium text-text mb-2"
-            >
-              Show window hotkey
+            <label for="global-hotkey" class="block text-sm font-medium text-text mb-2">
+              Global window hotkey
             </label>
-            <Input
-              type="text"
-              bind:value={showHotkey}
-              placeholder="Ctrl+Shift+V"
-              class="w-48"
+            <HotkeyRecorder
+              id="global-hotkey"
+              value={globalHotkey}
+              onChange={(newHotkey) => (globalHotkey = newHotkey)}
             />
-            <p class="text-xs text-text-muted mt-1">
-              Keyboard shortcut to show the clipboard manager
-            </p>
+
+            {#if hotkeyFeedback}
+              <div
+                class="mt-3 px-3 py-2 rounded-lg text-sm flex items-center gap-2"
+                class:bg-primary-20={hotkeyFeedback.type === "success"}
+                class:text-primary={hotkeyFeedback.type === "success"}
+                class:bg-danger-20={hotkeyFeedback.type === "error"}
+                class:text-danger={hotkeyFeedback.type === "error"}
+              >
+                {#if hotkeyFeedback.type === "success"}
+                  <Icon name="check" size={16} />
+                {:else}
+                  <Icon name="x" size={16} />
+                {/if}
+                <span>{hotkeyFeedback.message}</span>
+              </div>
+            {/if}
           </div>
         </div>
       </section>
