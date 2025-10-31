@@ -341,23 +341,38 @@ xcode-select --install
 
 ## 🚧 Roadmap
 
-### v1.1 (Next Release)
-- [ ] Windows and Linux support
-- [ ] Custom themes
-- [ ] Export/import clipboard history
-- [ ] Sync between devices (optional, cloud-based)
+**📋 Ver [ROADMAP.md](./ROADMAP.md) para el plan completo de desarrollo.**
 
-### v1.2
-- [ ] Plugin system
-- [ ] Advanced search filters
-- [ ] OCR for images
-- [ ] Password protection
+### 🐛 Bugs Conocidos
+- Search bar no muestra resultados - **Próximo a arreglar**
 
-### v2.0
-- [ ] Mobile apps (iOS/Android)
-- [ ] End-to-end encrypted sync
-- [ ] Team collaboration features
-- [ ] API for integrations
+### v1.1 (Próxima versión - 1-2 meses)
+- [ ] 🐛 Arreglar search bar
+- [ ] 🎨 Mejorar diseño visual
+- [ ] 📸 Soporte para imágenes copiadas
+- [ ] 🖼️ Interpretar y mostrar SVG
+- [ ] ⚙️ Settings avanzados (límites, retención, uso de memoria)
+- [ ] 📱 UI responsive para móviles y tablets
+- [ ] ✅ Testing básico
+
+### v1.2 (2-3 meses)
+- [ ] 🔐 Sistema de cuentas y autenticación (Supabase OAuth)
+- [ ] ☁️ Sincronización con la nube
+- [ ] 💾 Storage en Supabase
+- [ ] 🔄 Sync offline-first
+
+### v2.0 (4-6 meses)
+- [ ] 💰 Sistema de planes (Free y Pro)
+- [ ] 💳 Integración de pagos con Stripe
+- [ ] 🔍 Búsqueda avanzada (Plan Pro)
+- [ ] 📁 Carpetas y tags (Plan Pro)
+
+### v3.0+ (6-12 meses)
+- [ ] 👥 Colaboración en equipo
+- [ ] 🔌 API pública
+- [ ] 🌐 Extensiones del navegador
+- [ ] 📱 Apps móviles (iOS/Android)
+- [ ] 🤖 Features con IA
 
 ---
 
