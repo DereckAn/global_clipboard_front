@@ -10,13 +10,15 @@
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
+  import HighlightedText from "../ui/HighlightedText.svelte";
 
   interface Props {
     item: ClipboardItem | null;
     class?: string;
+    searchQuery?: string; // AGREGAR
   }
 
-  let { item, class: className }: Props = $props();
+  let { item, class: className, searchQuery = "" }: Props = $props();
   // Local state
   let copied = $state(false);
   let colorFormats = $state<
@@ -109,9 +111,7 @@
   };
 </script>
 
-<div
-  class={cn("flex-1 overflow-y-auto flex flex-col", className)}
->
+<div class={cn("flex-1 overflow-y-auto flex flex-col", className)}>
   {#if !item}
     <!-- Empty state -->
     <div class="flex-1 flex items-center justify-center px-6 text-center">
@@ -190,7 +190,7 @@
     <!-- Link content with metadata preview -->
     <div class="flex flex-col px-6 py-8 flex-1">
       <!-- Link URL -->
-      <div class="flex items-center gap-3 w-fit mb-3 ">
+      <div class="flex items-center gap-3 w-fit mb-3">
         <div
           class="size-10 bg-surface rounded-lg flex items-center justify-center"
         >
@@ -213,9 +213,7 @@
 
       <!-- Metadata preview card -->
       {#if loadingMetadata}
-        <div
-          class="  bg-surface rounded-xl border border-border p-6"
-        >
+        <div class="  bg-surface rounded-xl border border-border p-6">
           <div class="flex items-center justify-center py-12">
             <div class="animate-spin">
               <Icon name="loader" size={32} class="text-primary" />
@@ -224,7 +222,7 @@
         </div>
       {:else if linkMetadata && (linkMetadata.title || linkMetadata.image)}
         <div
-          class="w-2/3  bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
+          class="w-2/3 bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
         >
           <!-- Preview image -->
           {#if linkMetadata.image}
@@ -287,7 +285,7 @@
                 }}
               />
             </div>
-            <div class="flex-1 ">
+            <div class="flex-1">
               <p class="text-sm text-text-muted mb-1">Website</p>
               <p class="text-base text-text font-medium truncate">
                 {domain}
@@ -325,7 +323,11 @@
         <pre
           class={cn(
             "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 "
-          )}>{item.contentText || "Empty content"}</pre>
+          )}>{#if searchQuery.trim()}
+            <HighlightedText text={item.contentText!} query={searchQuery} />
+          {:else}
+            {item.contentText}
+          {/if}</pre>
       </div>
 
       <!-- Copy button -->

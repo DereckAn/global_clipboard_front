@@ -141,7 +141,7 @@
     <!-- Right panel (70%) -->
     <div class="flex flex-col flex-1">
       <!-- Content viewer (top) -->
-      <ContentViewer item={selectedItem} />
+      <ContentViewer item={selectedItem} searchQuery={debouncedSearchQuery} />
 
       <!-- Item info (bottom) -->
       <ItemInfo item={selectedItem} />
