@@ -110,7 +110,7 @@
 </script>
 
 <div
-  class={cn("flex-1 bg-background overflow-y-auto flex flex-col", className)}
+  class={cn("flex-1 overflow-y-auto flex flex-col", className)}
 >
   {#if !item}
     <!-- Empty state -->
@@ -188,15 +188,15 @@
     </div>
   {:else if isLink}
     <!-- Link content with metadata preview -->
-    <div class="flex-1 flex flex-col px-6 py-8">
+    <div class="flex flex-col px-6 py-8 flex-1">
       <!-- Link URL -->
-      <div class="flex items-center gap-3 mb-6">
+      <div class="flex items-center gap-3 w-fit mb-3 ">
         <div
-          class="w-12 h-12 bg-surface rounded-lg flex items-center justify-center"
+          class="size-10 bg-surface rounded-lg flex items-center justify-center"
         >
           <Icon name="link" size={24} class="text-primary" />
         </div>
-        <div class="flex-1 min-w-0">
+        <div class="">
           <p class="text-sm text-text-muted">Link</p>
           <p class="text-base text-text truncate font-medium">
             {domain || item.contentText}
@@ -214,7 +214,7 @@
       <!-- Metadata preview card -->
       {#if loadingMetadata}
         <div
-          class="w-full max-w-2xl mx-auto bg-surface rounded-xl border border-border p-6"
+          class="  bg-surface rounded-xl border border-border p-6"
         >
           <div class="flex items-center justify-center py-12">
             <div class="animate-spin">
@@ -224,7 +224,7 @@
         </div>
       {:else if linkMetadata && (linkMetadata.title || linkMetadata.image)}
         <div
-          class="w-full max-w-2xl mx-auto bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
+          class="w-2/3  bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
         >
           <!-- Preview image -->
           {#if linkMetadata.image}
@@ -272,7 +272,7 @@
       {:else}
         <!-- Fallback: simple link display -->
         <div
-          class="w-full max-w-2xl mx-auto bg-surface rounded-xl border border-border p-6"
+          class="w-fit max-w-2xl mx-auto bg-surface rounded-xl border border-border p-6"
         >
           <div class="flex items-center gap-3">
             <div
@@ -287,7 +287,7 @@
                 }}
               />
             </div>
-            <div class="flex-1 min-w-0">
+            <div class="flex-1 ">
               <p class="text-sm text-text-muted mb-1">Website</p>
               <p class="text-base text-text font-medium truncate">
                 {domain}
@@ -301,7 +301,7 @@
       {/if}
 
       <!-- Copy button -->
-      <div class="mt-6 flex justify-center">
+      <div class="w-fit mt-6 flex justify-start">
         <button
           onclick={() => handleCopy(item.contentText || "")}
           class="px-6 py-2 bg-surface hover:bg-surface-hover rounded-lg transition-colors flex items-center gap-2 border border-border"
@@ -321,10 +321,10 @@
     <!-- Text/Code content -->
     <div class="flex-1 flex flex-col">
       <!-- Content area -->
-      <div class="flex-1 overflow-y-auto">
+      <div class="flex-1">
         <pre
           class={cn(
-            "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4"
+            "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 "
           )}>{item.contentText || "Empty content"}</pre>
       </div>
 

@@ -15,15 +15,32 @@
   let debouncedSearchQuery = $state("");
   let searchTimeoutId: number | null = null;
   let unlistenClipboard: UnlistenFn | null = null;
+  let isSearching = $state(false);
 
-  // Debounced search
+  // Debounced search - Ahora busca en la base de datos
   $effect(() => {
+    console.log("🔍 Search effect triggered. Query:", searchQuery);
+
     if (searchTimeoutId !== null) {
       clearTimeout(searchTimeoutId);
     }
 
-    searchTimeoutId = window.setTimeout(() => {
+    searchTimeoutId = window.setTimeout(async () => {
       debouncedSearchQuery = searchQuery;
+      console.log("⏱️ Debounce complete. Searching for:", searchQuery);
+
+      // Si hay query, buscar en base de datos
+      if (searchQuery.trim()) {
+        console.log("🔎 Starting database search for:", searchQuery.trim());
+        isSearching = true;
+        await clipboardStore.search(searchQuery.trim());
+        isSearching = false;
+        console.log("✅ Search complete. Results:", clipboardStore.items.length);
+      } else {
+        // Si no hay query, volver a cargar items normales
+        console.log("🔄 No query, loading all items");
+        await clipboardStore.loadItems();
+      }
     }, 300);
 
     return () => {
@@ -33,24 +50,15 @@
     };
   });
 
-  // Filtered items based on search and filter type
+  // Filtered items based on filter type only (search is handled by store)
   const filteredItems = $derived.by(() => {
     let items = clipboardStore.items;
 
-    // Apply filter type
+    // Apply filter type (favorites, content type)
     if (filterType === "favorites") {
       items = items.filter((item) => item.isFavorite);
     } else if (filterType !== "all") {
       items = items.filter((item) => item.contentType === filterType);
-    }
-
-    // Apply search query - ACTUALIZADO para usar la búsqueda paginada
-    if (debouncedSearchQuery.trim()) {
-      const query = debouncedSearchQuery.toLowerCase();
-      // Usar la búsqueda en items ya cargados (rápido)
-      items = items.filter((item) =>
-        item.contentText?.toLowerCase().includes(query)
-      );
     }
 
     return items;
@@ -111,15 +119,27 @@
 
 <div class="h-screen w-screen overflow-hidden flex flex-col bg-background">
   <!-- Header -->
-  <Header bind:searchQuery bind:filterType isAuthenticated={false} />
+  <Header
+    bind:searchQuery
+    bind:filterType
+    isSearching={isSearching || clipboardStore.isLoading}
+    resultCount={debouncedSearchQuery.trim()
+      ? clipboardStore.totalItems
+      : undefined}
+    isAuthenticated={false}
+  />
 
   <!-- Main content area -->
   <div class="flex-1 flex overflow-hidden">
     <!-- Sidebar (30%) -->
-    <Sidebar items={filteredItems} isLoading={clipboardStore.isLoading} />
+    <Sidebar
+      items={filteredItems}
+      isLoading={clipboardStore.isLoading}
+      searchQuery={debouncedSearchQuery}
+    />
 
     <!-- Right panel (70%) -->
-    <div class="flex-1 flex flex-col">
+    <div class="flex flex-col flex-1">
       <!-- Content viewer (top) -->
       <ContentViewer item={selectedItem} />
 

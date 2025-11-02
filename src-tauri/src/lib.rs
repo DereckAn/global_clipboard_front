@@ -127,6 +127,7 @@ pub fn run() {
             commands::get_clipboard_items_paginated,
             commands::count_clipboard_items,
             commands::search_clipboard_items_paginated,
+            commands::count_search_results,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

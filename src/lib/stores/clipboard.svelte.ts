@@ -3,6 +3,7 @@ import {
   tauriGetItemsPaginated,
   tauriRemoveDuplicates,
   tauriSearchItemsPaginated,
+  tauriCountSearchResults,
 } from "$lib/tauri/commands";
 import { clipboardRepository } from "$lib/tauri/storage";
 import type {
@@ -136,18 +137,68 @@ class ClipboardStore {
     }
   }
 
-  // Search (ya no usa el método viejo)
+  // Search (reemplaza los items con resultados de búsqueda)
   async search(query: string) {
+    console.log("📦 Store.search() called with query:", query);
+
     if (!query.trim()) {
-      return [];
+      // Si no hay query, volver a cargar items normales
+      console.log("❌ Empty query, reloading all items");
+      await this.loadItems();
+      return;
     }
 
+    this.isLoading = true;
+    this.error = null;
+    this.currentPage = 0;
+
     try {
-      // Buscar con paginación (primeros 100 resultados)
-      return await tauriSearchItemsPaginated(query, 100, 0);
+      console.log("🔍 Calling tauriSearchItemsPaginated...");
+      // Buscar en base de datos (primeros 100 resultados)
+      this.items = await tauriSearchItemsPaginated(query, this.pageSize, 0);
+      console.log("📊 Search returned", this.items.length, "items");
+
+      // Contar total de resultados de búsqueda
+      console.log("🔢 Counting total results...");
+      this.totalItems = await tauriCountSearchResults(query);
+      console.log("📈 Total results:", this.totalItems);
+
+      // Verificar si hay más resultados
+      this.hasMore = this.items.length < this.totalItems;
+      console.log("✅ Search complete. hasMore:", this.hasMore);
     } catch (err) {
       this.error = err instanceof Error ? err.message : "Failed to search";
-      throw err;
+      console.error("❌ Failed to search:", err);
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  // NUEVO: Cargar más resultados de búsqueda
+  async loadMoreSearchResults(query: string) {
+    if (!this.hasMore || this.isLoadingMore || !query.trim()) return;
+
+    this.isLoadingMore = true;
+    this.error = null;
+
+    try {
+      this.currentPage++;
+      const offset = this.currentPage * this.pageSize;
+
+      const moreItems = await tauriSearchItemsPaginated(query, this.pageSize, offset);
+
+      // Agregar nuevos items al final
+      this.items = [...this.items, ...moreItems];
+
+      // Verificar si hay más
+      this.hasMore = this.items.length < this.totalItems;
+    } catch (err) {
+      this.error =
+        err instanceof Error ? err.message : "Failed to load more search results";
+      console.error("Failed to load more search results:", err);
+      this.currentPage--; // Revertir el incremento
+    } finally {
+      this.isLoadingMore = false;
     }
   }
 

@@ -14,8 +14,8 @@
     "windows": [
       {
         "title": "Global Clipboard",
-        "width": 800,
-        "height": 500,
+        "width": 750,
+        "height": 480,
         "resizable": false,
         "fullscreen": false,
         "center": true,

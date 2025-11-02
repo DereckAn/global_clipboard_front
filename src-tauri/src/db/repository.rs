@@ -189,14 +189,14 @@ impl ClipboardRepository {
         Ok(count)
     }
 
-    // NUEVO: Búsqueda con paginación
+    // NUEVO: Búsqueda con paginación - Busca en múltiples campos
     pub fn search_items_paginated(
         &self,
         query: &str,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<ClipboardItem>> {
-        let search_term = format!("%{query}%");
+        let search_term = format!("%{}%", query);
         let mut stmt = self.conn.prepare(
             "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
                     file_url, file_name, file_size_bytes, file_mime_type,
@@ -204,12 +204,16 @@ impl ClipboardRepository {
                     created_at, updated_at, synced, server_id
              FROM clipboard_items
              WHERE content_text LIKE ?1
+                OR content_metadata LIKE ?1
+                OR file_name LIKE ?1
+                OR snippet_name LIKE ?1
+                OR code_language LIKE ?1
              ORDER BY created_at DESC
              LIMIT ?2 OFFSET ?3",
         )?;
 
         let items = stmt.query_map(
-            [search_term, limit.to_string(), offset.to_string()],
+            params![&search_term, limit, offset],
             |row| {
                 Ok(ClipboardItem {
                     id: row.get(0)?,
@@ -234,5 +238,20 @@ impl ClipboardRepository {
         )?;
 
         items.collect()
+    }
+
+    // NUEVO: Contar resultados de búsqueda
+    pub fn count_search_results(&self, query: &str) -> Result<i64> {
+        let search_term = format!("%{}%", query);
+        let mut stmt = self.conn.prepare(
+            "SELECT COUNT(*) FROM clipboard_items
+             WHERE content_text LIKE ?1
+                OR content_metadata LIKE ?1
+                OR file_name LIKE ?1
+                OR snippet_name LIKE ?1
+                OR code_language LIKE ?1",
+        )?;
+        let count: i64 = stmt.query_row([&search_term], |row| row.get(0))?;
+        Ok(count)
     }
 }

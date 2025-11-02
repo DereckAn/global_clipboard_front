@@ -179,10 +179,19 @@ export async function tauriSearchItemsPaginated(
   limit: number,
   offset: number
 ): Promise<ClipboardItem[]> {
+  console.log("🔌 tauriSearchItemsPaginated called:", { query, limit, offset });
   const items = await invoke<any[]>("search_clipboard_items_paginated", {
     query,
     limit,
     offset,
   });
+  console.log("✅ tauriSearchItemsPaginated returned", items.length, "items");
   return items.map(deserializeClipboardItem);
+}
+
+export async function tauriCountSearchResults(query: string): Promise<number> {
+  console.log("🔌 tauriCountSearchResults called:", query);
+  const count = await invoke<number>("count_search_results", { query });
+  console.log("✅ tauriCountSearchResults returned:", count);
+  return count;
 }

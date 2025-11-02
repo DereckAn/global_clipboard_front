@@ -6,9 +6,10 @@
   interface Props {
     items: ClipboardItem[];
     isLoading?: boolean;
+    searchQuery?: string;
   }
 
-  let { items, isLoading = false }: Props = $props();
+  let { items, isLoading = false, searchQuery = "" }: Props = $props();
 
   let scrollContainer: HTMLDivElement;
 
@@ -21,7 +22,13 @@
     // Si está cerca del fondo (100px antes), cargar más
     if (scrollHeight - scrollTop - clientHeight < 100) {
       if (clipboardStore.hasMore && !clipboardStore.isLoadingMore) {
-        clipboardStore.loadMore();
+        // Si hay query de búsqueda, cargar más resultados de búsqueda
+        if (searchQuery.trim()) {
+          clipboardStore.loadMoreSearchResults(searchQuery.trim());
+        } else {
+          // Si no, cargar más items normales
+          clipboardStore.loadMore();
+        }
       }
     }
   };
@@ -30,7 +37,7 @@
 <div
   bind:this={scrollContainer}
   onscroll={handleScroll}
-  class="w-80 bg-surface border-r border-border flex flex-col overflow-y-auto"
+  class="min-w-sidebar max-w-sidebar bg-surface border-r border-border flex flex-col overflow-y-auto"
 >
   {#if isLoading && items.length === 0}
     <div class="flex-1 flex items-center justify-center">
@@ -39,10 +46,19 @@
   {:else if items.length === 0}
     <div class="flex-1 flex items-center justify-center px-6 text-center">
       <div>
-        <p class="text-text-muted">No items yet</p>
-        <p class="text-xs text-text-muted mt-2">
-          Copy something to get started
-        </p>
+        {#if searchQuery.trim()}
+          <!-- No search results -->
+          <p class="text-text-muted">No results found</p>
+          <p class="text-xs text-text-muted mt-2">
+            Try a different search term
+          </p>
+        {:else}
+          <!-- No items at all -->
+          <p class="text-text-muted">No items yet</p>
+          <p class="text-xs text-text-muted mt-2">
+            Copy something to get started
+          </p>
+        {/if}
       </div>
     </div>
   {:else}

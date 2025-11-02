@@ -105,3 +105,13 @@ pub fn search_clipboard_items_paginated(
     repo.search_items_paginated(&query, limit, offset)
         .map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn count_search_results(
+    query: String,
+    state: State<Mutex<AppState>>,
+) -> Result<i64, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.count_search_results(&query).map_err(|e| e.to_string())
+}

@@ -118,10 +118,10 @@
 
 <div
   class={cn(
-    "group relative flex items-center gap-3 px-3 py-2 text-sm cursor-pointer transition-colors border-l-2",
+    "group relative flex items-center gap-3 px-3 py-1 text-sm cursor-pointer transition-colors mx-2",
     isSelected
-      ? "bg-surface-hover border-primary"
-      : "bg-transparent border-transparent hover:bg-surface-hover"
+      ? "bg-surface-hover rounded-xl"
+      : " border-transparent hover:bg-surface-hover rounded-xl"
   )}
   onclick={handleClick}
   ondblclick={handleDoubleClick}

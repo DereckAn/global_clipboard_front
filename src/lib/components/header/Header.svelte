@@ -10,6 +10,8 @@
     searchQuery?: string;
     filterType?: "all" | "favorites" | ContentType;
     isAuthenticated?: boolean;
+    isSearching?: boolean;
+    resultCount?: number;
     onSearchChange?: (query: string) => void;
     onFilterChange?: (filter: "all" | "favorites" | ContentType) => void;
   }
@@ -18,6 +20,8 @@
     searchQuery = $bindable(""),
     filterType = $bindable<"all" | "favorites" | ContentType>("all"),
     isAuthenticated = false,
+    isSearching = false,
+    resultCount,
     onSearchChange,
     onFilterChange,
   }: Props = $props();
@@ -61,7 +65,7 @@
 
   <!-- Search bar -->
   <div class="flex-1">
-    <SearchBar bind:value={searchQuery} />
+    <SearchBar bind:value={searchQuery} {isSearching} {resultCount} />
   </div>
 
   <!-- Clean duplicates button -->
