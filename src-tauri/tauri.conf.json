@@ -20,7 +20,10 @@
         "fullscreen": false,
         "center": true,
         "visible": true,
-        "skipTaskbar": true
+        "skipTaskbar": true,
+        "decorations": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
       }
     ],
     "security": {

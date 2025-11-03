@@ -43,3 +43,7 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 tokio = { version = "1", features = ["full"] }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-global-shortcut = "2.3.1"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+objc = "0.2"

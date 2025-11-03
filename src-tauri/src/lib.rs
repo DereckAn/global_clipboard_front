@@ -1,25 +1,70 @@
+#![allow(unexpected_cfgs)]
+
+mod cleanup;
 mod clipboard;
 mod colors;
 mod commands;
 mod db;
 mod shortcuts;
-mod cleanup;
 
 use clipboard::ClipboardMonitor;
 use commands::AppState;
 use std::sync::Mutex;
 use tauri::Manager;
 
+// Importar el macro msg_send
+#[cfg(target_os = "macos")]
+#[macro_use]
+extern crate objc;
+
+// Función setup_macos_window - DEBE IR ANTES de run()
+#[cfg(target_os = "macos")]
+fn setup_macos_window(window: &tauri::WebviewWindow) {
+    use cocoa::appkit::NSWindowButton;
+    use cocoa::base::id;
+
+    unsafe {
+        let ns_window = window.ns_window().unwrap() as id;
+
+        // Ocultar botones de semáforo
+        let close_button: id =
+            msg_send![ns_window, standardWindowButton: NSWindowButton::NSWindowCloseButton];
+        let miniaturize_button: id =
+            msg_send![ns_window, standardWindowButton: NSWindowButton::NSWindowMiniaturizeButton];
+        let zoom_button: id =
+            msg_send![ns_window, standardWindowButton: NSWindowButton::NSWindowZoomButton];
+
+        if !close_button.is_null() {    
+            let _: () = msg_send![close_button, setHidden: 1];
+        }
+        if !miniaturize_button.is_null() {
+            let _: () = msg_send![miniaturize_button, setHidden: 1];
+        }
+        if !zoom_button.is_null() {
+            let _: () = msg_send![zoom_button, setHidden: 1];
+        }
+
+        // Ocultar título pero mantener barra
+        let _: () = msg_send![ns_window, setTitleVisibility: 1]; // NSWindowTitleHidden = 1
+        let _: () = msg_send![ns_window, setTitlebarAppearsTransparent: 1]; // YES = 1
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
-        // .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
             // Ocultar del Dock en macOS
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
+            #[cfg(target_os = "macos")]
+            {
+                let window = app.get_webview_window("main").unwrap();
+                setup_macos_window(&window);
+            }
 
             // Get app data directory
             let app_data_dir = app
@@ -84,7 +129,9 @@ pub fn run() {
                     println!("Global hotkey registered: {saved_hotkey}");
                 }
                 Err(e) => {
-                    eprintln!("Warning: Failed to register global shortcut '{saved_hotkey}': {e}");
+                    eprintln!(
+                        "Warning: Failed to register global   shortcut '{saved_hotkey}': {e}"
+                    );
                     eprintln!("The application will continue without the global shortcut.");
                     eprintln!("You can try changing it in Settings.");
                 }
