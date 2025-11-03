@@ -19,6 +19,7 @@
 
   onMount(async () => {
     await settingsStore.loadSettings();
+    await settingsStore.loadDatabaseStats();
     globalHotkey = settingsStore.hotkey;
   });
 
@@ -182,7 +183,10 @@
           </div>
 
           <div>
-            <label for="global-hotkey" class="block text-sm font-medium text-text mb-2">
+            <label
+              for="global-hotkey"
+              class="block text-sm font-medium text-text mb-2"
+            >
               Global window hotkey
             </label>
             <HotkeyRecorder
@@ -208,6 +212,185 @@
               </div>
             {/if}
           </div>
+        </div>
+      </section>
+
+      <!-- Límite de Items (NUEVO) -->
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Icon name="trash" size={20} />
+          Gestión de Items
+        </h2>
+        <div class="bg-surface rounded-lg border border-border p-6 space-y-6">
+          <!-- Toggle límite -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="block text-sm font-medium text-text mb-1">
+                Limitar items guardados
+              </p>
+              <p class="text-xs text-text-muted">
+                Auto-eliminar items antiguos cuando se supera el límite
+              </p>
+            </div>
+            <button
+              onclick={() => {
+                settingsStore.toggleMaxItemsEnabled();
+              }}
+              class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settingsStore.maxItemsEnabled ? "bg-primary" : "bg-border"}`}
+              role="switch"
+            >
+              <span
+                class={`inline-block h-4 w-4 transform rounded-full  bg-white transition-transform ${
+                  settingsStore.maxItemsEnabled
+                    ? "translate-x-6"
+                    : "translate-x-1"
+                }`}
+              ></span>
+            </button>
+          </div>
+
+          <!-- Slider límite -->
+          {#if settingsStore.maxItemsEnabled}
+            <div>
+              <label class="block text-sm font-medium text-text mb-2">
+                Máximo: {settingsStore.maxLocalItems} items
+              </label>
+              <input
+                type="range"
+                min="100"
+                max="5000"
+                step="100"
+                value={settingsStore.maxLocalItems}
+                oninput={(e) =>
+                  settingsStore.updateMaxItems(parseInt(e.currentTarget.value))}
+                class="w-full"
+              />
+              <div class="flex justify-between text-xs text-text-muted mt-1">
+                <span>100</span>
+                <span>1000</span>
+                <span>5000</span>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Retención (NUEVO) -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="block text-sm font-medium text-text mb-1">
+                Auto-eliminar items antiguos
+              </p>
+              <p class="text-xs text-text-muted">
+                Eliminar items después de cierto tiempo
+              </p>
+            </div>
+            <button
+              onclick={() => settingsStore.toggleRetentionEnabled()}
+              class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                settingsStore.retentionEnabled ? "bg-primary" : "bg-border"
+              }`}
+              role="switch"
+            >
+              <span
+                class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  settingsStore.retentionEnabled
+                    ? "translate-x-6"
+                    : "translate-x-1"
+                }`}
+              ></span>
+            </button>
+          </div>
+
+          {#if settingsStore.retentionEnabled}
+            <div class="grid grid-cols-3 gap-2">
+              {#each [7, 30, 90, 180, 365] as days}
+                <button
+                  onclick={() => settingsStore.updateRetentionDays(days)}
+                  class="px-3 py-2 text-sm rounded transition-colors {settingsStore.retentionDays ===
+                  days
+                    ? 'bg-primary text-white'
+                    : 'bg-background text-text-muted hover:bg-surface-hover'}"
+                >
+                  {days === 7
+                    ? "7 días"
+                    : days === 30
+                      ? "1 mes"
+                      : days === 90
+                        ? "3 meses"
+                        : days === 180
+                          ? "6 meses"
+                          : "1 año"}
+                </button>
+              {/each}
+            </div>
+          {/if}
+        </div>
+      </section>
+
+      <!-- Uso de Memoria (NUEVO) -->
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Icon name="trash" size={20} />
+          Uso de Memoria
+        </h2>
+        <div class="bg-surface rounded-lg border border-border p-6 space-y-4">
+          <button
+            onclick={async () => await settingsStore.loadDatabaseStats()}
+            class="text-sm text-primary hover:underline"
+          >
+            Actualizar estadísticas
+          </button>
+
+          {#if settingsStore.dbStats}
+            <div class="space-y-2">
+              <div class="flex justify-between text-sm">
+                <span class="text-text-muted">Total de items:</span>
+                <span class="text-text font-medium">
+                  {settingsStore.dbStats.total_items}
+                </span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-text-muted">Favoritos:</span>
+                <span class="text-text font-medium">
+                  {settingsStore.dbStats.favorites}
+                </span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-text-muted">Snippets:</span>
+                <span class="text-text font-medium">
+                  {settingsStore.dbStats.snippets}
+                </span>
+              </div>
+              <div class="flex justify-between text-sm">
+                <span class="text-text-muted">Tamaño en disco:</span>
+                <span class="text-text font-medium">
+                  {settingsStore.dbStats.database_size_mb.toFixed(2)} MB
+                </span>
+              </div>
+            </div>
+
+            <div class="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={async () => {
+                  const deleted = await settingsStore.cleanupOldItems();
+                  alert(`${deleted} items eliminados`);
+                }}
+              >
+                Limpiar items antiguos
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={async () => {
+                  await settingsStore.optimizeDatabase();
+                  alert("Base de datos optimizada");
+                }}
+              >
+                Optimizar DB
+              </Button>
+            </div>
+          {/if}
         </div>
       </section>
 

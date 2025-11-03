@@ -197,3 +197,40 @@ export async function tauriCountSearchResultsFTS(
   console.log("✅ tauriCountSearchResultsFTS returned:", count);
   return count;
 }
+
+// Settings y limpieza
+export async function tauriCleanupOldItems(
+  retentionDays: number | null
+): Promise<number> {
+  return await invoke<number>("cleanup_old_items", {
+    retentionDays,
+  });
+}
+
+export async function tauriCleanupExcessItems(
+  maxItems: number | null
+): Promise<number> {
+  return await invoke<number>("cleanup_excess_items", {
+    maxItems,
+  });
+}
+
+export async function tauriGetDatabaseSize(): Promise<number> {
+  return await invoke<number>("get_database_size");
+}
+
+export async function tauriOptimizeDatabase(): Promise<void> {
+  await invoke("optimize_database");
+}
+
+export interface DatabaseStats {
+  total_items: number;
+  favorites: number;
+  snippets: number;
+  database_size_bytes: number;
+  database_size_mb: number;
+}
+
+export async function tauriGetDatabaseStats(): Promise<DatabaseStats> {
+  return await invoke<DatabaseStats>("get_database_stats");
+}

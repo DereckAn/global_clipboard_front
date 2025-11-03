@@ -3,6 +3,7 @@ mod colors;
 mod commands;
 mod db;
 mod shortcuts;
+mod cleanup;
 
 use clipboard::ClipboardMonitor;
 use commands::AppState;
@@ -128,6 +129,11 @@ pub fn run() {
             commands::count_clipboard_items,
             commands::search_clipboard_items_fts,
             commands::count_search_results_fts,
+            commands::cleanup_old_items,
+            commands::cleanup_excess_items,
+            commands::get_database_size,
+            commands::optimize_database,
+            commands::get_database_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

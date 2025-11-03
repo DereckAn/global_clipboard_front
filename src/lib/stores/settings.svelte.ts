@@ -1,4 +1,12 @@
-import { tauriGetSetting, tauriUpdateGlobalHotkey } from "$lib/tauri/commands";
+import {
+  tauriCleanupExcessItems,
+  tauriCleanupOldItems,
+  tauriGetDatabaseStats,
+  tauriGetSetting,
+  tauriOptimizeDatabase,
+  tauriUpdateGlobalHotkey,
+  type DatabaseStats,
+} from "$lib/tauri/commands";
 import { DEFAULT_SETTINGS } from "$lib/types";
 
 interface Settings {
@@ -12,6 +20,16 @@ class SettingsStore {
   hotkey = $state<string>("CommandOrControl+Shift+V");
   isLoading = $state(false);
   error = $state<string | null>(null);
+
+  maxItemsEnabled = $state(DEFAULT_SETTINGS.maxItemsEnabled);
+  retentionEnabled = $state(DEFAULT_SETTINGS.retentionEnabled);
+  retentionDays = $state(DEFAULT_SETTINGS.retentionDays);
+  clipboardMonitorInterval = $state(DEFAULT_SETTINGS.clipboardMonitorInterval);
+  notificationsEnabled = $state(DEFAULT_SETTINGS.notificationsEnabled);
+  notificationSound = $state(DEFAULT_SETTINGS.notificationSound);
+  autoStart = $state(DEFAULT_SETTINGS.autoStart);
+
+  dbStats = $state<DatabaseStats | null>(null);
 
   constructor() {
     // Load from localStorage
@@ -27,6 +45,23 @@ class SettingsStore {
           this.showHotkey = parsed.showHotkey ?? DEFAULT_SETTINGS.showHotkey;
           this.enableAnalytics =
             parsed.enableAnalytics ?? DEFAULT_SETTINGS.enableAnalytics;
+
+          // NUEVOS campos
+          this.maxItemsEnabled =
+            parsed.maxItemsEnabled ?? DEFAULT_SETTINGS.maxItemsEnabled;
+          this.retentionEnabled =
+            parsed.retentionEnabled ?? DEFAULT_SETTINGS.retentionEnabled;
+          this.retentionDays =
+            parsed.retentionDays ?? DEFAULT_SETTINGS.retentionDays;
+          this.clipboardMonitorInterval =
+            parsed.clipboardMonitorInterval ??
+            DEFAULT_SETTINGS.clipboardMonitorInterval;
+          this.notificationsEnabled =
+            parsed.notificationsEnabled ??
+            DEFAULT_SETTINGS.notificationsEnabled;
+          this.notificationSound =
+            parsed.notificationSound ?? DEFAULT_SETTINGS.notificationSound;
+          this.autoStart = parsed.autoStart ?? DEFAULT_SETTINGS.autoStart;
         } catch (err) {
           console.error("Failed to load settings store:", err);
         }
@@ -54,11 +89,34 @@ class SettingsStore {
     this.save();
   }
 
+  toggleMaxItemsEnabled() {
+    this.maxItemsEnabled = !this.maxItemsEnabled;
+    this.save();
+  }
+
+  updateMaxItems(value: number) {
+    this.maxLocalItems = value;
+    this.save();
+  }
+
+  toggleRetentionEnabled() {
+    this.retentionEnabled = !this.retentionEnabled;
+    this.save();
+  }
+
+  updateRetentionDays(days: number) {
+    this.retentionDays = days;
+    this.save();
+  }
+
   reset() {
     this.maxLocalItems = DEFAULT_SETTINGS.maxLocalItems;
     this.autoSaveClipboard = DEFAULT_SETTINGS.autoSaveClipboard;
     this.showHotkey = DEFAULT_SETTINGS.showHotkey;
     this.enableAnalytics = DEFAULT_SETTINGS.enableAnalytics;
+    this.maxItemsEnabled = DEFAULT_SETTINGS.maxItemsEnabled;
+    this.retentionEnabled = DEFAULT_SETTINGS.retentionEnabled;
+    this.retentionDays = DEFAULT_SETTINGS.retentionDays;
     this.save();
   }
 
@@ -96,6 +154,54 @@ class SettingsStore {
     }
   }
 
+  async loadDatabaseStats() {
+    try {
+      this.dbStats = await tauriGetDatabaseStats();
+    } catch (err) {
+      console.error("Failed to load database stats:", err);
+    }
+  }
+
+  async cleanupOldItems() {
+    if (!this.retentionEnabled) return 0;
+
+    try {
+      const deleted = await tauriCleanupOldItems(
+        this.retentionDays > 0 ? this.retentionDays : null
+      );
+      await this.loadDatabaseStats();
+      return deleted;
+    } catch (err) {
+      console.error("Failed to cleanup old items:", err);
+      throw err;
+    }
+  }
+
+  async cleanupExcessItems() {
+    if (!this.maxItemsEnabled) return 0;
+
+    try {
+      const deleted = await tauriCleanupExcessItems(
+        this.maxLocalItems > 0 ? this.maxLocalItems : null
+      );
+      await this.loadDatabaseStats();
+      return deleted;
+    } catch (err) {
+      console.error("Failed to cleanup excess items:", err);
+      throw err;
+    }
+  }
+
+  async optimizeDatabase() {
+    try {
+      await tauriOptimizeDatabase();
+      await this.loadDatabaseStats();
+    } catch (err) {
+      console.error("Failed to optimize database:", err);
+      throw err;
+    }
+  }
+
   private save() {
     if (typeof window !== "undefined") {
       try {
@@ -106,6 +212,13 @@ class SettingsStore {
             autoSaveClipboard: this.autoSaveClipboard,
             showHotkey: this.showHotkey,
             enableAnalytics: this.enableAnalytics,
+            maxItemsEnabled: this.maxItemsEnabled,
+            retentionEnabled: this.retentionEnabled,
+            retentionDays: this.retentionDays,
+            clipboardMonitorInterval: this.clipboardMonitorInterval,
+            notificationsEnabled: this.notificationsEnabled,
+            notificationSound: this.notificationSound,
+            autoStart: this.autoStart,
           })
         );
       } catch (err) {

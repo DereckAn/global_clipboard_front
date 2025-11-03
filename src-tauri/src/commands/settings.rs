@@ -1,5 +1,7 @@
-use std::fs;
-use tauri::{AppHandle, Manager, Runtime};
+use crate::cleanup;
+use crate::AppState;
+use std::{fs, sync::Mutex};
+use tauri::{AppHandle, Manager, Runtime, State};
 
 #[tauri::command]
 pub fn get_setting<R: Runtime>(app: AppHandle<R>, key: String) -> Result<String, String> {
@@ -79,4 +81,73 @@ pub fn get_current_shortcut(app: AppHandle) -> Result<String, String> {
 #[tauri::command]
 pub fn unregister_shortcut(app: AppHandle) -> Result<(), String> {
     crate::shortcuts::unregister_all_shortcuts(&app)
+}
+
+#[tauri::command]
+pub fn cleanup_old_items(
+    retention_days: Option<i32>,
+    state: State<Mutex<AppState>>,
+) -> Result<usize, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let conn = rusqlite::Connection::open(&app_state.db_path).map_err(|e| e.to_string())?;
+    cleanup::cleanup_old_items(&conn, retention_days).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn cleanup_excess_items(
+    max_items: Option<i32>,
+    state: State<Mutex<AppState>>,
+) -> Result<usize, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let conn = rusqlite::Connection::open(&app_state.db_path).map_err(|e| e.to_string())?;
+    cleanup::cleanup_excess_items(&conn, max_items).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_database_size(state: State<Mutex<AppState>>) -> Result<u64, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    cleanup::get_database_size(&app_state.db_path).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn optimize_database(state: State<Mutex<AppState>>) -> Result<(), String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let conn = rusqlite::Connection::open(&app_state.db_path).map_err(|e| e.to_string())?;
+    cleanup::optimize_database(&conn).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn get_database_stats(state: State<Mutex<AppState>>) -> Result<serde_json::Value, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let conn = rusqlite::Connection::open(&app_state.db_path).map_err(|e| e.to_string())?;
+
+    let total_items: i64 = conn
+        .query_row("SELECT COUNT(*) FROM clipboard_items", [], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+
+    let favorites: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM clipboard_items WHERE is_favorite = 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let snippets: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM clipboard_items WHERE is_snippet = 1",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(|e| e.to_string())?;
+
+    let db_size = cleanup::get_database_size(&app_state.db_path).map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "total_items": total_items,
+        "favorites": favorites,
+        "snippets": snippets,
+        "database_size_bytes": db_size,
+        "database_size_mb": (db_size as f64) / (1024.0 * 1024.0),
+    }))
 }
