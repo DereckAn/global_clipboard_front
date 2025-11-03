@@ -11,6 +11,7 @@
   },
   "app": {
     "withGlobalTauri": true,
+    "macOSPrivateApi": true,
     "windows": [
       {
         "title": "Global Clipboard",
@@ -21,9 +22,9 @@
         "center": true,
         "visible": true,
         "skipTaskbar": true,
-        "decorations": true,
+        "decorations": false,
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true
+        "transparent": true
       }
     ],
     "security": {

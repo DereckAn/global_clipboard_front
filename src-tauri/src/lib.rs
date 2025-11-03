@@ -12,44 +12,6 @@ use commands::AppState;
 use std::sync::Mutex;
 use tauri::Manager;
 
-// Importar el macro msg_send
-#[cfg(target_os = "macos")]
-#[macro_use]
-extern crate objc;
-
-// Función setup_macos_window - DEBE IR ANTES de run()
-#[cfg(target_os = "macos")]
-fn setup_macos_window(window: &tauri::WebviewWindow) {
-    use cocoa::appkit::NSWindowButton;
-    use cocoa::base::id;
-
-    unsafe {
-        let ns_window = window.ns_window().unwrap() as id;
-
-        // Ocultar botones de semáforo
-        let close_button: id =
-            msg_send![ns_window, standardWindowButton: NSWindowButton::NSWindowCloseButton];
-        let miniaturize_button: id =
-            msg_send![ns_window, standardWindowButton: NSWindowButton::NSWindowMiniaturizeButton];
-        let zoom_button: id =
-            msg_send![ns_window, standardWindowButton: NSWindowButton::NSWindowZoomButton];
-
-        if !close_button.is_null() {    
-            let _: () = msg_send![close_button, setHidden: 1];
-        }
-        if !miniaturize_button.is_null() {
-            let _: () = msg_send![miniaturize_button, setHidden: 1];
-        }
-        if !zoom_button.is_null() {
-            let _: () = msg_send![zoom_button, setHidden: 1];
-        }
-
-        // Ocultar título pero mantener barra
-        let _: () = msg_send![ns_window, setTitleVisibility: 1]; // NSWindowTitleHidden = 1
-        let _: () = msg_send![ns_window, setTitlebarAppearsTransparent: 1]; // YES = 1
-    }
-}
-
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -59,12 +21,6 @@ pub fn run() {
             // Ocultar del Dock en macOS
             #[cfg(target_os = "macos")]
             app.set_activation_policy(tauri::ActivationPolicy::Accessory);
-
-            #[cfg(target_os = "macos")]
-            {
-                let window = app.get_webview_window("main").unwrap();
-                setup_macos_window(&window);
-            }
 
             // Get app data directory
             let app_data_dir = app
@@ -126,33 +82,40 @@ pub fn run() {
             match shortcuts::register_shortcut_upon_start(&app_handle, &saved_hotkey) {
                 Ok(_) => {
                     println!("Clipboard manager initialized");
-                    println!("Global hotkey registered: {saved_hotkey}");
+                    println!(
+                        "Global hotkey registered: 
+  {saved_hotkey}"
+                    );
                 }
                 Err(e) => {
                     eprintln!(
-                        "Warning: Failed to register global   shortcut '{saved_hotkey}': {e}"
+                        "Warning: Failed to register global 
+  shortcut '{saved_hotkey}': {e}"
                     );
-                    eprintln!("The application will continue without the global shortcut.");
-                    eprintln!("You can try changing it in Settings.");
+                    eprintln!(
+                        "The application will continue 
+  without the global shortcut."
+                    );
+                    eprintln!(
+                        "You can try changing it in 
+  Settings."
+                    );
                 }
             }
 
             Ok(())
         })
-        .on_window_event(|window, event| {
-            match event {
-                tauri::WindowEvent::CloseRequested { api, .. } => {
-                    window.hide().unwrap();
-                    api.prevent_close();
-                }
-                tauri::WindowEvent::Focused(focused) => {
-                    // Ocultar cuando pierde el foco
-                    if !focused {
-                        let _ = window.hide();
-                    }
-                }
-                _ => {}
+        .on_window_event(|window, event| match event {
+            tauri::WindowEvent::CloseRequested { api, .. } => {
+                window.hide().unwrap();
+                api.prevent_close();
             }
+            tauri::WindowEvent::Focused(focused) => {
+                if !focused {
+                    let _ = window.hide();
+                }
+            }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             commands::get_clipboard_item,

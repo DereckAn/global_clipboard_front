@@ -117,7 +117,7 @@
   });
 </script>
 
-<div class="h-screen w-screen overflow-hidden flex flex-col bg-background">
+<div class="h-screen w-screen overflow-hidden flex flex-col bg-background rounded-xl">
   <!-- Header -->
   <Header
     bind:searchQuery
