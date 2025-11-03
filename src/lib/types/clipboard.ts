@@ -48,7 +48,6 @@ export interface ClipboardRepository {
   // Queries
   getItems(options?: GetItemsOptions): Promise<ClipboardItem[]>;
   getItem(id: string): Promise<ClipboardItem | null>;
-  searchItems(query: string): Promise<ClipboardItem[]>;
   getFavorites(): Promise<ClipboardItem[]>;
   getSnippets(): Promise<ClipboardItem[]>;
 

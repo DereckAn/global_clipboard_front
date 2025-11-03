@@ -75,8 +75,6 @@ export async function tauriDeleteItem(id: string): Promise<void> {
   await invoke("delete_clipboard_item", { id });
 }
 
-// Removed: Use tauriSearchItemsPaginated() instead for better performance
-
 export async function tauriClearAllItems(): Promise<void> {
   await invoke("clear_all_clipboard_items");
 }

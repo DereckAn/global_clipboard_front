@@ -11,7 +11,6 @@ import {
   tauriDeleteItem,
   tauriGetItem,
   tauriGetItemsPaginated,
-  tauriSearchItemsPaginated,
   tauriUpdateItem,
 } from "./commands";
 
@@ -41,11 +40,6 @@ class TauriClipboardRepository implements ClipboardRepository {
 
   async getItem(id: string): Promise<ClipboardItem | null> {
     return await tauriGetItem(id);
-  }
-
-  async searchItems(query: string): Promise<ClipboardItem[]> {
-    // Use paginated search with default limit
-    return await tauriSearchItemsPaginated(query, 100, 0);
   }
 
   async getFavorites(): Promise<ClipboardItem[]> {

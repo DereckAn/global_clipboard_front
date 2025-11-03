@@ -6,19 +6,7 @@ Este documento contiene el plan de desarrollo futuro del proyecto, organizado po
 
 ### 🔴 Crítico - Arreglar Primero
 
-1. **Search bar no funciona**
-   - **Problema**: Cuando el usuario escribe en el search bar, no aparece nada
-   - **Posible causa**: Tal vez funciona pero no hay feedback visual, o los items no son clickeables
-   - **Investigar**:
-     - ¿Los eventos de teclado se están capturando?
-     - ¿La búsqueda se está ejecutando en el backend?
-     - ¿Los resultados se están mostrando pero no son clickeables?
-   - **Archivos a revisar**:
-     - `src/lib/components/header/SearchBar.svelte`
-     - `src/routes/+page.svelte` (lógica de filtrado)
-     - `src/lib/stores/clipboard.svelte.ts` (método search)
-   - **Dificultad**: 🟢 Fácil
-   - **Prioridad**: 🔴 Alta
+- No hay bugs todavia
 
 ---
 
@@ -26,15 +14,6 @@ Este documento contiene el plan de desarrollo futuro del proyecto, organizado po
 
 ### 🟢 Fase 1: Mejoras Básicas de UI/UX (Fácil)
 
-#### 1.1 Mejorar Diseño Visual
-- [ ] Refinar colores y espaciados
-- [ ] Añadir animaciones suaves (transiciones)
-- [ ] Mejorar iconografía
-- [ ] Añadir estados hover más claros
-- [ ] Mejorar tipografía
-- **Dificultad**: 🟢 Fácil
-- **Tiempo estimado**: 2-3 días
-- **Archivos**: `src/app.css`, componentes en `src/lib/components/`
 
 #### 1.2 Interpretar y Mostrar SVG
 - [ ] Detectar cuando el clipboard contiene SVG
