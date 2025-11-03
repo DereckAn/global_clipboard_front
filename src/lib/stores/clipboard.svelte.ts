@@ -1,9 +1,9 @@
 import {
-  tauriCountItems,
+  tauriCountItems, // AGREGAR
+  tauriCountSearchResultsFTS,
   tauriGetItemsPaginated,
   tauriRemoveDuplicates,
-  tauriSearchItemsPaginated,
-  tauriCountSearchResults,
+  tauriSearchItemsFTS,
 } from "$lib/tauri/commands";
 import { clipboardRepository } from "$lib/tauri/storage";
 import type {
@@ -155,12 +155,12 @@ class ClipboardStore {
     try {
       console.log("🔍 Calling tauriSearchItemsPaginated...");
       // Buscar en base de datos (primeros 100 resultados)
-      this.items = await tauriSearchItemsPaginated(query, this.pageSize, 0);
+      this.items = await tauriSearchItemsFTS(query, this.pageSize, 0);
       console.log("📊 Search returned", this.items.length, "items");
 
       // Contar total de resultados de búsqueda
       console.log("🔢 Counting total results...");
-      this.totalItems = await tauriCountSearchResults(query);
+      this.totalItems = await tauriCountSearchResultsFTS(query);
       console.log("📈 Total results:", this.totalItems);
 
       // Verificar si hay más resultados
@@ -174,7 +174,7 @@ class ClipboardStore {
     }
   }
 
-  // NUEVO: Cargar más resultados de búsqueda
+  // Cargar más resultados de búsqueda
   async loadMoreSearchResults(query: string) {
     if (!this.hasMore || this.isLoadingMore || !query.trim()) return;
 
@@ -185,7 +185,7 @@ class ClipboardStore {
       this.currentPage++;
       const offset = this.currentPage * this.pageSize;
 
-      const moreItems = await tauriSearchItemsPaginated(query, this.pageSize, offset);
+      const moreItems = await tauriSearchItemsFTS(query, this.pageSize, offset);
 
       // Agregar nuevos items al final
       this.items = [...this.items, ...moreItems];
@@ -194,7 +194,9 @@ class ClipboardStore {
       this.hasMore = this.items.length < this.totalItems;
     } catch (err) {
       this.error =
-        err instanceof Error ? err.message : "Failed to load more search results";
+        err instanceof Error
+          ? err.message
+          : "Failed to load more search results";
       console.error("Failed to load more search results:", err);
       this.currentPage--; // Revertir el incremento
     } finally {

@@ -14,8 +14,6 @@ impl ClipboardRepository {
         Ok(Self { conn })
     }
 
-    // Removed: Use get_items_paginated() instead for better performance
-
     pub fn get_item(&self, id: &str) -> Result<Option<ClipboardItem>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
@@ -182,76 +180,83 @@ impl ClipboardRepository {
         items.collect()
     }
 
-    // NUEVO: Contar total de items
+    // Contar total de items
     pub fn count_items(&self) -> Result<i64> {
         let mut stmt = self.conn.prepare("SELECT COUNT(*) FROM clipboard_items")?;
         let count: i64 = stmt.query_row([], |row| row.get(0))?;
         Ok(count)
     }
 
-    // NUEVO: Búsqueda con paginación - Busca en múltiples campos
-    pub fn search_items_paginated(
+    pub fn search_items_fts(
         &self,
         query: &str,
         limit: i64,
         offset: i64,
     ) -> Result<Vec<ClipboardItem>> {
-        let search_term = format!("%{}%", query);
+        // Preparar query para FTS5
+        // Si tiene espacios, asumimos búsqueda de frase exacta
+        let fts_query = if query.contains(' ') {
+            format!("\"{}\"", query)
+        } else {
+            // Búsqueda de palabra con prefijo (para autocompletado)
+            format!("{}*", query)
+        };
+
         let mut stmt = self.conn.prepare(
-            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
-                    file_url, file_name, file_size_bytes, file_mime_type,
-                    is_favorite, is_snippet, snippet_name,
-                    created_at, updated_at, synced, server_id
-             FROM clipboard_items
-             WHERE content_text LIKE ?1
-                OR content_metadata LIKE ?1
-                OR file_name LIKE ?1
-                OR snippet_name LIKE ?1
-                OR code_language LIKE ?1
-             ORDER BY created_at DESC
-             LIMIT ?2 OFFSET ?3",
+            "SELECT ci.id, ci.content_type, ci.content_text, ci.content_metadata, 
+                  ci.source_app, ci.code_language,
+                  ci.file_url, ci.file_name, ci.file_size_bytes, ci.file_mime_type,
+                  ci.is_favorite, ci.is_snippet, ci.snippet_name,
+                  ci.created_at, ci.updated_at, ci.synced, ci.server_id,
+                  bm25(clipboard_items_fts) as rank
+           FROM clipboard_items ci
+           INNER JOIN clipboard_items_fts fts ON ci.id = fts.id
+           WHERE clipboard_items_fts MATCH ?1
+           ORDER BY rank
+           LIMIT ?2 OFFSET ?3",
         )?;
 
-        let items = stmt.query_map(
-            params![&search_term, limit, offset],
-            |row| {
-                Ok(ClipboardItem {
-                    id: row.get(0)?,
-                    content_type: row.get(1)?,
-                    content_text: row.get(2)?,
-                    content_metadata: row.get(3)?,
-                    source_app: row.get(4)?,
-                    code_language: row.get(5)?,
-                    file_url: row.get(6)?,
-                    file_name: row.get(7)?,
-                    file_size_bytes: row.get(8)?,
-                    file_mime_type: row.get(9)?,
-                    is_favorite: row.get(10)?,
-                    is_snippet: row.get(11)?,
-                    snippet_name: row.get(12)?,
-                    created_at: row.get(13)?,
-                    updated_at: row.get(14)?,
-                    synced: row.get(15)?,
-                    server_id: row.get(16)?,
-                })
-            },
-        )?;
+        let items = stmt.query_map(params![&fts_query, limit, offset], |row| {
+            Ok(ClipboardItem {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                content_text: row.get(2)?,
+                content_metadata: row.get(3)?,
+                source_app: row.get(4)?,
+                code_language: row.get(5)?,
+                file_url: row.get(6)?,
+                file_name: row.get(7)?,
+                file_size_bytes: row.get(8)?,
+                file_mime_type: row.get(9)?,
+                is_favorite: row.get(10)?,
+                is_snippet: row.get(11)?,
+                snippet_name: row.get(12)?,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+                synced: row.get(15)?,
+                server_id: row.get(16)?,
+                // Ignoramos rank (row 17) por ahora
+            })
+        })?;
 
         items.collect()
     }
 
-    // NUEVO: Contar resultados de búsqueda
-    pub fn count_search_results(&self, query: &str) -> Result<i64> {
-        let search_term = format!("%{}%", query);
+    // Contar resultados FTS
+    pub fn count_search_results_fts(&self, query: &str) -> Result<i64> {
+        let fts_query = if query.contains(' ') {
+            format!("\"{}\"", query)
+        } else {
+            format!("{}*", query)
+        };
+
         let mut stmt = self.conn.prepare(
-            "SELECT COUNT(*) FROM clipboard_items
-             WHERE content_text LIKE ?1
-                OR content_metadata LIKE ?1
-                OR file_name LIKE ?1
-                OR snippet_name LIKE ?1
-                OR code_language LIKE ?1",
+            "SELECT COUNT(*) 
+           FROM clipboard_items_fts 
+           WHERE clipboard_items_fts MATCH ?1",
         )?;
-        let count: i64 = stmt.query_row([&search_term], |row| row.get(0))?;
+
+        let count: i64 = stmt.query_row([&fts_query], |row| row.get(0))?;
         Ok(count)
     }
 }

@@ -174,24 +174,28 @@ export async function tauriCountItems(): Promise<number> {
   return await invoke<number>("count_clipboard_items");
 }
 
-export async function tauriSearchItemsPaginated(
+export async function tauriSearchItemsFTS(
   query: string,
   limit: number,
   offset: number
 ): Promise<ClipboardItem[]> {
-  console.log("🔌 tauriSearchItemsPaginated called:", { query, limit, offset });
-  const items = await invoke<any[]>("search_clipboard_items_paginated", {
+  console.log("🔌 tauriSearchItemsFTS called:", { query, limit, offset });
+  const items = await invoke<any[]>("search_clipboard_items_fts", {
     query,
     limit,
     offset,
   });
-  console.log("✅ tauriSearchItemsPaginated returned", items.length, "items");
+  console.log("✅ tauriSearchItemsFTS returned", items.length, "items");
   return items.map(deserializeClipboardItem);
 }
 
-export async function tauriCountSearchResults(query: string): Promise<number> {
-  console.log("🔌 tauriCountSearchResults called:", query);
-  const count = await invoke<number>("count_search_results", { query });
-  console.log("✅ tauriCountSearchResults returned:", count);
+export async function tauriCountSearchResultsFTS(
+  query: string
+): Promise<number> {
+  console.log("🔌 tauriCountSearchResultsFTS called:", query);
+  const count = await invoke<number>("count_search_results_fts", {
+    query,
+  });
+  console.log("✅ tauriCountSearchResultsFTS returned:", count);
   return count;
 }

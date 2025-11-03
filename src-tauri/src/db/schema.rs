@@ -47,5 +47,8 @@ pub fn init_database(conn: &Connection) -> Result<()> {
         [],
     )?;
 
+    crate::db::fts_migration::init_fts_table(conn)?;
+    crate::db::fts_migration::create_fts_triggers(conn)?;
+
     Ok(())
 }
