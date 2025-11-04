@@ -6,6 +6,7 @@
     tauriExtractDomain,
     tauriFetchLinkMetadata,
     tauriWriteToClipboard,
+    tauriBumpItem,
     type LinkMetadata,
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
@@ -94,13 +95,17 @@
   // Copy handlers
   const handleCopy = async (text: string) => {
     try {
-      // Delete current item first
+      // Bump item to top (update timestamp)
       if (item?.id) {
-        await clipboardStore.deleteItem(item.id);
+        await tauriBumpItem(item.id);
       }
 
-      // Copy to clipboard (monitor will create new item automatically)
+      // Copy to clipboard (monitor will detect and bump again if needed)
       await tauriWriteToClipboard(text);
+
+      // Reload items to reflect new order
+      await clipboardStore.loadItems();
+
       copied = true;
       setTimeout(() => {
         copied = false;

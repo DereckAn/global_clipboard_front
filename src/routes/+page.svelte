@@ -105,8 +105,23 @@
       console.log("New clipboard item received:", event.payload);
       const newItem = deserializeClipboardItem(event.payload);
 
-      // Add to store (prepend to beginning)
-      clipboardStore.items = [newItem, ...clipboardStore.items];
+      // Check if item already exists (prevent duplicates)
+      const existingIndex = clipboardStore.items.findIndex(
+        (item) => item.id === newItem.id
+      );
+
+      if (existingIndex !== -1) {
+        // Item exists - replace it and move to top
+        const updatedItems = [...clipboardStore.items];
+        updatedItems.splice(existingIndex, 1); // Remove from old position
+        updatedItems.unshift(newItem); // Add to beginning
+        clipboardStore.items = updatedItems;
+        console.log("Item bumped to top:", newItem.id);
+      } else {
+        // New item - add to beginning
+        clipboardStore.items = [newItem, ...clipboardStore.items];
+        console.log("New item added:", newItem.id);
+      }
     });
   });
 

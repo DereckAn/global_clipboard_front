@@ -5,12 +5,12 @@
   import {
     tauriExtractDomain,
     tauriWriteToClipboard,
+    tauriBumpItem,
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
   import { getContentTypeIcon } from "$lib/utils/format";
   import { getLanguageInfo } from "$lib/utils/languages";
-  import { sanitizeSvg } from "$lib/utils/svg";
 
   interface Props {
     item: ClipboardItem;
@@ -32,10 +32,6 @@
   const isLink = $derived(item.contentType === "link");
   const isCode = $derived(item.contentType === "code");
   const isSvg = $derived(item.contentType === "svg");
-  const safeSvg = $derived.by(() => {
-    if (!isSvg || !item?.contentText) return "";
-    return sanitizeSvg(item.contentText);
-  });
   const languageInfo = $derived(
     isCode ? getLanguageInfo(item.codeLanguage) : null
   );
@@ -63,12 +59,16 @@
   const handleDoubleClick = async () => {
     if (item.contentText) {
       try {
-        // Delete current item first
-        await clipboardStore.deleteItem(item.id);
+        // Bump item to top (update timestamp)
+        await tauriBumpItem(item.id);
 
-        // Copy to clipboard (monitor will create new item automatically)
+        // Copy to clipboard (monitor will detect and bump again if needed)
         await tauriWriteToClipboard(item.contentText);
-        console.log("Copied to clipboard");
+
+        // Reload items to reflect new order
+        await clipboardStore.loadItems();
+
+        console.log("Copied to clipboard and bumped to top");
       } catch (err) {
         console.error("Failed to copy:", err);
       }
@@ -191,14 +191,12 @@
         />
       </div>
     {:else if isSvg}
-      <!-- Show SVG preview thumbnail -->
-      <div
-        class="w-6 h-6 flex items-center justify-center bg-surface-hover rounded overflow-hidden"
-        title="SVG"
-      >
-        <div class="w-full h-full flex items-center justify-center scale-75">
-          {@html safeSvg}
-        </div>
+      <!-- Show SVG icon with badge -->
+      <div class="relative w-6 h-6 flex items-center justify-center" title="SVG">
+        <Icon name="image" size={20} class="text-primary" />
+        <div
+          class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full border border-background"
+        ></div>
       </div>
     {:else}
       <!-- Show type icon -->

@@ -14,19 +14,6 @@ Este documento contiene el plan de desarrollo futuro del proyecto, organizado po
 
 ### 🟢 Fase 1: Mejoras Básicas de UI/UX (Fácil)
 
-
-#### 1.2 Interpretar y Mostrar SVG
-- [ ] Detectar cuando el clipboard contiene SVG
-- [ ] Crear componente para preview de SVG
-- [ ] Añadir tipo de contenido "svg" a la base de datos
-- [ ] Guardar SVG como texto en `content_text`
-- [ ] Renderizar SVG en el ContentViewer
-- **Dificultad**: 🟢 Fácil
-- **Tiempo estimado**: 1-2 días
-- **Archivos**:
-  - `src-tauri/src/clipboard/types.rs` (detección)
-  - `src/lib/components/content/ContentViewer.svelte` (renderizado)
-
 #### 1.3 Settings Mejorados
 - [ ] **Límite de items guardados**
   - Toggle para activar/desactivar límite

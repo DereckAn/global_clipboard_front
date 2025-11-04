@@ -238,6 +238,8 @@
               }}
               class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${settingsStore.maxItemsEnabled ? "bg-primary" : "bg-border"}`}
               role="switch"
+              aria-checked={settingsStore.maxItemsEnabled}
+              aria-label="Toggle limit saved items"
             >
               <span
                 class={`inline-block h-4 w-4 transform rounded-full  bg-white transition-transform ${
@@ -252,10 +254,14 @@
           <!-- Slider límite -->
           {#if settingsStore.maxItemsEnabled}
             <div>
-              <label class="block text-sm font-medium text-text mb-2">
+              <label
+                for="max-items-range"
+                class="block text-sm font-medium text-text mb-2"
+              >
                 Máximo: {settingsStore.maxLocalItems} items
               </label>
               <input
+                id="max-items-range"
                 type="range"
                 min="100"
                 max="5000"
@@ -285,6 +291,8 @@
             </div>
             <button
               onclick={() => settingsStore.toggleRetentionEnabled()}
+              aria-checked={settingsStore.retentionEnabled}
+              aria-label="Toggle retention of old items"
               class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
                 settingsStore.retentionEnabled ? "bg-primary" : "bg-border"
               }`}

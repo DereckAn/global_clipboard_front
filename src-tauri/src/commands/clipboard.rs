@@ -30,6 +30,28 @@ pub fn create_clipboard_item(
     repo.create_item(dto).map_err(|e| e.to_string())
 }
 
+/// Create or update item - prevents duplicates by bumping existing items
+#[tauri::command]
+pub fn upsert_clipboard_item(
+    dto: CreateClipboardItemDto,
+    state: State<Mutex<AppState>>,
+) -> Result<ClipboardItem, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.upsert_item(dto).map_err(|e| e.to_string())
+}
+
+/// Bump an existing item to the top (update timestamp)
+#[tauri::command]
+pub fn bump_clipboard_item(
+    id: String,
+    state: State<Mutex<AppState>>,
+) -> Result<ClipboardItem, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.bump_item(&id).map_err(|e| e.to_string())
+}
+
 #[tauri::command]
 pub fn update_clipboard_item(
     id: String,

@@ -1,5 +1,7 @@
 <script lang="ts">
+  import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import type { ClipboardItem } from "$lib/types";
+  import Icon from "../icons/Icon.svelte";
   import SidebarItem from "./SidebarItem.svelte";
 
   interface Props {
@@ -7,8 +9,9 @@
   }
 
   let { items }: Props = $props();
+  let isCleaningDuplicates = $state(false);
 
-  // Función para agrupar items por fecha
+  // Función para agrupar items por fecha (usa updatedAt para agrupar)
   function groupItemsByDate(items: ClipboardItem[]) {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -28,7 +31,9 @@
     };
 
     items.forEach((item) => {
-      const itemDate = new Date(item.createdAt);
+      // Usar updatedAt en lugar de createdAt para agrupar
+      // Así los items "bumped" aparecen en el grupo correcto
+      const itemDate = new Date(item.updatedAt);
       const itemDay = new Date(
         itemDate.getFullYear(),
         itemDate.getMonth(),
@@ -52,6 +57,20 @@
     return Object.entries(groups).filter(([_, items]) => items.length > 0);
   }
 
+  const handleCleanDuplicates = async () => {
+    if (isCleaningDuplicates) return;
+
+    isCleaningDuplicates = true;
+    try {
+      const deleted = await clipboardStore.removeDuplicates();
+      console.log(`Removed ${deleted} duplicate items`);
+    } catch (err) {
+      console.error("Failed to clean duplicates:", err);
+    } finally {
+      isCleaningDuplicates = false;
+    }
+  };
+
   const groupedItems = $derived(groupItemsByDate(items));
 </script>
 
@@ -59,12 +78,23 @@
   {#each groupedItems as [groupName, groupItems]}
     <div class="p-0">
       <!-- Group header -->
-      <div class="px-3 py-1 sticky top-0 bg-surface/95 backdrop-blur-sm z-10">
+      <div
+        class="px-3 py-1 sticky top-0 bg-surface/95 backdrop-blur-sm z-10 flex items-center justify-between"
+      >
         <h3
           class="text-xs font-semibold text-text-muted uppercase tracking-wide"
         >
           {groupName}
         </h3>
+        <!-- Clean duplicates button -->
+        <button
+          onclick={handleCleanDuplicates}
+          disabled={isCleaningDuplicates}
+          class=" hover:bg-surface-hover rounded transition-colors disabled:opacity-50 px-1"
+          title="Remove duplicate items"
+        >
+          <Icon name="trash" size={10} class="text-text-muted" />
+        </button>
       </div>
 
       <!-- Group items -->

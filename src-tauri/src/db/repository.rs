@@ -51,6 +51,58 @@ impl ClipboardRepository {
         }
     }
 
+    /// Find existing item by content_text to avoid duplicates
+    pub fn find_by_content(&self, content_text: &str) -> Result<Option<ClipboardItem>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
+                      file_url, file_name, file_size_bytes, file_mime_type,
+                      is_favorite, is_snippet, snippet_name,
+                      created_at, updated_at, synced, server_id
+               FROM clipboard_items
+               WHERE content_text = ?1
+               ORDER BY updated_at DESC
+               LIMIT 1",
+        )?;
+
+        let mut rows = stmt.query([content_text])?;
+
+        if let Some(row) = rows.next()? {
+            Ok(Some(ClipboardItem {
+                id: row.get(0)?,
+                content_type: row.get(1)?,
+                content_text: row.get(2)?,
+                content_metadata: row.get(3)?,
+                source_app: row.get(4)?,
+                code_language: row.get(5)?,
+                file_url: row.get(6)?,
+                file_name: row.get(7)?,
+                file_size_bytes: row.get(8)?,
+                file_mime_type: row.get(9)?,
+                is_favorite: row.get(10)?,
+                is_snippet: row.get(11)?,
+                snippet_name: row.get(12)?,
+                created_at: row.get(13)?,
+                updated_at: row.get(14)?,
+                synced: row.get(15)?,
+                server_id: row.get(16)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// "Bump" an existing item to the top by updating its timestamp
+    pub fn bump_item(&self, id: &str) -> Result<ClipboardItem> {
+        let now = Utc::now().to_rfc3339();
+
+        self.conn.execute(
+            "UPDATE clipboard_items SET updated_at = ?1 WHERE id = ?2",
+            params![now, id],
+        )?;
+
+        self.get_item(id).map(|opt| opt.unwrap())
+    }
+
     pub fn create_item(&self, dto: CreateClipboardItemDto) -> Result<ClipboardItem> {
         let id = Uuid::new_v4().to_string();
         let now = Utc::now().to_rfc3339();
@@ -74,6 +126,18 @@ impl ClipboardRepository {
         )?;
 
         self.get_item(&id).map(|opt| opt.unwrap())
+    }
+
+    /// Create or update item - prevents duplicates
+    pub fn upsert_item(&self, dto: CreateClipboardItemDto) -> Result<ClipboardItem> {
+        // Check if item with same content already exists
+        if let Some(existing) = self.find_by_content(&dto.content_text)? {
+            // Item exists, just bump it to the top
+            self.bump_item(&existing.id)
+        } else {
+            // New item, create it
+            self.create_item(dto)
+        }
     }
 
     pub fn update_item(&self, id: &str, dto: UpdateClipboardItemDto) -> Result<ClipboardItem> {
@@ -151,7 +215,7 @@ impl ClipboardRepository {
                     is_favorite, is_snippet, snippet_name,
                     created_at, updated_at, synced, server_id
              FROM clipboard_items
-             ORDER BY created_at DESC
+             ORDER BY updated_at DESC
              LIMIT ?1 OFFSET ?2",
         )?;
 

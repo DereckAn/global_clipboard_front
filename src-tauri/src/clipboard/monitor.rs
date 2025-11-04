@@ -70,47 +70,33 @@ impl ClipboardMonitor {
                             None
                         };
 
-                        // Save to database
+                        // Save to database using upsert (auto-deduplication)
                         if let Ok(repo) = ClipboardRepository::new(&repo_path) {
-                            // Check if last item has same content (deduplication)
-                            let should_save = match repo.get_items_paginated(1, 0) {
-                                Ok(items) => {
-                                    if let Some(last_item) = items.first() {
-                                        // Only save if content is different from last item
-                                        last_item.content_text.as_ref() != Some(&current_content)
-                                    } else {
-                                        true
-                                    }
-                                }
-                                Err(_) => true, // Save if can't check
+                            let dto = CreateClipboardItemDto {
+                                content_type,
+                                content_text: current_content.clone(),
+                                content_metadata: None,
+                                source_app,
+                                code_language,
                             };
 
-                            if should_save {
-                                let dto = CreateClipboardItemDto {
-                                    content_type,
-                                    content_text: current_content.clone(),
-                                    content_metadata: None,
-                                    source_app,
-                                    code_language,
-                                };
+                            // upsert_item will either:
+                            // 1. Create new item if content doesn't exist
+                            // 2. Bump existing item to top if content already exists
+                            match repo.upsert_item(dto) {
+                                Ok(item) => {
+                                    println!("Upserted clipboard item: {}", item.id);
 
-                                match repo.create_item(dto) {
-                                    Ok(item) => {
-                                        println!("Saved clipboard item: {}", item.id);
-
-                                        // Emit event to frontend
-                                        if let Err(e) =
-                                            app_handle.emit("clipboard-item-added", &item)
-                                        {
-                                            eprintln!(
-                                                "Failed to emit clipboard-item-added event: {e}"
-                                            );
-                                        }
+                                    // Emit event to frontend
+                                    if let Err(e) =
+                                        app_handle.emit("clipboard-item-added", &item)
+                                    {
+                                        eprintln!(
+                                            "Failed to emit clipboard-item-added event: {e}"
+                                        );
                                     }
-                                    Err(e) => eprintln!("Failed to save clipboard item: {e}"),
                                 }
-                            } else {
-                                println!("Skipping duplicate clipboard content");
+                                Err(e) => eprintln!("Failed to upsert clipboard item: {e}"),
                             }
                         }
 

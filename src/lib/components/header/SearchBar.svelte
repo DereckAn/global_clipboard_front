@@ -12,7 +12,7 @@
 
   let {
     value = $bindable(""),
-    placeholder = "Search clipboard...",
+    placeholder = "Search clipboard... | 2025-06-15",
     class: className,
     isSearching = false,
     resultCount,
@@ -29,33 +29,22 @@
   };
 </script>
 
-<div class={cn("relative flex items-center border-0", className)}>
-  <!-- Search icon or loading spinner -->
-  <div class="absolute left-3 pointer-events-none">
-    {#if isSearching}
-      <div class="animate-spin">
-        <Icon name="loader" size={16} class="text-text-muted" />
-      </div>
-    {:else}
-      <Icon name="search" size={16} class="text-text-muted" />
-    {/if}
-  </div>
-
+<div class={cn("relative flex flex-1 items-center border-0", className)}>
   <!-- Input -->
   <input
     type="text"
     bind:value
     onkeydown={handleKeyDown}
     {placeholder}
-    class={`w-full h-10 pl-10 pr-10 rounded-md text-md bg-background
-  text-text placeholder:text-text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent transition-colors`}
+    class={`w-full h-7  pr-10 rounded-md text-md text-text placeholder:text-text-muted focus:outline-none`}
   />
 
   <!-- Result count or Clear button -->
   <div class="absolute right-3 flex items-center gap-2">
     {#if value && resultCount !== undefined && !isSearching}
       <span class="text-xs text-text-muted">
-        {resultCount} {resultCount === 1 ? 'result' : 'results'}
+        {resultCount}
+        {resultCount === 1 ? "result" : "results"}
       </span>
     {/if}
 

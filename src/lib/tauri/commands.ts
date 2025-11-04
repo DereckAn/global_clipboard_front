@@ -55,6 +55,34 @@ export async function tauriCreateItem(
   return deserializeClipboardItem(item);
 }
 
+/**
+ * Upsert item - creates new or bumps existing to top (prevents duplicates)
+ */
+export async function tauriUpsertItem(
+  dto: CreateClipboardItemDto
+): Promise<ClipboardItem> {
+  // Convert to snake_case for Rust
+  const rustDto = {
+    content_type: dto.contentType,
+    content_text: dto.contentText,
+    content_metadata: dto.contentMetadata
+      ? JSON.stringify(dto.contentMetadata)
+      : undefined,
+    source_app: undefined, // Will be detected by backend
+  };
+
+  const item = await invoke<any>("upsert_clipboard_item", { dto: rustDto });
+  return deserializeClipboardItem(item);
+}
+
+/**
+ * Bump item to top (update timestamp)
+ */
+export async function tauriBumpItem(id: string): Promise<ClipboardItem> {
+  const item = await invoke<any>("bump_clipboard_item", { id });
+  return deserializeClipboardItem(item);
+}
+
 export async function tauriUpdateItem(
   id: string,
   dto: UpdateClipboardItemDto
