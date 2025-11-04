@@ -1,7 +1,7 @@
 # Global Clipboard Manager
 
 <div align="center">
-  <img src=".github/app-icon.png" alt="Global Clipboard Icon" width="128" height="128">
+  <img src=".github/patoblack.png" alt="Global Clipboard Icon" width=128 >
 
   <p><strong>A powerful, modern clipboard manager for macOS</strong></p>
 
@@ -48,7 +48,7 @@
 ## 📸 Screenshots
 
 <div align="center">
-  <img src=".github/app-icon.png" alt="App in macOS Dock" width="500">
+  <img src=".github/app.png" alt="App in macOS Dock" width="500">
   <p><em>Global Clipboard running in the macOS dock</em></p>
 </div>
 

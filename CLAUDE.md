@@ -6,14 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Global Clipboard Manager is a production-ready clipboard management application built with Tauri v2 (Rust backend + Svelte 5 frontend). It allows users to manage clipboard history with support for text, code, links, colors, images, and files.
 
-**Current Status**: v1.0 - Fully functional with core features implemented including:
+**Current Status**: v1.1 - Fully functional with advanced features implemented including:
 - ✅ Clipboard monitoring and auto-save
 - ✅ Smart content detection (text, code, colors, links, files)
 - ✅ Efficient pagination with infinite scroll
 - ✅ Dynamic global hotkeys
-- ✅ Search functionality
+- ✅ Full-text search with FTS5 (SQLite)
+- ✅ Search highlighting in results
 - ✅ Favorites and snippets
 - ✅ Date-based grouping
+- ✅ Advanced settings (item limits, retention policies, memory management)
+- ✅ Cross-platform window customization
 - ✅ Privacy-first local storage
 
 ## Technology Stack
@@ -121,16 +124,19 @@ The application follows **Clean Architecture** with clear layer separation:
     - `types.rs` - Content type detection (20+ code languages)
   - `commands/` - Tauri commands (API)
     - `clipboard.rs` - CRUD operations with pagination
-    - `settings.rs` - Settings & dynamic hotkey management
+    - `settings.rs` - Settings & dynamic hotkey management + cleanup commands
     - `colors.rs` - Color conversion (HEX, RGB, HSL, OKLCH)
     - `links.rs` - URL metadata fetching
     - `hotkey.rs` - Window visibility toggle
   - `db/` - Database layer
-    - `repository.rs` - Data access with server-side pagination
+    - `repository.rs` - Data access with server-side pagination + FTS5 search
+    - `fts_migration.rs` - Full-text search setup with SQLite FTS5
     - `models.rs` - Data models
     - `schema.rs` - SQLite schema initialization
+  - `cleanup/` - Database maintenance
+    - `mod.rs` - Old items cleanup, excess items cleanup, DB optimization
   - `shortcuts.rs` - Global hotkey registration and management
-  - `lib.rs` - App initialization and setup
+  - `lib.rs` - App initialization with cross-platform window customization
 
 ## Database Schema
 
@@ -703,3 +709,56 @@ v3.0+ (6-12 meses) 🚀
 - `src/lib/components/sidebar/SidebarGroup.svelte` - Date grouping
 - `src/lib/components/sidebar/Sidebar.svelte` - Infinite scroll
 - `src/routes/+page.svelte` - Fixed search with $derived.by()
+
+### v1.1 Recent Implementations (Current Session)
+
+**Completed Features**:
+
+1. ✅ **Full-Text Search with SQLite FTS5**
+   - Multi-field search across content_text, content_metadata, file_name, snippet_name, code_language
+   - BM25 ranking for relevance
+   - Prefix matching for partial queries
+   - Phrase search with quotes
+   - Debounced automatic search (300ms delay, no Enter key needed)
+   - Files: `src-tauri/src/db/fts_migration.rs`, `repository.rs`
+
+2. ✅ **Search Result Highlighting**
+   - Visual highlighting of search terms in results
+   - Reusable component for highlighted text
+   - Files: `src/lib/utils/highlight.ts`, `src/lib/components/ui/HighlightedText.svelte`
+
+3. ✅ **Advanced Settings Management**
+   - Item limit controls with toggle and slider (100-5000 items)
+   - Automatic retention policies (7, 30, 90, 180, 365 days)
+   - Database statistics display (total items, favorites, snippets, DB size)
+   - Manual cleanup and optimization tools
+   - Files: `src-tauri/src/cleanup/mod.rs`, `src/lib/stores/settings.svelte.ts`, `src/routes/settings/+page.svelte`
+
+4. ✅ **Cross-Platform Window Customization**
+   - Borderless window with rounded corners on all platforms
+   - Native drag functionality preserved
+   - Auto-hide on focus loss (with platform-specific delay for Windows)
+   - macOS: Uses `macOSPrivateApi: true` + `decorations: true` + `titleBarStyle: "Overlay"`
+   - Windows: Same config works with optional delay for drag detection
+   - Configuration: `tauri.conf.json` with `decorations: true`, `titleBarStyle: "Overlay"`, `hiddenTitle: true`
+
+**Key Technical Decisions**:
+
+- **Search Implementation**: Chose FTS5 over LIKE queries for better performance and ranking
+- **Window Customization**: Chose `decorations: true` with `macOSPrivateApi: true` instead of platform-specific native code (cocoa/Win32) for simplicity
+- **Auto-hide behavior**: Platform-specific delays added for Windows to prevent hide during window drag
+
+**Database Changes**:
+- Added FTS5 virtual table `clipboard_items_fts` with triggers for automatic sync
+- Cleanup functions respect favorites (never delete favorited items)
+- Database vacuum for optimization
+
+**Configuration Files Updated**:
+- `tauri.conf.json` - Window configuration for cross-platform support
+- `Cargo.toml` - No native dependencies needed (cocoa/Win32 not required)
+- `src/lib/types/settings.ts` - New settings fields for cleanup and retention
+
+**Removed/Cleaned Code**:
+- Old LIKE-based search queries replaced with FTS5
+- Attempted cocoa/Win32 native window code removed (not needed with macOSPrivateApi)
+- Unused imports and deprecated functions cleaned up
