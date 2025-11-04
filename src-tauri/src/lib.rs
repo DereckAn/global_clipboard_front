@@ -50,10 +50,70 @@ pub fn run() {
             }));
 
             let app_handle = app.handle().clone();
-            let monitor = ClipboardMonitor::new(db_path_str, app_handle);
+            let monitor = ClipboardMonitor::new(db_path_str.clone(), app_handle);
 
             tauri::async_runtime::spawn(async move {
                 monitor.start().await;
+            });
+
+            // Tarea automática de limpieza (cada 24 horas)
+            let cleanup_db_path = db_path_str.clone();
+            let cleanup_app_data_dir = app_data_dir.clone();
+            tauri::async_runtime::spawn(async move {
+                use tokio::time::{sleep, Duration};
+
+                loop {
+                    // Esperar 24 horas (86400 segundos)
+                    sleep(Duration::from_secs(86400)).await;
+
+                    println!("🧹 Running daily automatic cleanup...");
+
+                    // Leer settings desde localStorage (formato JSON)
+                    let settings_path = cleanup_app_data_dir.join("settings.json");
+                    let settings = std::fs::read_to_string(&settings_path)
+                        .ok()
+                        .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok());
+
+                    if let Ok(repo) = crate::db::repository::ClipboardRepository::new(&cleanup_db_path) {
+                        let conn = &repo.conn;
+
+                        // Limpiar items por retención de días (si está habilitado)
+                        if let Some(ref settings_json) = settings {
+                            if settings_json.get("retentionEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                let retention_days = settings_json
+                                    .get("retentionDays")
+                                    .and_then(|v| v.as_i64())
+                                    .map(|d| d as i32);
+
+                                match crate::cleanup::cleanup_old_items(conn, retention_days) {
+                                    Ok(deleted) if deleted > 0 => {
+                                        println!("🧹 Deleted {} old items (retention policy)", deleted);
+                                    }
+                                    Err(e) => eprintln!("❌ Failed to cleanup old items: {}", e),
+                                    _ => {}
+                                }
+                            }
+
+                            // Limpiar items excedentes (si está habilitado)
+                            if settings_json.get("maxItemsEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+                                let max_items = settings_json
+                                    .get("maxLocalItems")
+                                    .and_then(|v| v.as_i64())
+                                    .map(|m| m as i32);
+
+                                match crate::cleanup::cleanup_excess_items(conn, max_items) {
+                                    Ok(deleted) if deleted > 0 => {
+                                        println!("🧹 Deleted {} excess items (max limit)", deleted);
+                                    }
+                                    Err(e) => eprintln!("❌ Failed to cleanup excess items: {}", e),
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+
+                    println!("✅ Daily cleanup completed");
+                }
             });
 
             // Cargar hotkey guardado o usar el predeterminado
@@ -135,6 +195,7 @@ pub fn run() {
             commands::toggle_window_visibility,
             commands::get_setting,
             commands::save_setting,
+            commands::save_cleanup_settings,
             commands::update_global_hotkey,
             commands::get_current_shortcut,
             commands::unregister_shortcut,
@@ -147,6 +208,8 @@ pub fn run() {
             commands::get_database_size,
             commands::optimize_database,
             commands::get_database_stats,
+            commands::test_cleanup_preview,
+            commands::test_force_cleanup,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -67,7 +67,7 @@
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/global_clipboard.git
+   git clone https://github.com/dereckan/global_clipboard.git
    cd global_clipboard
    ```
 

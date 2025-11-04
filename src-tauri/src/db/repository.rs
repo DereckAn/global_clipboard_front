@@ -4,7 +4,7 @@ use rusqlite::{params, Connection, Result};
 use uuid::Uuid;
 
 pub struct ClipboardRepository {
-    conn: Connection,
+    pub conn: Connection,
 }
 
 impl ClipboardRepository {

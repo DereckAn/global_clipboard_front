@@ -184,6 +184,20 @@ export async function tauriUnregisterShortcut(): Promise<void> {
   await invoke("unregister_shortcut");
 }
 
+export async function tauriSaveCleanupSettings(
+  maxItemsEnabled: boolean,
+  maxLocalItems: number,
+  retentionEnabled: boolean,
+  retentionDays: number
+): Promise<void> {
+  await invoke("save_cleanup_settings", {
+    maxItemsEnabled,
+    maxLocalItems,
+    retentionEnabled,
+    retentionDays,
+  });
+}
+
 // Pagination
 export async function tauriGetItemsPaginated(
   limit: number,
@@ -261,4 +275,37 @@ export interface DatabaseStats {
 
 export async function tauriGetDatabaseStats(): Promise<DatabaseStats> {
   return await invoke<DatabaseStats>("get_database_stats");
+}
+
+// Test commands for cleanup verification
+export interface CleanupPreview {
+  retention?: {
+    would_delete: number;
+    cutoff_date: string;
+    retention_days: number;
+  };
+  excess?: {
+    current_count: number;
+    max_items: number;
+    would_delete: number;
+  };
+}
+
+export interface CleanupResult {
+  retention_deleted?: number;
+  excess_deleted?: number;
+}
+
+export async function tauriTestCleanupPreview(
+  retentionDays: number | null,
+  maxItems: number | null
+): Promise<CleanupPreview> {
+  return await invoke<CleanupPreview>("test_cleanup_preview", {
+    retentionDays,
+    maxItems,
+  });
+}
+
+export async function tauriTestForceCleanup(): Promise<CleanupResult> {
+  return await invoke<CleanupResult>("test_force_cleanup");
 }

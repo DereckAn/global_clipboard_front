@@ -78,6 +78,150 @@ pub fn get_current_shortcut(app: AppHandle) -> Result<String, String> {
     get_setting(app, "hotkey".to_string()).or_else(|_| Ok("CommandOrControl+Shift+V".to_string()))
 }
 
+/// Save all cleanup settings at once for the background task
+#[tauri::command]
+pub fn save_cleanup_settings<R: Runtime>(
+    app: AppHandle<R>,
+    max_items_enabled: bool,
+    max_local_items: i32,
+    retention_enabled: bool,
+    retention_days: i32,
+) -> Result<(), String> {
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings_file = app_data_dir.join("settings.json");
+
+    // Load existing settings or create new
+    let mut settings: serde_json::Value = if settings_file.exists() {
+        let contents = fs::read_to_string(&settings_file).map_err(|e| e.to_string())?;
+        serde_json::from_str(&contents).unwrap_or(serde_json::json!({}))
+    } else {
+        serde_json::json!({})
+    };
+
+    // Update cleanup settings
+    settings["maxItemsEnabled"] = serde_json::json!(max_items_enabled);
+    settings["maxLocalItems"] = serde_json::json!(max_local_items);
+    settings["retentionEnabled"] = serde_json::json!(retention_enabled);
+    settings["retentionDays"] = serde_json::json!(retention_days);
+
+    // Save to file
+    let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    fs::write(settings_file, json_string).map_err(|e| e.to_string())?;
+
+    println!("✅ Cleanup settings saved: max_enabled={}, max={}, retention_enabled={}, days={}",
+        max_items_enabled, max_local_items, retention_enabled, retention_days);
+
+    Ok(())
+}
+
+/// TEST COMMAND: Preview what would be deleted by cleanup (without deleting)
+#[tauri::command]
+pub fn test_cleanup_preview(
+    state: State<Mutex<AppState>>,
+    retention_days: Option<i32>,
+    max_items: Option<i32>,
+) -> Result<serde_json::Value, String> {
+    use chrono::{Duration, Utc};
+
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = crate::db::repository::ClipboardRepository::new(&app_state.db_path)
+        .map_err(|e| e.to_string())?;
+
+    let mut result = serde_json::json!({});
+
+    // Preview retention cleanup
+    if let Some(days) = retention_days {
+        let cutoff_date = Utc::now() - Duration::days(days as i64);
+        let cutoff_str = cutoff_date.to_rfc3339();
+
+        let count: i64 = repo.conn.query_row(
+            "SELECT COUNT(*) FROM clipboard_items WHERE updated_at < ?1 AND is_favorite = 0",
+            [&cutoff_str],
+            |row| row.get(0),
+        ).map_err(|e| e.to_string())?;
+
+        result["retention"] = serde_json::json!({
+            "would_delete": count,
+            "cutoff_date": cutoff_str,
+            "retention_days": days
+        });
+    }
+
+    // Preview excess cleanup
+    if let Some(max) = max_items {
+        let count: i64 = repo.conn.query_row(
+            "SELECT COUNT(*) FROM clipboard_items WHERE is_favorite = 0",
+            [],
+            |row| row.get(0),
+        ).map_err(|e| e.to_string())?;
+
+        let would_delete = if count > max as i64 {
+            count - max as i64
+        } else {
+            0
+        };
+
+        result["excess"] = serde_json::json!({
+            "current_count": count,
+            "max_items": max,
+            "would_delete": would_delete
+        });
+    }
+
+    Ok(result)
+}
+
+/// TEST COMMAND: Force cleanup immediately (for testing)
+#[tauri::command]
+pub fn test_force_cleanup(state: State<Mutex<AppState>>) -> Result<serde_json::Value, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = crate::db::repository::ClipboardRepository::new(&app_state.db_path)
+        .map_err(|e| e.to_string())?;
+
+    // Read settings
+    let app_data_dir = std::path::PathBuf::from(&app_state.db_path)
+        .parent()
+        .ok_or("Invalid path")?
+        .to_path_buf();
+
+    let settings_path = app_data_dir.join("settings.json");
+    let settings = fs::read_to_string(&settings_path)
+        .ok()
+        .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok());
+
+    let mut result = serde_json::json!({});
+
+    if let Some(ref settings_json) = settings {
+        // Run retention cleanup
+        if settings_json.get("retentionEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let retention_days = settings_json
+                .get("retentionDays")
+                .and_then(|v| v.as_i64())
+                .map(|d| d as i32);
+
+            let deleted = cleanup::cleanup_old_items(&repo.conn, retention_days)
+                .map_err(|e| e.to_string())?;
+
+            result["retention_deleted"] = serde_json::json!(deleted);
+        }
+
+        // Run excess cleanup
+        if settings_json.get("maxItemsEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+            let max_items = settings_json
+                .get("maxLocalItems")
+                .and_then(|v| v.as_i64())
+                .map(|m| m as i32);
+
+            let deleted = cleanup::cleanup_excess_items(&repo.conn, max_items)
+                .map_err(|e| e.to_string())?;
+
+            result["excess_deleted"] = serde_json::json!(deleted);
+        }
+    }
+
+    Ok(result)
+}
+
 #[tauri::command]
 pub fn unregister_shortcut(app: AppHandle) -> Result<(), String> {
     crate::shortcuts::unregister_all_shortcuts(&app)

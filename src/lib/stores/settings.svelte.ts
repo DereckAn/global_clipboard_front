@@ -4,6 +4,7 @@ import {
   tauriGetDatabaseStats,
   tauriGetSetting,
   tauriOptimizeDatabase,
+  tauriSaveCleanupSettings,
   tauriUpdateGlobalHotkey,
   type DatabaseStats,
 } from "$lib/tauri/commands";
@@ -205,6 +206,7 @@ class SettingsStore {
   private save() {
     if (typeof window !== "undefined") {
       try {
+        // Save to localStorage (for frontend)
         localStorage.setItem(
           "settings-store",
           JSON.stringify({
@@ -221,6 +223,16 @@ class SettingsStore {
             autoStart: this.autoStart,
           })
         );
+
+        // Also save cleanup settings to file (for background task)
+        tauriSaveCleanupSettings(
+          this.maxItemsEnabled,
+          this.maxLocalItems,
+          this.retentionEnabled,
+          this.retentionDays
+        ).catch((err) => {
+          console.error("Failed to save cleanup settings to file:", err);
+        });
       } catch (err) {
         console.error("Failed to save settings store:", err);
       }
