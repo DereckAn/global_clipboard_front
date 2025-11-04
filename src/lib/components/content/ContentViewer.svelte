@@ -10,6 +10,7 @@
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
+  import { sanitizeSvg } from "$lib/utils/svg";
   import HighlightedText from "../ui/HighlightedText.svelte";
 
   interface Props {
@@ -33,6 +34,11 @@
   const isColor = $derived(item?.contentType === "color");
   const isLink = $derived(item?.contentType === "link");
   const isCode = $derived(item?.contentType === "code");
+  const isSvg = $derived(item?.contentType === "svg");
+  const safeSvg = $derived.by(() => {
+    if (!isSvg || !item?.contentText) return "";
+    return sanitizeSvg(item.contentText);
+  });
 
   // Load color formats when item changes
   $effect(() => {
@@ -314,6 +320,29 @@
           <span class="text-sm text-text">
             {copied ? "Copied!" : "Copy URL"}
           </span>
+        </button>
+      </div>
+    </div>
+  {:else if isSvg}
+    <!-- SVG content -->
+    <div class="flex-1 flex flex-col">
+      <!-- SVG Preview -->
+      <div class="flex-1 flex items-center justify-center p-8 overflow-auto">
+        <div
+          class="max-w-2xl max-h-full bg-surface rounded-xl border border-border p-8 flex items-center justify-center"
+        >
+          {@html safeSvg}
+        </div>
+      </div>
+
+      <!-- Copy and View Source buttons -->
+      <div class="px-6 pb-6 flex gap-3">
+        <button
+          onclick={() => handleCopy(item.contentText || "")}
+          class="flex-1 px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+        >
+          <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
+          <span>{copied ? "Copied!" : "Copy SVG"}</span>
         </button>
       </div>
     </div>

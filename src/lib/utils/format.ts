@@ -63,6 +63,7 @@ export function getContentTypeIcon(
     image: "image",
     file: "file",
     color: "color",
+    svg: "image", // Use image icon for SVG
   };
 
   return iconMap[type] || "text";

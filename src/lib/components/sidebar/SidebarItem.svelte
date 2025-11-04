@@ -10,6 +10,7 @@
   import { cn } from "$lib/utils/cn";
   import { getContentTypeIcon } from "$lib/utils/format";
   import { getLanguageInfo } from "$lib/utils/languages";
+  import { sanitizeSvg } from "$lib/utils/svg";
 
   interface Props {
     item: ClipboardItem;
@@ -30,6 +31,11 @@
   const isColor = $derived(item.contentType === "color");
   const isLink = $derived(item.contentType === "link");
   const isCode = $derived(item.contentType === "code");
+  const isSvg = $derived(item.contentType === "svg");
+  const safeSvg = $derived.by(() => {
+    if (!isSvg || !item?.contentText) return "";
+    return sanitizeSvg(item.contentText);
+  });
   const languageInfo = $derived(
     isCode ? getLanguageInfo(item.codeLanguage) : null
   );
@@ -183,6 +189,16 @@
           alt={languageInfo.name}
           class="w-full h-full object-contain"
         />
+      </div>
+    {:else if isSvg}
+      <!-- Show SVG preview thumbnail -->
+      <div
+        class="w-6 h-6 flex items-center justify-center bg-surface-hover rounded overflow-hidden"
+        title="SVG"
+      >
+        <div class="w-full h-full flex items-center justify-center scale-75">
+          {@html safeSvg}
+        </div>
       </div>
     {:else}
       <!-- Show type icon -->

@@ -12,6 +12,11 @@ pub fn detect_content_type(text: &str) -> String {
         return "color".to_string();
     }
 
+    // SVG detection (before code detection to avoid false positives)
+    if is_svg(text) {
+        return "svg".to_string();
+    }
+
     // Code detection (simple heuristic)
     if is_code(text) {
         return "code".to_string();
@@ -140,10 +145,12 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     }
 
     // Svelte detection
-    if text.contains("<script") && text.contains("</script>")
-        && (text.contains("$:") || text.contains("export let") || text.contains("$state")) {
-            *scores.entry("svelte").or_insert(0) += 15;
-        }
+    if text.contains("<script")
+        && text.contains("</script>")
+        && (text.contains("$:") || text.contains("export let") || text.contains("$state"))
+    {
+        *scores.entry("svelte").or_insert(0) += 15;
+    }
 
     // Vue detection
     if text.contains("<template>") || text.contains("<script setup>") {
@@ -238,10 +245,16 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     }
 
     // CSS detection
-    if text.contains("{") && text.contains("}") && text.contains(":") && text.contains(";")
-        && !text.contains("function") && !text.contains("const") && !text.contains("let") {
-            *scores.entry("css").or_insert(0) += 8;
-        }
+    if text.contains("{")
+        && text.contains("}")
+        && text.contains(":")
+        && text.contains(";")
+        && !text.contains("function")
+        && !text.contains("const")
+        && !text.contains("let")
+    {
+        *scores.entry("css").or_insert(0) += 8;
+    }
     if text.contains("@media") || text.contains("@keyframes") {
         *scores.entry("css").or_insert(0) += 10;
     }
@@ -249,9 +262,10 @@ pub fn detect_code_language(text: &str) -> Option<String> {
     // JSON detection
     if ((text.trim().starts_with("{") && text.trim().ends_with("}"))
         || (text.trim().starts_with("[") && text.trim().ends_with("]")))
-        && (text.contains("\":") || text.contains("\": ")) {
-            *scores.entry("json").or_insert(0) += 12;
-        }
+        && (text.contains("\":") || text.contains("\": "))
+    {
+        *scores.entry("json").or_insert(0) += 12;
+    }
 
     // SQL detection
     if text_lower.contains("select ")
@@ -321,6 +335,22 @@ pub fn detect_code_language(text: &str) -> Option<String> {
         .filter(|(_, score)| *score >= 5)
         .max_by_key(|(_, score)| *score)
         .map(|(lang, _)| lang.to_string())
+}
+
+fn is_svg(text: &str) -> bool {
+    let trimmed = text.trim();
+
+    // Check if starts with <svg or <?xml and contains <svg
+    if trimmed.starts_with("<svg") {
+        return true;
+    }
+
+    // Check for XML declaration with SVG
+    if trimmed.starts_with("<?xml") && trimmed.contains("<svg") {
+        return true;
+    }
+
+    false
 }
 
 fn is_color(text: &str) -> bool {

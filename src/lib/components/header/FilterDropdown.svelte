@@ -22,6 +22,7 @@
     { value: "text", label: "Text Only", icon: "text" },
     { value: "code", label: "Code Only", icon: "code" },
     { value: "link", label: "Links Only", icon: "link" },
+    { value: "svg", label: "SVG Only", icon: "image" },
     { value: "image", label: "Images Only", icon: "image" },
     { value: "file", label: "Files Only", icon: "file" },
     { value: "color", label: "Colors Only", icon: "color" },

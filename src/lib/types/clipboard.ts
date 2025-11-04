@@ -1,4 +1,4 @@
-export type ContentType = "text" | "code" | "link" | "color" | "image" | "file";
+export type ContentType = "text" | "code" | "link" | "color" | "image" | "file" | "svg";
 
 export interface ClipboardItem {
   id: string;
