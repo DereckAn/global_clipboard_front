@@ -112,7 +112,7 @@
             <dd class="text-text flex items-center gap-2">
               <div
                 class="w-5 h-5 rounded flex items-center justify-center"
-                style="background-color: {languageInfo.color};"
+                style="background-color: transparent;"
               >
                 <img
                   src={languageInfo.svgPath}

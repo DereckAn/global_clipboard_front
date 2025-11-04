@@ -190,17 +190,19 @@
     <!-- Link content with metadata preview -->
     <div class="flex flex-col px-6 py-8 flex-1">
       <!-- Link URL -->
-      <div class="flex items-center gap-3 w-fit mb-3">
-        <div
-          class="size-10 bg-surface rounded-lg flex items-center justify-center"
-        >
-          <Icon name="link" size={24} class="text-primary" />
-        </div>
-        <div class="">
-          <p class="text-sm text-text-muted">Link</p>
-          <p class="text-base text-text truncate font-medium">
-            {domain || item.contentText}
-          </p>
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <div class="flex gap-2">
+          <div
+            class="size-10 bg-surface rounded-lg flex items-center justify-center"
+          >
+            <Icon name="link" size={24} class="text-primary" />
+          </div>
+          <div class="">
+            <p class="text-sm text-text-muted">Link</p>
+            <p class="text-base text-text truncate font-medium">
+              {domain || item.contentText}
+            </p>
+          </div>
         </div>
         <button
           onclick={handleOpenLink}
@@ -222,7 +224,7 @@
         </div>
       {:else if linkMetadata && (linkMetadata.title || linkMetadata.image)}
         <div
-          class="w-2/3 bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
+          class="w-full bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
         >
           <!-- Preview image -->
           {#if linkMetadata.image}
@@ -299,10 +301,10 @@
       {/if}
 
       <!-- Copy button -->
-      <div class="w-fit mt-6 flex justify-start">
+      <div class=" mt-6 flex justify-center">
         <button
           onclick={() => handleCopy(item.contentText || "")}
-          class="px-6 py-2 bg-surface hover:bg-surface-hover rounded-lg transition-colors flex items-center gap-2 border border-border"
+          class="px-6 py-1 bg-surface hover:bg-surface-hover w-full rounded-lg transition-colors flex items-center gap-2 border border-border"
         >
           <Icon
             name={copied ? "check" : "copy"}

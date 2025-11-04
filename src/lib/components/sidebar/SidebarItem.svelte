@@ -175,7 +175,7 @@
       <!-- Show language SVG icon for code -->
       <div
         class="w-7 h-7 rounded flex items-center justify-center p-1"
-        style="background-color: {languageInfo.color};"
+        style="background-color: transparent;"
         title={languageInfo.name}
       >
         <img
