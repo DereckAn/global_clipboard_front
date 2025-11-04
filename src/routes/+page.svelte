@@ -82,6 +82,7 @@
         ? JSON.parse(item.content_metadata)
         : {},
       sourceApp: item.source_app,
+      codeLanguage: item.code_language,
       fileUrl: item.file_url,
       fileName: item.file_name,
       fileSizeBytes: item.file_size_bytes,

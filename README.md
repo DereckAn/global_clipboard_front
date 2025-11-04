@@ -1,7 +1,7 @@
 # Global Clipboard Manager
 
 <div align="center">
-  <img src=".github/patoblack.png" alt="Global Clipboard Icon" width=128 >
+  <img src=".github/pato.svg" alt="Global Clipboard Icon" width=128 >
 
   <p><strong>A powerful, modern clipboard manager for macOS</strong></p>
 
