@@ -10,6 +10,8 @@ mod shortcuts;
 use clipboard::ClipboardMonitor;
 use commands::AppState;
 use std::sync::Mutex;
+use tauri::menu::{Menu, MenuItem};
+use tauri::tray::TrayIconBuilder;
 use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -35,6 +37,40 @@ pub fn run() {
             // Abrir DevTools automáticamente en desarrollo
             #[cfg(debug_assertions)]
             app.get_webview_window("main").unwrap().open_devtools();
+
+            // ================================================================
+            // CONFIGURACIÓN DEL SYSTEM TRAY
+            // ================================================================
+
+            // Crear menú del tray
+            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+            let show_item = MenuItem::with_id(app, "show", "Show Window", true, None::<&str>)?;
+
+            let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
+
+            // Crear el tray icon
+            let tray = TrayIconBuilder::new()
+                .icon(app.default_window_icon().unwrap().clone())
+                .menu(&menu)
+                .on_menu_event(|app, event| match event.id.as_ref() {
+                    "quit" => {
+                        println!("🛑 Quit clicked from tray");
+                        app.exit(0);
+                    }
+                    "show" => {
+                        println!("👁️ Show window clicked from tray");
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                    _ => {}
+                })
+                .build(app)?;
+
+            app.manage(std::sync::Mutex::new(tray));
+
+            println!("✅ System tray initialized");
 
             // ================================================================
             // CONFIGURACIÓN COMÚN (todas las plataformas)
@@ -244,6 +280,9 @@ pub fn run() {
             commands::disable_autostart,
             commands::is_autostart_enabled,
             commands::quit_app,
+            commands::set_tray_visible,
+            commands::is_tray_visible
+
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

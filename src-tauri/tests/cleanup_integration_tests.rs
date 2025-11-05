@@ -72,7 +72,7 @@ fn count_items(conn: &Connection) -> i64 {
 
 #[test]
 fn test_cleanup_integration_with_settings_file() {
-    let (temp_dir, db_path, conn) = setup_test_db();
+    let (temp_dir, _db_path, conn) = setup_test_db();
     let settings_path = temp_dir.path().join("settings.json");
 
     // Create test items

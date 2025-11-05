@@ -333,3 +333,12 @@ export async function tauriQuitApp(): Promise<void> {
     throw error;
   }
 }
+
+// tray visibility commands
+export async function tauriSetTrayVisible(visible: boolean): Promise<void> {
+  await invoke<void>("set_tray_visible", { visible });
+}
+
+export async function tauriIsTrayVisible(): Promise<boolean> {
+  return await invoke<boolean>("is_tray_visible");
+}

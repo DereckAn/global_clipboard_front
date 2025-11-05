@@ -6,9 +6,11 @@ import {
   tauriGetDatabaseStats,
   tauriGetSetting,
   tauriIsAutoStartEnabled,
+  tauriIsTrayVisible,
   tauriOptimizeDatabase,
   tauriQuitApp,
   tauriSaveCleanupSettings,
+  tauriSetTrayVisible,
   tauriUpdateGlobalHotkey,
   type DatabaseStats,
 } from "$lib/tauri/commands";
@@ -34,6 +36,7 @@ class SettingsStore {
   notificationSound = $state(DEFAULT_SETTINGS.notificationSound);
 
   autoStartEnabled = $state(false);
+  trayIconVisible = $state(false);
 
   dbStats = $state<DatabaseStats | null>(null);
 
@@ -146,6 +149,12 @@ class SettingsStore {
     } finally {
       this.isLoading = false;
     }
+
+    try {
+      this.trayIconVisible = await tauriIsTrayVisible();
+    } catch (err) {
+      console.log("Could not check tray icon visibility");
+    }
   }
 
   async saveHotkey(newHotkey: string) {
@@ -233,6 +242,26 @@ class SettingsStore {
       console.error("Failed to toggle auto-start:", err);
       // Revert state on error
       this.autoStartEnabled = !this.autoStartEnabled;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async toggleTrayIcon() {
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      const newVisibility = !this.trayIconVisible;
+      await tauriSetTrayVisible(newVisibility);
+      this.trayIconVisible = newVisibility;
+      console.log(`Tray icon visibility set to ${newVisibility}`);
+    } catch (err) {
+      this.error =
+        err instanceof Error
+          ? err.message
+          : "Could not toggle tray icon visibility";
+      console.log("Could not toggle tray icon visibility", err);
     } finally {
       this.isLoading = false;
     }

@@ -442,10 +442,7 @@
           <Icon name="settings" size={20} />
           Application
         </h2>
-        <div
-          class="bg-surface rounded-lg border border-border p-6
-  space-y-6"
-        >
+        <div class="bg-surface rounded-lg border border-border p-6 space-y-6">
           <!-- Auto-start toggle -->
           <div class="flex items-center justify-between">
             <div>
@@ -469,6 +466,36 @@
               <span
                 class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
                   settingsStore.autoStartEnabled
+                    ? "translate-x-6"
+                    : "translate-x-1"
+                }`}
+              ></span>
+            </button>
+          </div>
+
+          <!-- Tray icon toggle -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="block text-sm font-medium text-text mb-1">
+                Show tray icon
+              </p>
+              <p class="text-xs text-text-muted">
+                Display icon in system tray/menu bar
+              </p>
+            </div>
+            <button
+              onclick={async () => await settingsStore.toggleTrayIcon()}
+              class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                settingsStore.trayIconVisible ? "bg-primary" : "bg-border"
+              }`}
+              role="switch"
+              aria-checked={settingsStore.trayIconVisible}
+              aria-label="Toggle tray icon visibility"
+              disabled={settingsStore.isLoading}
+            >
+              <span
+                class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  settingsStore.trayIconVisible
                     ? "translate-x-6"
                     : "translate-x-1"
                 }`}

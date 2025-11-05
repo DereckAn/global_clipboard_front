@@ -1,6 +1,7 @@
 use crate::cleanup;
 use crate::AppState;
 use std::{fs, sync::Mutex};
+use tauri::tray::TrayIcon;
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_autostart::ManagerExt;
 
@@ -355,4 +356,23 @@ pub fn quit_app(app: AppHandle) {
         std::thread::sleep(std::time::Duration::from_millis(100));
         app.exit(0);
     });
+}
+
+#[tauri::command]
+pub fn set_tray_visible(visible: bool, tray: State<Mutex<TrayIcon>>) -> Result<(), String> {
+    let tray_icon = tray.lock().map_err(|e| e.to_string())?;
+    if visible {
+        tray_icon.set_visible(true).map_err(|e| e.to_string())?;
+        println!("✅ Tray icon shown");
+    } else {
+        tray_icon.set_visible(false).map_err(|e| e.to_string())?;
+        println!("✅ Tray icon hidden");
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn is_tray_visible() -> Result<bool, String> {
+    Ok(true)
 }
