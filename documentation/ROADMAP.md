@@ -504,3 +504,7 @@ v3.0 (6-12 meses) 🚀
 **Última actualización**: 2025-01-30
 **Versión actual**: v1.0
 **Próxima versión**: v1.1 (focus en UX y fixes)
+
+
+en el cd/ci 
+Testear que funciona el auto start en cada os

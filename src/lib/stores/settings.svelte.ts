@@ -1,9 +1,13 @@
 import {
   tauriCleanupExcessItems,
   tauriCleanupOldItems,
+  tauriDisableAutoStart,
+  tauriEnableAutoStart,
   tauriGetDatabaseStats,
   tauriGetSetting,
+  tauriIsAutoStartEnabled,
   tauriOptimizeDatabase,
+  tauriQuitApp,
   tauriSaveCleanupSettings,
   tauriUpdateGlobalHotkey,
   type DatabaseStats,
@@ -28,7 +32,8 @@ class SettingsStore {
   clipboardMonitorInterval = $state(DEFAULT_SETTINGS.clipboardMonitorInterval);
   notificationsEnabled = $state(DEFAULT_SETTINGS.notificationsEnabled);
   notificationSound = $state(DEFAULT_SETTINGS.notificationSound);
-  autoStart = $state(DEFAULT_SETTINGS.autoStart);
+
+  autoStartEnabled = $state(false);
 
   dbStats = $state<DatabaseStats | null>(null);
 
@@ -62,7 +67,6 @@ class SettingsStore {
             DEFAULT_SETTINGS.notificationsEnabled;
           this.notificationSound =
             parsed.notificationSound ?? DEFAULT_SETTINGS.notificationSound;
-          this.autoStart = parsed.autoStart ?? DEFAULT_SETTINGS.autoStart;
         } catch (err) {
           console.error("Failed to load settings store:", err);
         }
@@ -131,8 +135,14 @@ class SettingsStore {
         this.hotkey = savedHotkey;
       }
     } catch (err) {
-      // Si no existe el archivo, usar el default
       console.log("No saved hotkey found, using default");
+    }
+
+    // Load autostart status
+    try {
+      this.autoStartEnabled = await tauriIsAutoStartEnabled();
+    } catch (err) {
+      console.log("Could not check autostart status");
     } finally {
       this.isLoading = false;
     }
@@ -203,6 +213,43 @@ class SettingsStore {
     }
   }
 
+  async toggleAutoStart() {
+    this.isLoading = true;
+    this.error = null;
+
+    try {
+      if (this.autoStartEnabled) {
+        await tauriDisableAutoStart();
+        this.autoStartEnabled = false;
+        console.log("Auto-start disabled");
+      } else {
+        await tauriEnableAutoStart();
+        this.autoStartEnabled = true;
+        console.log("Auto-start enabled");
+      }
+    } catch (err) {
+      this.error =
+        err instanceof Error ? err.message : "Failed to toggle auto-start";
+      console.error("Failed to toggle auto-start:", err);
+      // Revert state on error
+      this.autoStartEnabled = !this.autoStartEnabled;
+    } finally {
+      this.isLoading = false;
+    }
+  }
+
+  async quitApplication() {
+    console.log("🔵 quitApplication() called in store");
+    try {
+      console.log("🟢 Calling tauriQuitApp()...");
+      await tauriQuitApp();
+      console.log("✅ tauriQuitApp() returned successfully");
+    } catch (err) {
+      console.error("❌ Failed to quit app:", err);
+      throw err; // Re-throw para que el error suba
+    }
+  }
+
   private save() {
     if (typeof window !== "undefined") {
       try {
@@ -220,7 +267,6 @@ class SettingsStore {
             clipboardMonitorInterval: this.clipboardMonitorInterval,
             notificationsEnabled: this.notificationsEnabled,
             notificationSound: this.notificationSound,
-            autoStart: this.autoStart,
           })
         );
 

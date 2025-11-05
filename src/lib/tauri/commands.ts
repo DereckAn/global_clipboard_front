@@ -309,3 +309,27 @@ export async function tauriTestCleanupPreview(
 export async function tauriTestForceCleanup(): Promise<CleanupResult> {
   return await invoke<CleanupResult>("test_force_cleanup");
 }
+
+//Auto start commands
+export async function tauriEnableAutoStart(): Promise<void> {
+  await invoke("enable_autostart");
+}
+
+export async function tauriDisableAutoStart(): Promise<void> {
+  await invoke("disable_autostart");
+}
+
+export async function tauriIsAutoStartEnabled(): Promise<boolean> {
+  return await invoke("is_autostart_enabled");
+}
+
+export async function tauriQuitApp(): Promise<void> {
+  console.log("🔵 tauriQuitApp() - calling invoke('quit_app')");
+  try {
+    await invoke("quit_app");
+    console.log("✅ invoke('quit_app') completed");
+  } catch (error) {
+    console.error("❌ invoke('quit_app') failed:", error);
+    throw error;
+  }
+}

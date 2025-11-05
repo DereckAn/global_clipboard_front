@@ -2,6 +2,7 @@ use crate::cleanup;
 use crate::AppState;
 use std::{fs, sync::Mutex};
 use tauri::{AppHandle, Manager, Runtime, State};
+use tauri_plugin_autostart::ManagerExt;
 
 #[tauri::command]
 pub fn get_setting<R: Runtime>(app: AppHandle<R>, key: String) -> Result<String, String> {
@@ -108,8 +109,10 @@ pub fn save_cleanup_settings<R: Runtime>(
     let json_string = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
     fs::write(settings_file, json_string).map_err(|e| e.to_string())?;
 
-    println!("✅ Cleanup settings saved: max_enabled={}, max={}, retention_enabled={}, days={}",
-        max_items_enabled, max_local_items, retention_enabled, retention_days);
+    println!(
+        "✅ Cleanup settings saved: max_enabled={}, max={}, retention_enabled={}, days={}",
+        max_items_enabled, max_local_items, retention_enabled, retention_days
+    );
 
     Ok(())
 }
@@ -134,11 +137,14 @@ pub fn test_cleanup_preview(
         let cutoff_date = Utc::now() - Duration::days(days as i64);
         let cutoff_str = cutoff_date.to_rfc3339();
 
-        let count: i64 = repo.conn.query_row(
-            "SELECT COUNT(*) FROM clipboard_items WHERE updated_at < ?1 AND is_favorite = 0",
-            [&cutoff_str],
-            |row| row.get(0),
-        ).map_err(|e| e.to_string())?;
+        let count: i64 = repo
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM clipboard_items WHERE updated_at < ?1 AND is_favorite = 0",
+                [&cutoff_str],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         result["retention"] = serde_json::json!({
             "would_delete": count,
@@ -149,11 +155,14 @@ pub fn test_cleanup_preview(
 
     // Preview excess cleanup
     if let Some(max) = max_items {
-        let count: i64 = repo.conn.query_row(
-            "SELECT COUNT(*) FROM clipboard_items WHERE is_favorite = 0",
-            [],
-            |row| row.get(0),
-        ).map_err(|e| e.to_string())?;
+        let count: i64 = repo
+            .conn
+            .query_row(
+                "SELECT COUNT(*) FROM clipboard_items WHERE is_favorite = 0",
+                [],
+                |row| row.get(0),
+            )
+            .map_err(|e| e.to_string())?;
 
         let would_delete = if count > max as i64 {
             count - max as i64
@@ -193,7 +202,11 @@ pub fn test_force_cleanup(state: State<Mutex<AppState>>) -> Result<serde_json::V
 
     if let Some(ref settings_json) = settings {
         // Run retention cleanup
-        if settings_json.get("retentionEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if settings_json
+            .get("retentionEnabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             let retention_days = settings_json
                 .get("retentionDays")
                 .and_then(|v| v.as_i64())
@@ -206,14 +219,18 @@ pub fn test_force_cleanup(state: State<Mutex<AppState>>) -> Result<serde_json::V
         }
 
         // Run excess cleanup
-        if settings_json.get("maxItemsEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+        if settings_json
+            .get("maxItemsEnabled")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false)
+        {
             let max_items = settings_json
                 .get("maxLocalItems")
                 .and_then(|v| v.as_i64())
                 .map(|m| m as i32);
 
-            let deleted = cleanup::cleanup_excess_items(&repo.conn, max_items)
-                .map_err(|e| e.to_string())?;
+            let deleted =
+                cleanup::cleanup_excess_items(&repo.conn, max_items).map_err(|e| e.to_string())?;
 
             result["excess_deleted"] = serde_json::json!(deleted);
         }
@@ -294,4 +311,48 @@ pub fn get_database_stats(state: State<Mutex<AppState>>) -> Result<serde_json::V
         "database_size_bytes": db_size,
         "database_size_mb": (db_size as f64) / (1024.0 * 1024.0),
     }))
+}
+
+// Auto start commands
+#[tauri::command]
+pub fn enable_autostart(app: AppHandle) -> Result<(), String> {
+    let autostart = app.autolaunch();
+    autostart
+        .enable()
+        .map_err(|e| format!("Failed to enable autostart : {}", e))?;
+
+    println!("✅ Autostart enabled");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn disable_autostart(app: AppHandle) -> Result<(), String> {
+    let autostart = app.autolaunch();
+    autostart
+        .disable()
+        .map_err(|e| format!("Failed to disable autostart : {}", e))?;
+
+    println!("✅ Autostart disabled");
+    Ok(())
+}
+
+#[tauri::command]
+pub fn is_autostart_enabled(app: AppHandle) -> Result<bool, String> {
+    let autostart = app.autolaunch();
+    let enable = autostart
+        .is_enabled()
+        .map_err(|e| format!("Failed to check autostart status : {}", e))?;
+    Ok(enable)
+}
+
+#[tauri::command]
+pub fn quit_app(app: AppHandle) {
+    println!("🛑 Quitting application...");
+
+    // Spawn a thread to exit after a tiny delay
+    // This allows the command to return successfully to frontend
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(100));
+        app.exit(0);
+    });
 }

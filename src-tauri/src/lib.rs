@@ -17,6 +17,13 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            #[cfg(target_os = "macos")]
+            Some(vec!["--hidden"]),
+            #[cfg(not(target_os = "macos"))]
+            Some(vec![]),
+        ))
         .setup(|app| {
             // ================================================================
             // CONFIGURACIÓN ESPECÍFICA POR PLATAFORMA
@@ -70,16 +77,25 @@ pub fn run() {
 
                     // Leer settings desde localStorage (formato JSON)
                     let settings_path = cleanup_app_data_dir.join("settings.json");
-                    let settings = std::fs::read_to_string(&settings_path)
-                        .ok()
-                        .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok());
+                    let settings =
+                        std::fs::read_to_string(&settings_path)
+                            .ok()
+                            .and_then(|contents| {
+                                serde_json::from_str::<serde_json::Value>(&contents).ok()
+                            });
 
-                    if let Ok(repo) = crate::db::repository::ClipboardRepository::new(&cleanup_db_path) {
+                    if let Ok(repo) =
+                        crate::db::repository::ClipboardRepository::new(&cleanup_db_path)
+                    {
                         let conn = &repo.conn;
 
                         // Limpiar items por retención de días (si está habilitado)
                         if let Some(ref settings_json) = settings {
-                            if settings_json.get("retentionEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+                            if settings_json
+                                .get("retentionEnabled")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false)
+                            {
                                 let retention_days = settings_json
                                     .get("retentionDays")
                                     .and_then(|v| v.as_i64())
@@ -87,7 +103,10 @@ pub fn run() {
 
                                 match crate::cleanup::cleanup_old_items(conn, retention_days) {
                                     Ok(deleted) if deleted > 0 => {
-                                        println!("🧹 Deleted {} old items (retention policy)", deleted);
+                                        println!(
+                                            "🧹 Deleted {} old items (retention policy)",
+                                            deleted
+                                        );
                                     }
                                     Err(e) => eprintln!("❌ Failed to cleanup old items: {}", e),
                                     _ => {}
@@ -95,7 +114,11 @@ pub fn run() {
                             }
 
                             // Limpiar items excedentes (si está habilitado)
-                            if settings_json.get("maxItemsEnabled").and_then(|v| v.as_bool()).unwrap_or(false) {
+                            if settings_json
+                                .get("maxItemsEnabled")
+                                .and_then(|v| v.as_bool())
+                                .unwrap_or(false)
+                            {
                                 let max_items = settings_json
                                     .get("maxLocalItems")
                                     .and_then(|v| v.as_i64())
@@ -124,8 +147,15 @@ pub fn run() {
                 .then(|| {
                     std::fs::read_to_string(app_data_dir.join("settings.json"))
                         .ok()
-                        .and_then(|contents| serde_json::from_str::<serde_json::Value>(&contents).ok())
-                        .and_then(|settings| settings.get("hotkey").and_then(|v| v.as_str()).map(String::from))
+                        .and_then(|contents| {
+                            serde_json::from_str::<serde_json::Value>(&contents).ok()
+                        })
+                        .and_then(|settings| {
+                            settings
+                                .get("hotkey")
+                                .and_then(|v| v.as_str())
+                                .map(String::from)
+                        })
                 })
                 .flatten()
                 .unwrap_or_else(|| default_hotkey.to_string());
@@ -210,6 +240,10 @@ pub fn run() {
             commands::get_database_stats,
             commands::test_cleanup_preview,
             commands::test_force_cleanup,
+            commands::enable_autostart,
+            commands::disable_autostart,
+            commands::is_autostart_enabled,
+            commands::quit_app,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

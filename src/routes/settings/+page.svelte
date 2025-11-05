@@ -16,6 +16,7 @@
     type: "success" | "error";
     message: string;
   } | null>(null);
+  let showQuitConfirm = $state(false);
 
   onMount(async () => {
     await settingsStore.loadSettings();
@@ -435,6 +436,57 @@
         </div>
       </section>
 
+      <!-- Application Settings -->
+      <section class="mb-8">
+        <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+          <Icon name="settings" size={20} />
+          Application
+        </h2>
+        <div
+          class="bg-surface rounded-lg border border-border p-6
+  space-y-6"
+        >
+          <!-- Auto-start toggle -->
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="block text-sm font-medium text-text mb-1">
+                Auto-start on system boot
+              </p>
+              <p class="text-xs text-text-muted">
+                Launch the app automatically when your computer starts
+              </p>
+            </div>
+            <button
+              onclick={async () => await settingsStore.toggleAutoStart()}
+              class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                settingsStore.autoStartEnabled ? "bg-primary" : "bg-border"
+              }`}
+              role="switch"
+              aria-checked={settingsStore.autoStartEnabled}
+              aria-label="Toggle auto-start"
+              disabled={settingsStore.isLoading}
+            >
+              <span
+                class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  settingsStore.autoStartEnabled
+                    ? "translate-x-6"
+                    : "translate-x-1"
+                }`}
+              ></span>
+            </button>
+          </div>
+
+          {#if settingsStore.error}
+            <div
+              class="px-3 py-2 rounded-lg text-sm bg-danger-20 text-danger flex items-center gap-2"
+            >
+              <Icon name="x" size={16} />
+              <span>{settingsStore.error}</span>
+            </div>
+          {/if}
+        </div>
+      </section>
+
       <!-- About Section -->
       <section class="mb-8">
         <h2 class="text-xl font-semibold mb-4">About</h2>
@@ -451,12 +503,82 @@
       </section>
 
       <!-- Actions -->
-      <div class="flex gap-3">
-        <Button onclick={handleSave}>Save Changes</Button>
-        <Button variant="outline" onclick={handleBack}>Cancel</Button>
-        <Button variant="destructive" onclick={handleReset} class="ml-auto">
-          Reset to Defaults
-        </Button>
+      <div class="flex flex-col gap-3">
+        <!-- Primary actions -->
+        <div class="flex gap-3">
+          <Button onclick={handleSave}>Save Changes</Button>
+          <Button variant="outline" onclick={handleBack}>Cancel</Button>
+          <Button variant="destructive" onclick={handleReset} class="ml-auto">
+            Reset to Defaults
+          </Button>
+        </div>
+
+        <!-- Danger zone -->
+        <div class="border-t border-border pt-4 mt-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm font-medium text-text mb-1">Quit Application</p>
+              <p class="text-xs text-text-muted">
+                Close the app completely (stops background monitoring)
+              </p>
+            </div>
+
+            {#if !showQuitConfirm}
+              <!-- Initial Quit button -->
+              <button
+                type="button"
+                class="inline-flex items-center justify-center gap-2
+  rounded-lg px-4 py-2 text-sm font-medium transition-colors
+  bg-danger hover:bg-danger-hover text-white"
+                onclick={() => {
+                  console.log("🔵 Quit button clicked - showing confirmation");
+                  showQuitConfirm = true;
+                }}
+              >
+                <Icon name="x" size={16} />
+                Quit App
+              </button>
+            {:else}
+              <!-- Confirmation buttons -->
+              <div class="flex items-center gap-2">
+                <span class="text-xs text-text-muted mr-2">Are you sure?</span>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2
+  rounded-lg px-3 py-2 text-sm font-medium transition-colors
+  bg-danger hover:bg-danger-hover text-white"
+                  onclick={async () => {
+                    console.log(
+                      "🟢 User confirmed quit - calling quitApplication..."
+                    );
+                    try {
+                      await settingsStore.quitApplication();
+                      console.log("✅ quitApplication completed");
+                    } catch (error) {
+                      console.error("❌ Error calling quitApplication:", error);
+                    }
+                  }}
+                >
+                  <Icon name="check" size={16} />
+                  Yes, Quit
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center justify-center gap-2
+  rounded-lg px-3 py-2 text-sm font-medium transition-colors
+  bg-surface hover:bg-surface-hover text-text"
+                  onclick={() => {
+                    console.log("🟡 User cancelled quit");
+                    showQuitConfirm = false;
+                  }}
+                >
+                  <Icon name="x" size={16} />
+                  Cancel
+                </button>
+              </div>
+            {/if}
+          </div>
+        </div>
       </div>
     </div>
   </div>

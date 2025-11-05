@@ -15,9 +15,6 @@ export interface AppSettings {
   notificationsEnabled: boolean;
   notificationSound: boolean;
 
-  // Auto-inicio
-  autoStart: boolean;
-
   //Hot keys
   showHotkey: string;
 
@@ -36,5 +33,4 @@ export const DEFAULT_SETTINGS: AppSettings = {
   clipboardMonitorInterval: 500, // CAMBIAR de 50 a 500
   notificationsEnabled: false,
   notificationSound: false,
-  autoStart: false,
 };
