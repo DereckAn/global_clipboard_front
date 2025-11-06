@@ -29,14 +29,14 @@
   };
 </script>
 
-<div class={cn("relative flex flex-1 items-center border-0", className)}>
+<div class={cn("relative flex flex-1 items-center pointer-events-none", className)}>
   <!-- Input -->
   <input
     type="text"
     bind:value
     onkeydown={handleKeyDown}
     {placeholder}
-    class={`w-full h-7  pr-10 rounded-md text-md text-text placeholder:text-text-muted focus:outline-none`}
+    class={`w-fit h-7  pr-10 rounded-md text-md text-text placeholder:text-text-muted placeholder:text-sm focus:outline-none pointer-events-auto`}
   />
 
   <!-- Result count or Clear button -->
@@ -51,7 +51,7 @@
     {#if value}
       <button
         onclick={handleClear}
-        class="p-1 hover:bg-surface-hover rounded transition-colors"
+        class="p-1 hover:bg-surface-hover rounded transition-colors pointer-events-auto"
         title="Clear search (Esc)"
       >
         <Icon name="x" size={16} class="text-text-muted" />

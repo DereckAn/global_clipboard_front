@@ -1,4 +1,4 @@
-use crate::clipboard::{read_clipboard, write_clipboard};
+use crate::clipboard::{image_handler, read_clipboard, write_clipboard};
 use crate::clipboard::operations::write_clipboard_image;
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use crate::db::repository::ClipboardRepository;
@@ -68,6 +68,13 @@ pub fn update_clipboard_item(
 pub fn delete_clipboard_item(id: String, state: State<Mutex<AppState>>) -> Result<(), String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
     let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    if let Some(item) = repo.get_item(&id).map_err(|e| e.to_string())? {
+        if let Some(file_url) = item.file_url.as_deref() {
+            if let Err(err) = image_handler::delete_image_from_disk(file_url) {
+                eprintln!("Failed to delete image asset: {}", err);
+            }
+        }
+    }
     repo.delete_item(&id).map_err(|e| e.to_string())
 }
 
@@ -75,7 +82,25 @@ pub fn delete_clipboard_item(id: String, state: State<Mutex<AppState>>) -> Resul
 pub fn clear_all_clipboard_items(state: State<Mutex<AppState>>) -> Result<(), String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
     let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
-    repo.clear_all().map_err(|e| e.to_string())
+
+    let mut stmt = repo
+        .conn
+        .prepare("SELECT file_url FROM clipboard_items WHERE file_url IS NOT NULL")
+        .map_err(|e| e.to_string())?;
+    let file_urls: Vec<String> = stmt
+        .query_map([], |row| row.get::<_, String>(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|res| res.ok())
+        .collect();
+
+    repo.clear_all().map_err(|e| e.to_string())?;
+
+    for path in file_urls {
+        if let Err(err) = image_handler::delete_image_from_disk(&path) {
+            eprintln!("Failed to delete image asset: {}", err);
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

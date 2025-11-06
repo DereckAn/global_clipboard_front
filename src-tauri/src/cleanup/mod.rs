@@ -1,3 +1,4 @@
+use crate::clipboard::image_handler;
 use chrono::{Duration, Utc};
 use rusqlite::{Connection, Result};
 
@@ -8,10 +9,29 @@ pub fn cleanup_old_items(conn: &Connection, retention_days: Option<i32>) -> Resu
         let cutoff_date = Utc::now() - Duration::days(days as i64);
         let cutoff_str = cutoff_date.to_rfc3339();
 
+        let mut select_stmt = conn.prepare(
+            "SELECT file_url
+             FROM clipboard_items
+             WHERE updated_at < ?1
+               AND is_favorite = 0
+               AND file_url IS NOT NULL",
+        )?;
+
+        let file_urls: Vec<String> = select_stmt
+            .query_map([cutoff_str.clone()], |row| row.get(0))
+            .and_then(|mapped| mapped.collect())
+            ?;
+
         let deleted = conn.execute(
             "DELETE FROM clipboard_items WHERE updated_at < ?1 AND is_favorite = 0",
             [cutoff_str],
         )?;
+
+        for url in file_urls {
+            if let Err(err) = image_handler::delete_image_from_disk(&url) {
+                eprintln!("Failed to delete image asset: {}", err);
+            }
+        }
         Ok(deleted)
     } else {
         Ok(0)
@@ -33,17 +53,31 @@ pub fn cleanup_excess_items(conn: &Connection, max_items: Option<i32>) -> Result
             let to_delete = count - max as i64;
 
             // Eliminar los items menos recientemente usados (updated_at más antiguo)
-            let deleted = conn.execute(
-                "DELETE FROM clipboard_items
-                 WHERE id IN (
-                     SELECT id FROM clipboard_items
-                     WHERE is_favorite = 0
-                     ORDER BY updated_at ASC
-                     LIMIT ?1
-                 )",
-                [to_delete],
-            )?; 
-            Ok(deleted)
+            let mut select_stmt = conn.prepare(
+                "SELECT id, file_url
+                 FROM clipboard_items
+                 WHERE is_favorite = 0
+                 ORDER BY updated_at ASC
+                 LIMIT ?1",
+            )?;
+
+            let targets: Vec<(String, Option<String>)> = select_stmt
+                .query_map([to_delete], |row| Ok((row.get(0)?, row.get(1)?)))
+                .and_then(|mapped| mapped.collect())
+                ?;
+
+            let mut deleted = 0;
+            for (id, file_url) in targets {
+                conn.execute("DELETE FROM clipboard_items WHERE id = ?1", [id])?;
+                if let Some(url) = file_url {
+                    if let Err(err) = image_handler::delete_image_from_disk(&url) {
+                        eprintln!("Failed to delete image asset: {}", err);
+                    }
+                }
+                deleted += 1;
+            }
+
+            Ok(deleted as usize)
         } else {
             Ok(0)
         }

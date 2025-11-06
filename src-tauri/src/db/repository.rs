@@ -1,3 +1,4 @@
+use crate::clipboard::image_handler;
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use chrono::Utc;
 use rusqlite::{params, Connection, Result};
@@ -195,18 +196,33 @@ impl ClipboardRepository {
 
     // Removed: Use search_items_paginated() instead for better performance
     pub fn remove_duplicates(&self) -> Result<usize> {
-        // Delete duplicate items, keeping only the most recent one for each content
-        let deleted = self.conn.execute(
-            "DELETE FROM clipboard_items
-               WHERE id NOT IN (
-                   SELECT MIN(id)
-                   FROM clipboard_items
-                   GROUP BY content_text
-               )",
-            [],
+        let mut stmt = self.conn.prepare(
+            "SELECT id, file_url
+             FROM clipboard_items
+             WHERE id NOT IN (
+                 SELECT MIN(id)
+                 FROM clipboard_items
+                 GROUP BY content_text
+             )",
         )?;
 
-        Ok(deleted)
+        let targets: Vec<(String, Option<String>)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .and_then(|mapped| mapped.collect())
+            ?;
+
+        for (id, file_url) in &targets {
+            if let Some(url) = file_url {
+                if let Err(err) = image_handler::delete_image_from_disk(url) {
+                    eprintln!("Failed to delete image asset: {}", err);
+                }
+            }
+            self.conn
+                .execute("DELETE FROM clipboard_items WHERE id = ?1", [id])
+                ?;
+        }
+
+        Ok(targets.len())
     }
 
     // Get items con paginación

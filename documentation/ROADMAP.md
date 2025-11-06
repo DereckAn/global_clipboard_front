@@ -50,6 +50,7 @@ Amplía capacidades clave antes de sincronización en la nube.
   - Añadir configuración para personalizar formato de salida (PNG/JPEG).
 - [ ] **Sincronizar miniaturas y datos**  
   - ✅ Regenerar miniaturas locales cuando falten (`ensure_thumbnail` + fallback en sidebar).  
+  - ✅ Eliminar archivos/miniaturas asociados al borrar items o por limpieza automática.
   - [ ] Resolver carga de `thumbnail_path` para elementos sincronizados entre dispositivos.  
   - [ ] Gestionar subida/descarga de thumbnails en el flujo cloud.  
   - `src/lib/components/sidebar/SidebarItem.svelte`, `src/lib/tauri/commands.ts`.
