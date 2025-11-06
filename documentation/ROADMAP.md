@@ -40,12 +40,14 @@ Enfoque en consolidar la base de la aplicación (UI consistente y configuración
 Amplía capacidades clave antes de sincronización en la nube.  
 **Estimado total:** ~8‑10 días · **Dificultad:** 🟡 media.
 
-### 2.1 Ecosistema de imágenes
-- ✅ Copia desde Finder y navegadores con hash + thumbnails.
-- ✅ Rebote de imágenes (copy back) sin duplicados.
-- [ ] **Soporte de capturas de pantalla instantáneas**  
-  - Validar formatos TIFF/HEIC que genera macOS al usar `Cmd+Shift+4/5`.  
-  - Detectar y normalizar metadata de screenshots (`src-tauri/src/clipboard/operations.rs`).
+- ### 2.1 Ecosistema de imágenes
+  - ✅ Copia desde Finder y navegadores con hash + thumbnails.
+  - ✅ Rebote de imágenes (copy back) sin duplicados.
+  - ✅ Validar formatos TIFF/HEIC de macOS (`Cmd+Shift+4/5`) y convertir a PNG para vista previa.
+  - ✅ Metadata enriquecida (`is_screenshot`, `original_extension`, rutas locales normalizadas).
+- [ ] **Soporte de capturas de pantalla instantáneas ampliado**
+  - Identificar capturas en Windows/Linux y etiquetar metadata igualmente.
+  - Añadir configuración para personalizar formato de salida (PNG/JPEG).
 - [ ] **Sincronizar miniaturas y datos**  
   - Cargar `thumbnail_path` desde `APPDATA` en el frontend y añadir fallback cuando la ruta no exista.  
   - `src/lib/components/sidebar/SidebarItem.svelte`.

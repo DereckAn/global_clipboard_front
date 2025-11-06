@@ -3,7 +3,7 @@ use crate::clipboard::image_handler::{
 };
 use crate::clipboard::listener::ClipboardEvent;
 use crate::clipboard::state;
-use crate::clipboard::operations::{read_clipboard, read_clipboard_content, ClipboardContent};
+use crate::clipboard::operations::{read_clipboard_content, ClipboardContent};
 use crate::clipboard::types::{detect_code_language, detect_content_type, get_source_app};
 use crate::db::models::CreateClipboardItemDto;
 use crate::db::repository::ClipboardRepository;
@@ -104,12 +104,14 @@ impl ClipboardMonitor {
                 );
 
                 match copy_image_file_to_storage(&file_path, &self.images_dir) {
-                    Ok((full_path, thumb_path, file_name, width, height, file_size, file_hash)) => {
+                    Ok(info) => {
                         if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
-                            if let Ok(Some(existing_item)) = repo.find_by_file_hash(&file_hash) {
+                            if let Ok(Some(existing_item)) =
+                                repo.find_by_file_hash(&info.file_hash)
+                            {
                                 println!(
                                     "🔁 Duplicate image detected (hash: {}), bumping existing item: {}",
-                                    &file_hash[..12],
+                                    &info.file_hash[..12],
                                     existing_item.id
                                 );
 
@@ -121,23 +123,34 @@ impl ClipboardMonitor {
                                     }
                                 }
 
-                                let _ = std::fs::remove_file(&full_path);
-                                let _ = std::fs::remove_file(&thumb_path);
+                                let _ = std::fs::remove_file(&info.full_path);
+                                let _ = std::fs::remove_file(&info.thumb_path);
                                 return;
                             }
                         }
 
-                        let metadata = serde_json::json!({
-                            "width": width,
-                            "height": height,
-                            "thumbnail_path": thumb_path.to_string_lossy().to_string(),
+                        let mut metadata = serde_json::json!({
+                            "width": info.width,
+                            "height": info.height,
+                            "thumbnail_path": info.thumb_path.to_string_lossy().to_string(),
                             "original_path": file_path.to_string_lossy().to_string(),
+                            "is_screenshot": info.is_screenshot,
+                            "source": "file",
                         });
+
+                        if let Some(ext) = info.original_extension.as_ref() {
+                            if let Some(obj) = metadata.as_object_mut() {
+                                obj.insert(
+                                    "original_extension".to_string(),
+                                    serde_json::Value::String(ext.clone()),
+                                );
+                            }
+                        }
 
                         if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
                             let dto = CreateClipboardItemDto {
                                 content_type: "image".to_string(),
-                                content_text: format!("Image {}x{}", width, height),
+                                content_text: format!("Image {}x{}", info.width, info.height),
                                 content_metadata: Some(metadata.to_string()),
                                 source_app: get_source_app(),
                                 code_language: None,
@@ -145,21 +158,22 @@ impl ClipboardMonitor {
 
                             match repo.create_item(dto) {
                                 Ok(mut item) => {
-                                    let mime_type = detect_mime_type(&file_name);
+                                    let mime_type = detect_mime_type(&info.file_name);
 
-                                    item.file_url = Some(full_path.to_string_lossy().to_string());
-                                    item.file_name = Some(file_name.clone());
-                                    item.file_size_bytes = Some(file_size as i64);
+                                    item.file_url =
+                                        Some(info.full_path.to_string_lossy().to_string());
+                                    item.file_name = Some(info.file_name.clone());
+                                    item.file_size_bytes = Some(info.file_size as i64);
                                     item.file_mime_type = Some(mime_type.clone());
-                                    item.file_hash = Some(file_hash.clone());
+                                    item.file_hash = Some(info.file_hash.clone());
 
                                     if let Err(e) = repo.update_file_info(
                                         &item.id,
-                                        &full_path.to_string_lossy(),
-                                        &file_name,
-                                        file_size as i64,
+                                        &info.full_path.to_string_lossy(),
+                                        &info.file_name,
+                                        info.file_size as i64,
                                         &mime_type,
-                                        Some(&file_hash),
+                                        Some(&info.file_hash),
                                     ) {
                                         eprintln!("Failed to update file info: {}", e);
                                     }
@@ -223,7 +237,7 @@ impl ClipboardMonitor {
                     *last_text = current_text;
                 }
             }
-            Ok(ClipboardContent::Image(image_data)) => {
+            Ok(ClipboardContent::Image(image_data, screenshot_hint)) => {
                 use std::collections::hash_map::DefaultHasher;
                 use std::hash::{Hash, Hasher};
 
@@ -241,13 +255,15 @@ impl ClipboardMonitor {
                     *last_hash = Some(current_hash.clone());
                 }
 
-                match save_image_to_disk(&image_data, &self.images_dir) {
-                    Ok((full_path, thumb_path, file_name, width, height, file_size, file_hash)) => {
+                match save_image_to_disk(&image_data, &self.images_dir, screenshot_hint) {
+                    Ok(info) => {
                         if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
-                            if let Ok(Some(existing_item)) = repo.find_by_file_hash(&file_hash) {
+                            if let Ok(Some(existing_item)) =
+                                repo.find_by_file_hash(&info.file_hash)
+                            {
                                 println!(
                                     "🔁 Duplicate clipboard image detected (hash: {}), bumping existing item: {}",
-                                    &file_hash[..12],
+                                    &info.file_hash[..12],
                                     existing_item.id
                                 );
 
@@ -259,23 +275,34 @@ impl ClipboardMonitor {
                                     }
                                 }
 
-                                let _ = std::fs::remove_file(&full_path);
-                                let _ = std::fs::remove_file(&thumb_path);
+                                let _ = std::fs::remove_file(&info.full_path);
+                                let _ = std::fs::remove_file(&info.thumb_path);
                                 return;
                             }
                         }
 
-                        let metadata = serde_json::json!({
-                            "width": width,
-                            "height": height,
-                            "thumbnail_path": thumb_path.to_string_lossy().to_string(),
-                            "original_path": full_path.to_string_lossy().to_string(),
+                        let mut metadata = serde_json::json!({
+                            "width": info.width,
+                            "height": info.height,
+                            "thumbnail_path": info.thumb_path.to_string_lossy().to_string(),
+                            "original_path": info.full_path.to_string_lossy().to_string(),
+                            "is_screenshot": info.is_screenshot,
+                            "source": "clipboard",
                         });
+
+                        if let Some(ext) = info.original_extension.as_ref() {
+                            if let Some(obj) = metadata.as_object_mut() {
+                                obj.insert(
+                                    "original_extension".to_string(),
+                                    serde_json::Value::String(ext.clone()),
+                                );
+                            }
+                        }
 
                         if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
                             let dto = CreateClipboardItemDto {
                                 content_type: "image".to_string(),
-                                content_text: format!("Image {}x{}", width, height),
+                                content_text: format!("Image {}x{}", info.width, info.height),
                                 content_metadata: Some(metadata.to_string()),
                                 source_app: get_source_app(),
                                 code_language: None,
@@ -283,21 +310,22 @@ impl ClipboardMonitor {
 
                             match repo.create_item(dto) {
                                 Ok(mut item) => {
-                                    let mime_type = detect_mime_type(&file_name);
+                                    let mime_type = detect_mime_type(&info.file_name);
 
-                                    item.file_url = Some(full_path.to_string_lossy().to_string());
-                                    item.file_name = Some(file_name.clone());
-                                    item.file_size_bytes = Some(file_size as i64);
+                                    item.file_url =
+                                        Some(info.full_path.to_string_lossy().to_string());
+                                    item.file_name = Some(info.file_name.clone());
+                                    item.file_size_bytes = Some(info.file_size as i64);
                                     item.file_mime_type = Some(mime_type.clone());
-                                    item.file_hash = Some(file_hash.clone());
+                                    item.file_hash = Some(info.file_hash.clone());
 
                                     if let Err(e) = repo.update_file_info(
                                         &item.id,
-                                        &full_path.to_string_lossy(),
-                                        &file_name,
-                                        file_size as i64,
+                                        &info.full_path.to_string_lossy(),
+                                        &info.file_name,
+                                        info.file_size as i64,
                                         &mime_type,
-                                        Some(&file_hash),
+                                        Some(&info.file_hash),
                                     ) {
                                         eprintln!("Failed to update file info: {}", e);
                                     }

@@ -12,7 +12,7 @@ lazy_static::lazy_static! {
 #[derive(Debug, Clone)]
 pub enum ClipboardContent {
     Text(String),
-    Image(ImageData<'static>),
+    Image(ImageData<'static>, bool),
     ImageFile(PathBuf), // File path to image from Finder
     Empty,
 }
@@ -22,16 +22,20 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
     let mut clipboard = CLIPBOARD.lock().map_err(|e| e.to_string())?;
 
     // First check for file list (Finder copy)
+    // First check for file list (Finder copy)
     if let Ok(paths) = clipboard.get().file_list() {
         if let Some(image_path) = paths.into_iter().find(|path| is_image_file_path(path)) {
             return Ok(ClipboardContent::ImageFile(image_path));
         }
     }
 
-    // First check if there's a file path (Finder copy)
+    let mut cached_text: Option<String> = None;
+    let mut screenshot_hint = false;
+
     if let Ok(text) = clipboard.get_text() {
         if !text.is_empty() {
-            let potential_path = PathBuf::from(text.trim());
+            let trimmed = text.trim();
+            let potential_path = PathBuf::from(trimmed);
             if is_image_file_path(&potential_path) {
                 println!(
                     "📁 Detected image file from text: {}",
@@ -39,8 +43,8 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
                 );
                 return Ok(ClipboardContent::ImageFile(potential_path));
             }
-            if is_image_file_url(&text) {
-                if let Some(resolved) = path_from_file_url(&text) {
+            if is_image_file_url(trimmed) {
+                if let Some(resolved) = path_from_file_url(trimmed) {
                     if is_image_file_path(&resolved) {
                         println!("📁 Detected image file URL: {}", resolved.display());
                         return Ok(ClipboardContent::ImageFile(resolved));
@@ -48,9 +52,13 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
                 }
             }
         }
+
+        screenshot_hint = looks_like_screenshot_text(&text);
+        if !text.is_empty() {
+            cached_text = Some(text);
+        }
     }
 
-    // Try to get image data (screenshot, browser copy)
     if let Ok(image) = clipboard.get_image() {
         //convert ImageData to 'static lifetime
         let owned_image = ImageData {
@@ -59,10 +67,14 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
             bytes: image.bytes.into_owned().into(),
         };
 
-        return Ok(ClipboardContent::Image(owned_image));
+        return Ok(ClipboardContent::Image(owned_image, screenshot_hint));
     }
 
-    // If no image, check for regular text
+    if let Some(text) = cached_text {
+        return Ok(ClipboardContent::Text(text));
+    }
+
+    // If no cached text, fallback to plain get_text again
     if let Ok(text) = clipboard.get_text() {
         if !text.is_empty() {
             return Ok(ClipboardContent::Text(text));
@@ -148,4 +160,25 @@ fn path_from_file_url(url: &str) -> Option<PathBuf> {
         .decode_utf8()
         .ok()?;
     Some(PathBuf::from(decoded.as_ref()))
+}
+
+fn looks_like_screenshot_text(text: &str) -> bool {
+    let lowered = text.trim().to_lowercase();
+    if lowered.is_empty() {
+        return false;
+    }
+
+    let screenshot_markers = [
+        "screenshot",
+        "screen shot",
+        "captura de pantalla",
+        "スクリーンショット",
+        "截圖",
+    ];
+
+    if screenshot_markers.iter().any(|marker| lowered.contains(marker)) {
+        return true;
+    }
+
+    lowered.ends_with(".png") || lowered.ends_with(".tiff") || lowered.ends_with(".heic")
 }
