@@ -7,12 +7,14 @@
     tauriExtractDomain,
     tauriWriteImageToClipboard,
     tauriWriteToClipboard,
+    tauriEnsureThumbnail,
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
   import { getContentTypeIcon } from "$lib/utils/format";
   import { getLanguageInfo } from "$lib/utils/languages";
   import { convertFileSrc } from "@tauri-apps/api/core";
+  import { exists } from "@tauri-apps/api/fs";
 
   interface Props {
     item: ClipboardItem;
@@ -53,6 +55,7 @@
   });
 
   const thumbnailPath = $derived(parsedMetadata?.thumbnail_path || null);
+  const resolvedThumbnail = $state<string | null>(null);
 
   // Load favicon for links
   $effect(() => {
@@ -212,15 +215,15 @@
           class="w-full h-full object-contain"
         />
       </div>
-    {:else if isImage && thumbnailPath}
+    {:else if isImage && resolvedThumbnail}
       <!-- Show actual thumbnail image -->
       <img
-        src={convertFileSrc(thumbnailPath)}
+        src={convertFileSrc(resolvedThumbnail)}
         alt="Thumbnail"
         class="w-7 h-7 rounded object-cover border border-border"
         onerror={(e) => {
-          console.error("Failed to load thumbnail:", thumbnailPath);
-          // Hide image and show fallback icon on error
+          console.error("Failed to load thumbnail:", resolvedThumbnail);
+          resolvedThumbnail = null;
           (e.currentTarget as HTMLImageElement).style.display = "none";
           (e.currentTarget as HTMLImageElement).parentElement
             ?.querySelector(".fallback-image-icon")
@@ -240,7 +243,7 @@
           /></svg
         >
       </div>
-    {:else if isImage && !thumbnailPath}
+    {:else if isImage && !resolvedThumbnail}
       <!-- Fallback icon if no thumbnail available -->
       <div class="size-7 flex items-center justify-center">
         <svg
@@ -315,3 +318,47 @@
     </div>
   {/if}
 </div>
+  async function computeResolvedThumbnail(): Promise<string | null> {
+    if (!isImage) {
+      return null;
+    }
+
+    let candidate: string | null =
+      typeof thumbnailPath === "string" ? thumbnailPath : null;
+
+    if (candidate) {
+      try {
+        const existsLocally = await exists(candidate);
+        if (!existsLocally) {
+          candidate = null;
+        }
+      } catch (error) {
+        console.error("Failed to verify thumbnail:", error);
+        candidate = null;
+      }
+    }
+
+    if (!candidate && item.fileUrl) {
+      candidate = await tauriEnsureThumbnail(item.fileUrl);
+    }
+
+    return candidate;
+  }
+
+  $effect(() => {
+    // Re-run when dependencies change
+    const _deps = [item.id, thumbnailPath, item.fileUrl, isImage];
+    void _deps;
+
+    let cancelled = false;
+    (async () => {
+      const candidate = await computeResolvedThumbnail();
+      if (!cancelled) {
+        resolvedThumbnail = candidate;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  });

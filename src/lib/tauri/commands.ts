@@ -347,3 +347,13 @@ export async function tauriIsTrayVisible(): Promise<boolean> {
 export async function tauriWriteImageToClipboard(imagePath: string): Promise<void> {
   await invoke("write_image_to_clipboard", { imagePath });
 }
+
+export async function tauriEnsureThumbnail(imagePath: string): Promise<string | null> {
+  try {
+    const result = await invoke<string>("ensure_thumbnail", { filePath: imagePath });
+    return result;
+  } catch (err) {
+    console.error("Failed to ensure thumbnail:", err);
+    return null;
+  }
+}

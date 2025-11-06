@@ -49,8 +49,10 @@ Amplía capacidades clave antes de sincronización en la nube.
   - Identificar capturas en Windows/Linux y etiquetar metadata igualmente.
   - Añadir configuración para personalizar formato de salida (PNG/JPEG).
 - [ ] **Sincronizar miniaturas y datos**  
-  - Cargar `thumbnail_path` desde `APPDATA` en el frontend y añadir fallback cuando la ruta no exista.  
-  - `src/lib/components/sidebar/SidebarItem.svelte`.
+  - ✅ Regenerar miniaturas locales cuando falten (`ensure_thumbnail` + fallback en sidebar).  
+  - [ ] Resolver carga de `thumbnail_path` para elementos sincronizados entre dispositivos.  
+  - [ ] Gestionar subida/descarga de thumbnails en el flujo cloud.  
+  - `src/lib/components/sidebar/SidebarItem.svelte`, `src/lib/tauri/commands.ts`.
 
 ### 2.2 Refinamiento visual
 - [ ] Layout responsivo (breakpoints Tailwind, sidebar colapsable, menú móvil).  

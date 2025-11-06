@@ -291,6 +291,7 @@ pub fn run() {
             commands::set_tray_visible,
             commands::is_tray_visible,
             commands::write_image_to_clipboard,
+            commands::ensure_thumbnail,
 
         ])
         .run(tauri::generate_context!())

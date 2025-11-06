@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `src/` hosts the Svelte 5 frontend: `routes/` for pages, `lib/components` for UI pieces, `lib/stores/*.svelte.ts` for runes-based state, `lib/tauri` for command helpers, and `assets/` for bundled media.
-- `src-tauri/` contains the Rust desktop shell; `src/` holds clipboard, cleanup, and command modules; `clipboard/listener.rs` wires the event-driven clipboard monitor using `clipboard-master`; `tests/` mantiene integración como `cleanup_integration_tests.rs`.
+- `src-tauri/` contains the Rust desktop shell; `src/` holds clipboard, cleanup, and command modules; `clipboard/listener.rs` + `clipboard/state.rs` power the event-driven monitor (clipboard-master) with skip guards; `clipboard/image_handler.rs` normalizes screenshots (HEIC/TIFF→PNG) and regenerates thumbnails; `commands/images.rs` exposes `ensure_thumbnail`; `tests/` mantiene integración como `cleanup_integration_tests.rs`.
 - `static/` supplies packaged icons and metadata, and `documentation/` captures design notes plus testing guides like `TESTING_CLEANUP.md`.
 - Generated directories (`node_modules/`, `target/`) are build outputs—avoid editing them directly.
 
@@ -43,6 +43,8 @@ Global Clipboard Manager is a production-ready clipboard management application 
 
 **Current Status**: v1.1 - Fully functional with advanced features implemented including:
 - ✅ Clipboard monitoring and auto-save
+- ✅ Event-driven clipboard listener (clipboard-master) with duplicate suppression
+- ✅ Screenshot-aware image pipeline (HEIC/TIFF conversion, metadata tagging, thumbnail regeneration)
 - ✅ Smart content detection (text, code, colors, links, files)
 - ✅ Efficient pagination with infinite scroll
 - ✅ Dynamic global hotkeys
@@ -69,7 +71,7 @@ Global Clipboard Manager is a production-ready clipboard management application 
 - **Framework**: Tauri v2.9.1
 - **Language**: Rust 1.70+
 - **Database**: SQLite with `rusqlite`
-- **Clipboard**: Background monitoring with 500ms polling
+- **Clipboard**: Event-driven listener (clipboard-master) with skip counters (falls back to polling on Linux internally)
 - **Plugins**:
   - `tauri-plugin-opener` - Open files and URLs
   - `tauri-plugin-notification` - Native notifications
@@ -154,15 +156,18 @@ The application follows **Clean Architecture** with clear layer separation:
 
 - **`src-tauri/src/`**: Rust backend code
   - `clipboard/` - Clipboard monitoring
-    - `monitor.rs` - Background clipboard watcher (500ms poll)
-    - `operations.rs` - Read/write operations
+    - `monitor.rs` - Event-driven watcher (dedupe, screenshot tagging, metadata)
+    - `operations.rs` - Read/write operations + screenshot hints
     - `types.rs` - Content type detection (20+ code languages)
+    - `image_handler.rs` - Image persistence, HEIC/TIFF conversion, thumbnail regeneration
+    - `listener.rs` / `state.rs` - clipboard-master glue + skip counters
   - `commands/` - Tauri commands (API)
     - `clipboard.rs` - CRUD operations with pagination
     - `settings.rs` - Settings & dynamic hotkey management + cleanup commands
     - `colors.rs` - Color conversion (HEX, RGB, HSL, OKLCH)
     - `links.rs` - URL metadata fetching
     - `hotkey.rs` - Window visibility toggle
+    - `images.rs` - Thumbnail regeneration helper (`ensure_thumbnail`)
   - `db/` - Database layer
     - `repository.rs` - Data access with server-side pagination + FTS5 search
     - `fts_migration.rs` - Full-text search setup with SQLite FTS5

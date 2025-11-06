@@ -288,3 +288,37 @@ fn convert_heic_to_png(source: &Path, destination: &Path) -> Result<(), String> 
 fn convert_heic_to_png(_source: &Path, _destination: &Path) -> Result<(), String> {
     Err("HEIC conversion is not supported on this platform.".to_string())
 }
+
+pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
+    if !file_path.exists() {
+        return Err(format!(
+            "Image file not found when ensuring thumbnail: {}",
+            file_path.display()
+        ));
+    }
+
+    let parent = file_path
+        .parent()
+        .ok_or_else(|| "Image file has no parent directory".to_string())?;
+
+    let stem = file_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .ok_or_else(|| "Invalid image file name".to_string())?;
+
+    let thumb_path = parent.join(format!("{}_thumb.png", stem));
+
+    if thumb_path.exists() {
+        return Ok(thumb_path);
+    }
+
+    let img = image::open(file_path)
+        .map_err(|e| format!("Failed to open image for thumbnail regeneration: {}", e))?;
+
+    let thumbnail = img.resize(256, 256, imageops::FilterType::Lanczos3);
+    thumbnail
+        .save(&thumb_path)
+        .map_err(|e| format!("Failed to save regenerated thumbnail: {}", e))?;
+
+    Ok(thumb_path)
+}
