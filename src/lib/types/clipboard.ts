@@ -28,6 +28,8 @@ export interface ClipboardItem {
   // Sync (futuro - Pro)
   synced: boolean;
   serverId: string | null;
+
+  fileHash: string | null;
 }
 
 export interface CreateClipboardItemDto {

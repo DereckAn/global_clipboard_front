@@ -2,16 +2,18 @@
   import Icon from "$lib/components/icons/Icon.svelte";
   import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import {
+    tauriBumpItem,
     tauriConvertColor,
     tauriExtractDomain,
     tauriFetchLinkMetadata,
+    tauriWriteImageToClipboard,
     tauriWriteToClipboard,
-    tauriBumpItem,
     type LinkMetadata,
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
   import { sanitizeSvg } from "$lib/utils/svg";
+  import { convertFileSrc } from "@tauri-apps/api/core";
   import HighlightedText from "../ui/HighlightedText.svelte";
 
   interface Props {
@@ -36,6 +38,7 @@
   const isLink = $derived(item?.contentType === "link");
   const isCode = $derived(item?.contentType === "code");
   const isSvg = $derived(item?.contentType === "svg");
+  const isImage = $derived(item?.contentType === "image");
   const safeSvg = $derived.by(() => {
     if (!isSvg || !item?.contentText) return "";
     return sanitizeSvg(item.contentText);
@@ -100,8 +103,14 @@
         await tauriBumpItem(item.id);
       }
 
-      // Copy to clipboard (monitor will detect and bump again if needed)
-      await tauriWriteToClipboard(text);
+      // Handle based on content type
+      if (isImage && item?.fileUrl) {
+        // Copy image to clipboard
+        await tauriWriteImageToClipboard(item.fileUrl);
+      } else {
+        // Copy text to clipboard
+        await tauriWriteToClipboard(text);
+      }
 
       // Reload items to reflect new order
       await clipboardStore.loadItems();
@@ -120,6 +129,59 @@
       window.open(item.contentText, "_blank");
     }
   };
+
+  // Svelte action to render image on canvas
+  function renderImageOnCanvas(canvas: HTMLCanvasElement, imageUrl: string) {
+    const img = new Image();
+    const ctx = canvas.getContext("2d");
+
+    if (!ctx) {
+      console.error("Failed to get canvas context");
+      return;
+    }
+
+    img.onload = () => {
+      console.log("✅ Image loaded for canvas:", {
+        width: img.width,
+        height: img.height,
+      });
+
+      // Calculate dimensions to fit in viewport while maintaining aspect ratio
+      const maxWidth = window.innerWidth - 200; // Account for sidebar
+      const maxHeight = window.innerHeight - 300; // Account for header/footer
+
+      let width = img.width;
+      let height = img.height;
+
+      // Scale down if needed
+      if (width > maxWidth || height > maxHeight) {
+        const ratio = Math.min(maxWidth / width, maxHeight / height);
+        width = width * ratio;
+        height = height * ratio;
+      }
+
+      // Set canvas size
+      canvas.width = width;
+      canvas.height = height;
+
+      // Draw image
+      ctx.drawImage(img, 0, 0, width, height);
+      console.log("✅ Image drawn on canvas");
+    };
+
+    img.onerror = (e) => {
+      console.error("❌ Failed to load image for canvas:", e);
+    };
+
+    img.src = imageUrl;
+
+    return {
+      destroy() {
+        img.onload = null;
+        img.onerror = null;
+      },
+    };
+  }
 </script>
 
 <div class={cn("flex-1 overflow-y-auto flex flex-col", className)}>
@@ -328,6 +390,85 @@
         </button>
       </div>
     </div>
+  {:else if isImage}
+    <!-- Image content -->
+    <div class="flex-1 flex flex-col">
+      <!-- Image Preview -->
+      <div
+        class="flex-1 flex items-center justify-center p-8 overflow-auto "
+      >
+        {#if item.fileUrl}
+          {@const metadata = (() => {
+            if (!item.contentMetadata) return {};
+            try {
+              return typeof item.contentMetadata === "string"
+                ? JSON.parse(item.contentMetadata)
+                : item.contentMetadata;
+            } catch (e) {
+              console.error("Failed to parse metadata:", e);
+              return {};
+            }
+          })()}
+          {console.log("🖼️ Loading full resolution image:", {
+            fullPath: item.fileUrl,
+            fileName: item.fileName,
+            dimensions: `${metadata.width}x${metadata.height}`,
+            parsedMetadata: metadata,
+          })}
+          <div
+            class="max-w-full max-h-full relative flex items-center justify-center"
+          >
+            <!-- Load full resolution image directly (like PasteBarApp) -->
+            <img
+              src={convertFileSrc(item.fileUrl)}
+              alt={item.fileName || "Clipboard image"}
+              class="max-w-full max-h-[calc(100vh-16rem)] object-scale-down rounded-lg shadow-2xl animate-in fade-in duration-300"
+              decoding="async"
+              draggable={false}
+              onload={() =>
+                console.log("✅ Full image loaded from:", item.fileUrl)}
+              onerror={(e) =>
+                console.error("❌ Failed to load image:", item.fileUrl, e)}
+            />
+
+            <!-- Image info overlay -->
+            <div
+              class="absolute bottom-4 left-4 right-4 bg-surface/90 backdrop-blur rounded-lg p-3 border border-border z-20"
+            >
+              <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                  <Icon name="image" size={20} class="text-primary" />
+                  <div>
+                    <p class="text-xs text-text-muted">
+                      {metadata.width || "?"}x{metadata.height || "?"} •
+                      {item.fileSizeBytes
+                        ? (item.fileSizeBytes / 1024).toFixed(0)
+                        : "?"} KB
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {:else}
+          <div class="text-center">
+            <Icon name="image" size={64} class="text-text-muted mx-auto mb-4" />
+            <p class="text-text-muted">Image file not found</p>
+          </div>
+        {/if}
+      </div>
+
+      <!-- Copy button -->
+      <div class="px-6 pb-6">
+        <button
+          onclick={() => handleCopy("")}
+          class="w-full px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+        >
+          <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
+          <span>{copied ? "Copied!" : "Copy image to clipboard"}</span>
+        </button>
+      </div>
+    </div>
   {:else if isSvg}
     <!-- SVG content -->
     <div class="flex-1 flex flex-col">
@@ -400,5 +541,26 @@
 
   .animate-spin {
     animation: spin 1s linear infinite;
+  }
+
+  .animate-in {
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fadeIn;
+  }
+
+  .duration-300 {
+    animation-duration: 300ms;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 </style>

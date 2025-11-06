@@ -26,6 +26,7 @@ lazy_static = "1.5"
 palette = "0.7"
 reqwest = { version = "0.11", features = ["blocking"] }
 scraper = "0.17"
+image = "0.25.8"
 
 # Database
 rusqlite = { version = "0.32", features = ["bundled"] }
@@ -34,16 +35,20 @@ rusqlite = { version = "0.32", features = ["bundled"] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Clipboard accessk
-arboard = "3.4"
+arboard = "3.6.1"
 
 # UUID generation
 uuid = { version = "1.10", features = ["v4", "serde"] }
+
+# Hashing for file deduplication
+sha2 = "0.10"
 
 # Async runtime (para el monitor del clipboard)
 tokio = { version = "1", features = ["full"] }
 tauri-plugin-notification = "2.3.3"
 tauri-plugin-global-shortcut = "2.3.1"
 tauri-plugin-autostart = "2.5.1"
+percent-encoding = "2.3.2"
 
 # Test dependencies
 [dev-dependencies]

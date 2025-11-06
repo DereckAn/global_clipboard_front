@@ -9,24 +9,31 @@ pub fn init_database(conn: &Connection) -> Result<()> {
               content_metadata TEXT NOT NULL DEFAULT '{}',
               source_app TEXT,
               code_language TEXT,
-              
+
               file_url TEXT,
               file_name TEXT,
               file_size_bytes INTEGER,
               file_mime_type TEXT,
-              
+              file_hash TEXT,
+
               is_favorite BOOLEAN NOT NULL DEFAULT 0,
               is_snippet BOOLEAN NOT NULL DEFAULT 0,
               snippet_name TEXT,
-              
+
               created_at TEXT NOT NULL,
               updated_at TEXT NOT NULL,
-              
+
               synced BOOLEAN NOT NULL DEFAULT 0,
               server_id TEXT
           )",
         [],
     )?;
+
+    // Migration: Add file_hash column if it doesn't exist
+    let _ = conn.execute(
+        "ALTER TABLE clipboard_items ADD COLUMN file_hash TEXT",
+        [],
+    );
 
     // Create indexes for better performance
     conn.execute(
@@ -42,8 +49,14 @@ pub fn init_database(conn: &Connection) -> Result<()> {
     )?;
 
     conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_is_favorite ON 
+        "CREATE INDEX IF NOT EXISTS idx_is_favorite ON
   clipboard_items(is_favorite)",
+        [],
+    )?;
+
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_file_hash ON
+  clipboard_items(file_hash)",
         [],
     )?;
 

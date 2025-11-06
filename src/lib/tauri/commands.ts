@@ -28,6 +28,7 @@ function deserializeClipboardItem(item: any): ClipboardItem {
     snippetName: item.snippet_name,
     synced: item.synced,
     serverId: item.server_id,
+    fileHash: item.file_hash,
   };
 }
 
@@ -341,4 +342,8 @@ export async function tauriSetTrayVisible(visible: boolean): Promise<void> {
 
 export async function tauriIsTrayVisible(): Promise<boolean> {
   return await invoke<boolean>("is_tray_visible");
+}
+
+export async function tauriWriteImageToClipboard(imagePath: string): Promise<void> {
+  await invoke("write_image_to_clipboard", { imagePath });
 }

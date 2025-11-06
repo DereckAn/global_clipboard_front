@@ -86,7 +86,7 @@
   };
 </script>
 
-<div class="h-screen w-screen overflow-hidden flex flex-col bg-background">
+<div class="h-screen w-screen overflow-hidden flex flex-col bg-background rounded-xl">
   <!-- Header -->
   <div
     class="h-16 bg-surface border-b border-border px-6 flex items-center gap-4"

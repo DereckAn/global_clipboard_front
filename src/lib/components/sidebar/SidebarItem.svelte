@@ -3,14 +3,16 @@
   import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import {
-    tauriExtractDomain,
-    tauriWriteToClipboard,
     tauriBumpItem,
+    tauriExtractDomain,
+    tauriWriteImageToClipboard,
+    tauriWriteToClipboard,
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
   import { getContentTypeIcon } from "$lib/utils/format";
   import { getLanguageInfo } from "$lib/utils/languages";
+  import { convertFileSrc } from "@tauri-apps/api/core";
 
   interface Props {
     item: ClipboardItem;
@@ -32,9 +34,25 @@
   const isLink = $derived(item.contentType === "link");
   const isCode = $derived(item.contentType === "code");
   const isSvg = $derived(item.contentType === "svg");
+  const isImage = $derived(item.contentType === "image");
   const languageInfo = $derived(
     isCode ? getLanguageInfo(item.codeLanguage) : null
   );
+
+  // Parse metadata to get thumbnail path
+  const parsedMetadata = $derived.by(() => {
+    if (!item.contentMetadata) return null;
+    try {
+      return typeof item.contentMetadata === 'string'
+        ? JSON.parse(item.contentMetadata)
+        : item.contentMetadata;
+    } catch (e) {
+      console.error("Failed to parse metadata:", e);
+      return null;
+    }
+  });
+
+  const thumbnailPath = $derived(parsedMetadata?.thumbnail_path || null);
 
   // Load favicon for links
   $effect(() => {
@@ -57,21 +75,25 @@
   };
 
   const handleDoubleClick = async () => {
-    if (item.contentText) {
-      try {
-        // Bump item to top (update timestamp)
-        await tauriBumpItem(item.id);
+    try {
+      // Bump item to top (update timestamp)
+      await tauriBumpItem(item.id);
 
-        // Copy to clipboard (monitor will detect and bump again if needed)
+      // Handle based on content type
+      if (isImage && item.fileUrl) {
+        // Copy image to clipboard
+        await tauriWriteImageToClipboard(item.fileUrl);
+        console.log("Image copied to clipboard");
+      } else if (item.contentText) {
+        // Copy text to clipboard
         await tauriWriteToClipboard(item.contentText);
-
-        // Reload items to reflect new order
-        await clipboardStore.loadItems();
-
-        console.log("Copied to clipboard and bumped to top");
-      } catch (err) {
-        console.error("Failed to copy:", err);
+        console.log("Text copied to clipboard");
       }
+
+      // Reload items to reflect new order
+      await clipboardStore.loadItems();
+    } catch (err) {
+      console.error("Failed to copy:", err);
     }
   };
 
@@ -190,13 +212,64 @@
           class="w-full h-full object-contain"
         />
       </div>
+    {:else if isImage && thumbnailPath}
+      <!-- Show actual thumbnail image -->
+      <img
+        src={convertFileSrc(thumbnailPath)}
+        alt="Thumbnail"
+        class="w-7 h-7 rounded object-cover border border-border"
+        onerror={(e) => {
+          console.error("Failed to load thumbnail:", thumbnailPath);
+          // Hide image and show fallback icon on error
+          (e.currentTarget as HTMLImageElement).style.display = "none";
+          (e.currentTarget as HTMLImageElement).parentElement
+            ?.querySelector(".fallback-image-icon")
+            ?.classList.remove("hidden");
+        }}
+      />
+      <!-- Fallback icon if thumbnail fails to load -->
+      <div class="size-7 flex items-center justify-center fallback-image-icon hidden">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="1.5em"
+          height="1.5em"
+          viewBox="0 0 448 512"
+          ><path
+            fill="#db2777"
+            d="M64 32C28.7 32 0 60.7 0 96v320c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64zm64 80a48 48 0 1 1 0 96a48 48 0 1 1 0-96m144 112c8.4 0 16.1 4.4 20.5 11.5l88 144c4.5 7.4 4.7 16.7.5 24.3S368.7 416 360 416H88c-8.9 0-17.2-5-21.3-12.9s-3.5-17.5 1.6-24.8l56-80c4.5-6.4 11.8-10.2 19.7-10.2s15.2 3.8 19.7 10.2l26.4 37.8l61.4-100.5c4.4-7.1 12.1-11.5 20.5-11.5z"
+          /></svg
+        >
+      </div>
+    {:else if isImage && !thumbnailPath}
+      <!-- Fallback icon if no thumbnail available -->
+      <div class="size-7 flex items-center justify-center">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="1.5em"
+          height="1.5em"
+          viewBox="0 0 448 512"
+          ><path
+            fill="#db2777"
+            d="M64 32C28.7 32 0 60.7 0 96v320c0 35.3 28.7 64 64 64h320c35.3 0 64-28.7 64-64V96c0-35.3-28.7-64-64-64zm64 80a48 48 0 1 1 0 96a48 48 0 1 1 0-96m144 112c8.4 0 16.1 4.4 20.5 11.5l88 144c4.5 7.4 4.7 16.7.5 24.3S368.7 416 360 416H88c-8.9 0-17.2-5-21.3-12.9s-3.5-17.5 1.6-24.8l56-80c4.5-6.4 11.8-10.2 19.7-10.2s15.2 3.8 19.7 10.2l26.4 37.8l61.4-100.5c4.4-7.1 12.1-11.5 20.5-11.5z"
+          /></svg
+        >
+      </div>
     {:else if isSvg}
       <!-- Show SVG icon with badge -->
-      <div class="relative w-6 h-6 flex items-center justify-center" title="SVG">
-        <Icon name="image" size={20} class="text-primary" />
-        <div
-          class="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-primary rounded-full border border-background"
-        ></div>
+      <div
+        class="relative size-7 flex items-center justify-center"
+        title="SVG"
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="1.5em"
+          height="1.5em"
+          viewBox="0 0 32 32"
+          ><path
+            fill="#ffb300"
+            d="M29.168 14.03a2.7 2.7 0 0 0-1.968-.83a2.51 2.51 0 0 0-1.929.8h-4.443l3.078-3.078a2.835 2.835 0 0 0 2.857-2.842a2.6 2.6 0 0 0-.831-1.969a2.82 2.82 0 0 0-2.014-.788a2.67 2.67 0 0 0-1.968.788a2.36 2.36 0 0 0-.812 1.922L18 11.17V6.726a2.51 2.51 0 0 0 .8-1.929a2.7 2.7 0 0 0-.832-1.968a2.745 2.745 0 0 0-3.936 0a2.7 2.7 0 0 0-.832 1.968a2.51 2.51 0 0 0 .8 1.93v4.443l-3.138-3.138a2.36 2.36 0 0 0-.812-1.922a2.66 2.66 0 0 0-1.968-.788a2.83 2.83 0 0 0-2.014.788a2.6 2.6 0 0 0-.831 1.969a2.74 2.74 0 0 0 .831 2.013a2.8 2.8 0 0 0 2.026.829l3.078 3.078H6.729a2.51 2.51 0 0 0-1.929-.8a2.7 2.7 0 0 0-1.968.831a2.745 2.745 0 0 0 0 3.937a2.7 2.7 0 0 0 1.968.832a2.51 2.51 0 0 0 1.929-.8h4.443l-3.078 3.077a2.835 2.835 0 0 0-2.857 2.842a2.6 2.6 0 0 0 .831 1.969a2.82 2.82 0 0 0 2.014.788a2.67 2.67 0 0 0 1.968-.788a2.36 2.36 0 0 0 .812-1.922L14 20.827v4.444a2.51 2.51 0 0 0-.8 1.929a2.784 2.784 0 0 0 4.768 1.968A2.7 2.7 0 0 0 18.8 27.2a2.51 2.51 0 0 0-.8-1.929v-4.444l3.138 3.138a2.36 2.36 0 0 0 .812 1.922a2.66 2.66 0 0 0 1.968.788a2.83 2.83 0 0 0 2.014-.788a2.6 2.6 0 0 0 .831-1.969a2.74 2.74 0 0 0-.831-2.013a2.8 2.8 0 0 0-2.026-.829L20.828 18h4.443a2.51 2.51 0 0 0 1.93.8a2.784 2.784 0 0 0 1.967-4.769Z"
+          /></svg
+        >
       </div>
     {:else}
       <!-- Show type icon -->

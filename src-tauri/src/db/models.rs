@@ -14,6 +14,7 @@ pub struct ClipboardItem {
     pub file_name: Option<String>,
     pub file_size_bytes: Option<i64>,
     pub file_mime_type: Option<String>,
+    pub file_hash: Option<String>, // SHA256 hash for duplicate detection
 
     // Organization
     pub is_favorite: bool,

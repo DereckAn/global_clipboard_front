@@ -83,6 +83,11 @@ pub fn run() {
 
             std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data dir");
 
+            // Create images directory for storing clipboard images
+            let images_dir = app_data_dir.join("images");
+            std::fs::create_dir_all(&images_dir).expect("Failed to create images dir");
+            println!("Images directory: {:?}", images_dir);
+
             let db_path = app_data_dir.join("clipboard.db");
             let db_path_str = db_path.to_str().unwrap().to_string();
 
@@ -281,7 +286,8 @@ pub fn run() {
             commands::is_autostart_enabled,
             commands::quit_app,
             commands::set_tray_visible,
-            commands::is_tray_visible
+            commands::is_tray_visible,
+            commands::write_image_to_clipboard,
 
         ])
         .run(tauri::generate_context!())

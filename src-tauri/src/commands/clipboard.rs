@@ -1,4 +1,5 @@
 use crate::clipboard::{read_clipboard, write_clipboard};
+use crate::clipboard::operations::write_clipboard_image;
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use crate::db::repository::ClipboardRepository;
 use std::sync::Mutex;
@@ -77,8 +78,6 @@ pub fn clear_all_clipboard_items(state: State<Mutex<AppState>>) -> Result<(), St
     repo.clear_all().map_err(|e| e.to_string())
 }
 
-// Removed: Use search_clipboard_items_paginated() instead for better performance
-
 #[tauri::command]
 pub fn read_from_clipboard() -> Result<String, String> {
     read_clipboard()
@@ -137,4 +136,9 @@ pub fn count_search_results_fts(
     let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
     repo.count_search_results_fts(&query)
         .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub fn write_image_to_clipboard(image_path: String) -> Result<(), String> {
+    write_clipboard_image(&image_path)
 }
