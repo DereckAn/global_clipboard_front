@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 - `src/` hosts the Svelte 5 frontend: `routes/` for pages, `lib/components` for UI pieces, `lib/stores/*.svelte.ts` for runes-based state, `lib/tauri` for command helpers, and `assets/` for bundled media.
-- `src-tauri/` contains the Rust desktop shell; `src/` holds clipboard, cleanup, and command modules; `tests/` maintains integration coverage such as `cleanup_integration_tests.rs`.
+- `src-tauri/` contains the Rust desktop shell; `src/` holds clipboard, cleanup, and command modules; `clipboard/listener.rs` wires the event-driven clipboard monitor using `clipboard-master`; `tests/` mantiene integración como `cleanup_integration_tests.rs`.
 - `static/` supplies packaged icons and metadata, and `documentation/` captures design notes plus testing guides like `TESTING_CLEANUP.md`.
 - Generated directories (`node_modules/`, `target/`) are build outputs—avoid editing them directly.
 

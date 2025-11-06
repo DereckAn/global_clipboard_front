@@ -7,7 +7,7 @@ mod commands;
 mod db;
 mod shortcuts;
 
-use clipboard::ClipboardMonitor;
+use clipboard::{spawn_clipboard_listener, ClipboardMonitor};
 use commands::AppState;
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem};
@@ -98,7 +98,10 @@ pub fn run() {
             }));
 
             let app_handle = app.handle().clone();
-            let monitor = ClipboardMonitor::new(db_path_str.clone(), app_handle);
+            let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
+            let monitor = ClipboardMonitor::new(db_path_str.clone(), app_handle.clone(), event_rx);
+
+            spawn_clipboard_listener(event_tx);
 
             tauri::async_runtime::spawn(async move {
                 monitor.start().await;

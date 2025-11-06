@@ -25,6 +25,20 @@ class ClipboardStore {
   hasMore = $state(true);
   isLoadingMore = $state(false);
 
+  private dedupe(items: ClipboardItem[]): ClipboardItem[] {
+    const seen = new Set<string>();
+    const result: ClipboardItem[] = [];
+
+    for (const item of items) {
+      if (!seen.has(item.id)) {
+        seen.add(item.id);
+        result.push(item);
+      }
+    }
+
+    return result;
+  }
+
   // Load items (primera página)
   async loadItems(options?: GetItemsOptions) {
     this.isLoading = true;
@@ -33,7 +47,8 @@ class ClipboardStore {
 
     try {
       // Cargar primera página
-      this.items = await tauriGetItemsPaginated(this.pageSize, 0);
+      const firstPage = await tauriGetItemsPaginated(this.pageSize, 0);
+      this.items = this.dedupe(firstPage);
 
       // Obtener total de items
       this.totalItems = await tauriCountItems();
@@ -61,8 +76,8 @@ class ClipboardStore {
 
       const moreItems = await tauriGetItemsPaginated(this.pageSize, offset);
 
-      // Agregar nuevos items al final
-      this.items = [...this.items, ...moreItems];
+      const combined = [...this.items, ...moreItems];
+      this.items = this.dedupe(combined);
 
       // Verificar si hay más
       this.hasMore = this.items.length < this.totalItems;
@@ -187,8 +202,8 @@ class ClipboardStore {
 
       const moreItems = await tauriSearchItemsFTS(query, this.pageSize, offset);
 
-      // Agregar nuevos items al final
-      this.items = [...this.items, ...moreItems];
+      const combined = [...this.items, ...moreItems];
+      this.items = this.dedupe(combined);
 
       // Verificar si hay más
       this.hasMore = this.items.length < this.totalItems;
