@@ -2,6 +2,7 @@ use crate::clipboard::image_handler::{
     copy_image_file_to_storage, detect_mime_type, save_image_to_disk,
 };
 use crate::clipboard::listener::ClipboardEvent;
+use crate::clipboard::state;
 use crate::clipboard::operations::{read_clipboard, read_clipboard_content, ClipboardContent};
 use crate::clipboard::types::{detect_code_language, detect_content_type, get_source_app};
 use crate::db::models::CreateClipboardItemDto;
@@ -81,6 +82,10 @@ impl ClipboardMonitor {
     }
 
     async fn handle_clipboard_change(&self) {
+        if state::take_skip_event() {
+            return;
+        }
+
         match read_clipboard_content() {
             Ok(ClipboardContent::ImageFile(file_path)) => {
                 {

@@ -1,198 +1,107 @@
-# 🗺️ Global Clipboard Manager - Roadmap
+# 🗺️ Global Clipboard Manager – Roadmap
 
-Este documento contiene el plan de desarrollo futuro del proyecto, organizado por dificultad y prioridad.
-
-## 🐛 Bugs Actuales
-
-### 🔴 Crítico - Arreglar Primero
-
-- No hay bugs todavia
+Guía priorizada del desarrollo. Cada fase agrupa iniciativas por impacto y esfuerzo. Los checkboxes indican el estado actual y sirven como checklist cuando se implementen los cambios.
 
 ---
 
-## 📋 Próximas Mejoras
+## 🐛 Estado de Bugs
 
-### 🟢 Fase 1: Mejoras Básicas de UI/UX (Fácil)
-
-#### 1.3 Settings Mejorados
-- [ ] **Límite de items guardados**
-  - Toggle para activar/desactivar límite
-  - Slider para seleccionar cantidad (100, 500, 1000, ilimitado)
-  - Auto-eliminar items más antiguos cuando se alcanza el límite
-
-- [ ] **Tiempo de retención**
-  - Opciones: 7 días, 30 días, 90 días, 6 meses, 1 año, nunca
-  - Tarea programada para limpiar items antiguos
-
-- [ ] **Mostrar uso de memoria**
-  - Calcular tamaño de la base de datos
-  - Mostrar número de items
-  - Mostrar espacio usado en disco
-  - Botón para limpiar y optimizar base de datos
-
-- [ ] **Otras configuraciones**
-  - Auto-inicio al arrancar el sistema
-  - Sonidos de notificación
-  - Intervalo de monitoreo del clipboard (actualmente 500ms)
-
-- **Dificultad**: 🟡 Media
-- **Tiempo estimado**: 3-4 días
-- **Archivos**:
-  - `src/routes/settings/+page.svelte`
-  - `src-tauri/src/commands/settings.rs`
-  - Nueva tarea programada en Rust para limpieza
+- 🔴 **Críticos**: ninguno reportado.
+- 🟠 **Pendientes**: documentar aquí cualquier regresión detectada en testing manual.
 
 ---
 
-### 🟡 Fase 2: Funcionalidades Medias (Medio)
+## 🟢 Fase 1 · Experiencia Básica
+Enfoque en consolidar la base de la aplicación (UI consistente y configuración clara).  
+**Estimado total:** ~4 días · **Dificultad:** 🟡 media.
 
-#### 2.1 Soporte para Imágenes Copiadas
-- [ ] Detectar cuando se copia una imagen
-- [ ] **Opción A (Local)**: Guardar imagen en disco local
-  - Crear carpeta `~/Library/Application Support/clip/images/`
-  - Guardar como PNG o formato original
-  - Guardar path en `file_url`
+### 1.1 Settings consolidados ✅
+- Límite de items, retención temporal y métricas de uso ya operativos.
+- Próximo mantenimiento: refinar tooltips y documentación inline.
 
-- [ ] **Opción B (Cloud - futuro)**: Subir a storage
-  - Por ahora usar local, preparar estructura para cloud
+### 1.2 Monitoreo y feedback ✅
+- Migrado a eventos nativos (`clipboard-master`) para evitar polling.
+- Notificaciones Tray y logging depurado.
 
-- [ ] Crear thumbnail para preview
-- [ ] Mostrar preview en sidebar y ContentViewer
-- [ ] Permitir copiar imagen de vuelta al clipboard
-
-- **Dificultad**: 🟡 Media
-- **Tiempo estimado**: 4-5 días
-- **Archivos**:
-  - `src-tauri/src/clipboard/monitor.rs`
-  - `src-tauri/src/clipboard/types.rs`
-  - Nuevo módulo: `src-tauri/src/storage/images.rs`
-
-#### 2.2 UI Responsive (Mobile & Tablet)
-- [ ] Crear breakpoints en Tailwind
-- [ ] Diseñar layout mobile-first
-- [ ] Adaptar sidebar para móvil (drawer o tabs)
-- [ ] Adaptar header para móvil (menú hamburguesa)
-- [ ] Gestos táctiles (swipe, long-press)
-- [ ] Probar en diferentes tamaños de pantalla
-
-- **Dificultad**: 🟡 Media
-- **Tiempo estimado**: 5-7 días
-- **Archivos**: Todos los componentes en `src/lib/components/`
-
-#### 2.3 Testing Básico
-- [ ] **Unit Tests (Frontend)**
-  - Configurar Vitest
-  - Tests para stores
-  - Tests para utilidades
-
-- [ ] **Unit Tests (Backend)**
-  - Tests para repository
-  - Tests para clipboard detection
-  - Tests para color conversion
-
-- [ ] **Integration Tests**
-  - Tests para Tauri commands
-  - Tests para base de datos
-
-- **Dificultad**: 🟡 Media
-- **Tiempo estimado**: 5-7 días
-- **Archivos**: Nuevos archivos `*.test.ts` y `*.rs` con `#[cfg(test)]`
+### 1.3 Roadmap de UI inmediata
+- [ ] **Settings en pestañas**  
+  - Distribuir opciones en categorías (“General”, “Limpieza”, “Integraciones”).  
+  - `src/routes/settings/+page.svelte`.
+- [ ] **Panel de extensiones**  
+  - Nueva pestaña “Laboratorio” con acciones como “Descargar OCR”, packs de emojis/ASCII, etc.  
+  - Preparar hook para habilitar funcionalidades bajo feature flags.
+- [ ] **Gestión visual de imágenes**  
+  - En el sidebar, eliminar assets asociados al borrar un item (`src-tauri/src/clipboard/image_handler.rs`).  
+  - Mostrar confirmación ligera cuando se borra el archivo del disco.
 
 ---
 
-### 🔴 Fase 3: Sistema de Cuentas y Autenticación (Difícil)
+## 🟡 Fase 2 · Funcionalidades Medias
+Amplía capacidades clave antes de sincronización en la nube.  
+**Estimado total:** ~8‑10 días · **Dificultad:** 🟡 media.
 
-#### 3.1 Integración con Supabase
-- [ ] Crear proyecto en Supabase
-- [ ] Diseñar schema en Supabase:
-  ```sql
-  -- users (ya viene con Supabase Auth)
+### 2.1 Ecosistema de imágenes
+- ✅ Copia desde Finder y navegadores con hash + thumbnails.
+- ✅ Rebote de imágenes (copy back) sin duplicados.
+- [ ] **Soporte de capturas de pantalla instantáneas**  
+  - Validar formatos TIFF/HEIC que genera macOS al usar `Cmd+Shift+4/5`.  
+  - Detectar y normalizar metadata de screenshots (`src-tauri/src/clipboard/operations.rs`).
+- [ ] **Sincronizar miniaturas y datos**  
+  - Cargar `thumbnail_path` desde `APPDATA` en el frontend y añadir fallback cuando la ruta no exista.  
+  - `src/lib/components/sidebar/SidebarItem.svelte`.
 
-  -- user_profiles
-  CREATE TABLE user_profiles (
-    id UUID PRIMARY KEY REFERENCES auth.users(id),
-    email TEXT,
-    subscription_tier TEXT, -- 'free', 'pro'
-    subscription_status TEXT, -- 'active', 'cancelled', 'expired'
-    subscription_expires_at TIMESTAMP,
-    storage_used_bytes BIGINT DEFAULT 0,
-    created_at TIMESTAMP DEFAULT NOW()
-  );
+### 2.2 Refinamiento visual
+- [ ] Layout responsivo (breakpoints Tailwind, sidebar colapsable, menú móvil).  
+  - Revisar todos los componentes en `src/lib/components/**`.
+- [ ] Gestos táctiles básicos (swipe para marcar favorito, long-press para borrar).  
+  - Se puede prototipar con `pointer events` + stores.
 
-  -- clipboard_items_cloud
-  CREATE TABLE clipboard_items_cloud (
-    id UUID PRIMARY KEY,
-    user_id UUID REFERENCES auth.users(id),
-    content_type TEXT,
-    content_text TEXT,
-    content_metadata JSONB,
-    image_url TEXT, -- URL a Supabase Storage
-    file_url TEXT,
-    is_favorite BOOLEAN DEFAULT FALSE,
-    is_snippet BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    synced BOOLEAN DEFAULT TRUE
-  );
-
-  -- Row Level Security (RLS)
-  ALTER TABLE clipboard_items_cloud ENABLE ROW LEVEL SECURITY;
-
-  CREATE POLICY "Users can only access their own items"
-    ON clipboard_items_cloud
-    FOR ALL
-    USING (auth.uid() = user_id);
-  ```
-
-- [ ] Configurar Supabase Storage para imágenes
-- [ ] Instalar Supabase SDK en el frontend
-- [ ] Configurar variables de entorno
-
-- **Dificultad**: 🔴 Difícil
-- **Tiempo estimado**: 3-4 días
-- **Archivos**:
-  - Nueva carpeta: `src/lib/supabase/`
-  - `.env` para configuración
-
-#### 3.2 OAuth con Supabase
-- [ ] Configurar Supabase Auth
-- [ ] Implementar login con Google
-- [ ] Implementar login con GitHub
-- [ ] Implementar login con email/password
-- [ ] Crear pantalla de login/registro
-- [ ] Crear pantalla de perfil de usuario
-- [ ] Implementar logout
-- [ ] Manejar tokens y refresh tokens
-- [ ] Guardar sesión en localStorage
-
-- **Dificultad**: 🔴 Difícil
-- **Tiempo estimado**: 5-7 días
-- **Archivos**:
-  - `src/routes/auth/+page.svelte` (nueva ruta)
-  - `src/routes/profile/+page.svelte` (nueva ruta)
-  - `src/lib/stores/auth.svelte.ts` (nuevo store)
-  - `src/lib/supabase/auth.ts`
-
-#### 3.3 Sincronización Local ↔ Cloud
-- [ ] Decidir estrategia de sync:
-  - **Opción A**: Siempre guardar en ambos (local + cloud)
-  - **Opción B**: Solo cloud para usuarios Pro
-  - **Opción C**: Híbrido (local primero, sync en background)
-
-- [ ] Implementar sync bidireccional
-- [ ] Manejar conflictos (last-write-wins o custom)
-- [ ] Indicador visual de estado de sync
-- [ ] Offline-first: trabajar sin internet
-- [ ] Queue de operaciones pendientes
-- [ ] Retry automático cuando vuelve la conexión
-
-- **Dificultad**: 🔴 Muy Difícil
-- **Tiempo estimado**: 7-10 días
-- **Archivos**:
-  - `src/lib/stores/sync.svelte.ts` (nuevo)
-  - `src/lib/supabase/sync.ts` (nuevo)
-  - Actualizar `clipboard.svelte.ts`
+### 2.3 Automatización y tests
+- [ ] **Frontend**: configurar Vitest + pruebas de stores/utilidades (`src/lib/stores`, `src/lib/utils`).  
+- [ ] **Backend**: ampliar integración Rust (clipboard repo, comandos).  
+- [ ] **End-to-end ligero**: script Bun que use Tauri API para validar flujo copia → render.
 
 ---
+
+## 🔴 Fase 3 · Cuentas y Cloud
+Habilita sincronización entre dispositivos y modelos de negocio.  
+**Estimado total:** 15‑20 días · **Dificultad:** 🔴 alta.
+
+### 3.1 Supabase – infraestructura
+- [ ] Aprovisionar proyecto Supabase y documentar `.env` requerido.
+- [ ] Implementar tablas (`user_profiles`, `clipboard_items_cloud`) y políticas RLS para seguridad.  
+  - Crear módulo `src/lib/supabase/schema.sql` como referencia.
+- [ ] Configurar Supabase Storage (bucket para imágenes) y SDK en frontend (`src/lib/supabase/client.ts`).
+
+### 3.2 Autenticación
+- [ ] Flujo OAuth (Google, GitHub) y email/password mediante Supabase Auth.  
+  - Rutas nuevas: `src/routes/auth/+page.svelte`, `src/routes/profile/+page.svelte`.  
+  - Stores: `src/lib/stores/auth.svelte.ts`.
+- [ ] Persistencia de sesión, refresco de tokens y cierre seguro.
+
+### 3.3 Sincronización local ↔ cloud
+- [ ] Definir estrategia (local-first con sync en background recomendado).  
+- [ ] Resolver conflictos (timestamp/last-write) y estados offline.  
+- [ ] Diseñar colas de operaciones + reintentos (`src/lib/stores/sync.svelte.ts`, `src/lib/supabase/sync.ts`).  
+- [ ] Indicadores UI: iconos de estado en sidebar, mensajes de “sin conexión”.
+
+---
+
+## 🔵 Ideas Futuras / Backlog
+- Motor de OCR opcional (descarga bajo demanda desde Settings → Laboratorio).  
+- Búsqueda semántica (vector DB) para mejorar resultados.  
+- Integración con servicios de traducción.  
+- Packs de emojis y arte ASCII para pegado rápido.  
+- Atajos específicos por plataforma (ej. hooks Win+V en Windows aún por investigar limitaciones OS).
+
+---
+
+## 📌 Cómo usar este roadmap
+- Cada ítem debe generar tickets/tareas una vez que se inicie su desarrollo.  
+- Actualiza el estado (✅ / ☐) tras completar pruebas y revisión.  
+- Si se detectan bugs o bloqueos, agrega notas en la sección correspondiente con fecha y responsable.
+
+Mantén este documento alineado con la realidad del repositorio; sirve como referencia viva para colaboradores y para priorizar las próximas iteraciones.
 
 ### 🟣 Fase 4: Monetización (Difícil)
 

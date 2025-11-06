@@ -2,6 +2,8 @@ use arboard::{Clipboard, ImageData};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use crate::clipboard::state;
+
 lazy_static::lazy_static! {
     static ref CLIPBOARD: Mutex<Clipboard> =Mutex::new(Clipboard::new().unwrap());
 }
@@ -115,7 +117,7 @@ pub fn write_clipboard(text: &str) -> Result<(), String> {
 pub fn write_clipboard_image(image_path: &str) -> Result<(), String> {
     use image::GenericImageView;
 
-    // Load image from file
+    // Load image from file 
     let img = image::open(image_path).map_err(|e| format!("Failed to open image: {}", e))?;
 
     // COnvert to RGBA
@@ -131,7 +133,10 @@ pub fn write_clipboard_image(image_path: &str) -> Result<(), String> {
 
     // Write to clipboard
     let mut clipboard = CLIPBOARD.lock().map_err(|e| e.to_string())?;
-    clipboard.set_image(image_data).map_err(|e| e.to_string())
+    clipboard
+        .set_image(image_data)
+        .map_err(|e| e.to_string())
+        .map(|_| state::request_skip_events(2))
 }
 
 fn is_image_file_url(text: &str) -> bool {
