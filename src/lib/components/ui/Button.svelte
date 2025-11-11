@@ -27,15 +27,15 @@
 
     // Variant styles
     const variants = {
-      default: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)]',
+      default: 'text-white bg-gray-700 rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2',
       destructive: 'bg-[var(--color-danger)] text-white hover:bg-red-600',
-      outline: 'border border-[var(--color-border)] bg-transparent hover:bg-[var(--color-surface-hover)]',
-      ghost: 'hover:bg-[var(--color-surface-hover)] bg-transparent'
+      outline: 'ring ring-border text-sm bg-transparent hover:bg-surface-hover',
+      ghost: 'hover:bg-[var(--color-surface-hover)] bg-transparent',
     }
 
     // Size styles
     const sizes = {
-      default: 'h-10 px-4 py-2',
+      default: 'px-4 py-1',
       sm: 'h-8 px-3 text-sm',
       lg: 'h-12 px-8',
       icon: 'h-9 w-9'

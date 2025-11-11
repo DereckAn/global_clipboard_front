@@ -15,7 +15,8 @@
   import { cn } from "$lib/utils/cn";
   import { sanitizeSvg } from "$lib/utils/svg";
   import { convertFileSrc } from "@tauri-apps/api/core";
-  import { open } from "@tauri-apps/plugin-shell";
+  import { openPath } from "@tauri-apps/plugin-opener";
+  import Button from "../ui/Button.svelte";
   import HighlightedText from "../ui/HighlightedText.svelte";
   interface Props {
     item: ClipboardItem | null;
@@ -69,7 +70,9 @@
   });
   const textPreview = $derived(parsedMetadata?.text_preview || null);
   const previewLanguage = $derived(parsedMetadata?.preview_language || null);
-  const externalPath = $derived(parsedMetadata?.external_path || item?.fileUrl || null);
+  const externalPath = $derived(
+    parsedMetadata?.external_path || item?.fileUrl || null
+  );
   const externalMissing = $derived(Boolean(parsedMetadata?.external_missing));
   const fileExists = $derived(externalPath && !externalMissing);
 
@@ -88,8 +91,11 @@
   };
 
   const handleOpenFile = async () => {
-    if (item?.fileUrl) {
-      await open(item.fileUrl);
+    if (!fileExists || !externalPath) return;
+    try {
+      await openPath(externalPath);
+    } catch (err) {
+      console.error("Failed to open file:", err);
     }
   };
 
@@ -310,34 +316,10 @@
     </div>
   {:else if isLink}
     <!-- Link content with metadata preview -->
-    <div class="flex flex-col px-6 py-8 flex-1 max-w-full">
-      <!-- Link URL -->
-      <div class="flex items-center justify-between gap-3 mb-3">
-        <div class="flex gap-2">
-          <div
-            class="size-10 bg-surface rounded-lg flex items-center justify-center"
-          >
-            <Icon name="link" size={24} class="text-primary" />
-          </div>
-          <div class="">
-            <p class="text-sm text-text-muted">Link</p>
-            <p class="text-base text-text truncate font-medium">
-              {domain || item.contentText}
-            </p>
-          </div>
-        </div>
-        <button
-          onclick={handleOpenLink}
-          class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
-        >
-          <Icon name="externalLink" size={16} />
-          <span>Open</span>
-        </button>
-      </div>
-
+    <div class="flex flex-col flex-1 max-w-full">
       <!-- Metadata preview card -->
       {#if loadingMetadata}
-        <div class="  bg-surface rounded-xl border border-border p-6">
+        <div class="  bg-surface border border-border p-6">
           <div class="flex items-center justify-center py-12">
             <div class="animate-spin">
               <Icon name="loader" size={32} class="text-primary" />
@@ -345,9 +327,7 @@
           </div>
         </div>
       {:else if linkMetadata && (linkMetadata.title || linkMetadata.image)}
-        <div
-          class="w-full bg-surface rounded-xl border border-border overflow-hidden hover:border-primary/50 transition-colors"
-        >
+        <div class="w-full">
           <!-- Preview image -->
           {#if linkMetadata.image}
             <div class="w-full h-64 bg-surface-hover overflow-hidden">
@@ -423,20 +403,17 @@
       {/if}
 
       <!-- Copy button -->
-      <div class=" mt-6 flex justify-center">
-        <button
-          onclick={() => handleCopy(item.contentText || "")}
-          class="px-6 py-1 bg-surface hover:bg-surface-hover w-full rounded-lg transition-colors flex items-center gap-2 border border-border"
-        >
+      <div class=" my-3 flex justify-center p-2">
+        <Button onclick={() => handleCopy(item.contentText || "")} class="w-full" >
           <Icon
             name={copied ? "check" : "copy"}
             size={16}
             class={copied ? "text-primary" : "text-text"}
           />
           <span class="text-sm text-text">
-            {copied ? "Copied!" : "Copy URL"}
+            {copied ? "Copied!" : "Copy to clipboard"}
           </span>
-        </button>
+        </Button>
       </div>
     </div>
   {:else if isImage}
@@ -517,7 +494,7 @@
   {:else if isFile}
     <div class="flex-1 flex flex-col max-w-full">
       <div
-        class="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4"
+        class="flex-1 flex flex-col items-center justify-center gap-4 text-center"
       >
         {#if externalMissing}
           <div
@@ -525,11 +502,12 @@
           >
             <p class="text-sm font-semibold text-danger mb-1">File not found</p>
             <p class="text-sm text-text-muted break-all">
-              The original file was moved or deleted ({externalPath ?? "unknown path"}).
+              The original file was moved or deleted ({externalPath ??
+                "unknown path"}).
             </p>
           </div>
         {:else if textPreview}
-          <div class="w-full max-w-full py-4 text-left overflow-hidden">
+          <div class="w-full max-w-full py-4 text-left overflow-hidden p-2">
             <div class="flex items-center justify-between mb-3">
               <div class="text-xs uppercase tracking-wide text-text-muted">
                 Preview
@@ -545,7 +523,7 @@
               class="font-mono text-xs leading-relaxed text-text overflow-auto whitespace-pre-wrap">{textPreview}</pre>
           </div>
         {:else if fileThumbnailUrl}
-          <div class="w-full p-4 shadow-inner">
+          <div class="w-full">
             <img
               src={fileThumbnailUrl}
               alt="File preview"
@@ -560,37 +538,22 @@
             <Icon name="file" size={48} class="text-primary" />
           </div>
         {/if}
-        <div class="flex flex-col items-center gap-1">
-          <p class="text-lg font-semibold text-text">
-            {parsedMetadata?.original_name || item?.fileName || "Document"}
-          </p>
-          {#if item?.fileSizeBytes}
-            <p class="text-sm text-text-muted">
-              {(item.fileSizeBytes / 1024).toFixed(1)} KB • {item?.fileMimeType ||
-                "Unknown type"}
-            </p>
-          {/if}
-          {#if externalPath}
-            <p class="text-xs text-text-muted break-all">
-              {externalPath}
-            </p>
-          {/if}
-        </div>
-        <div class="flex flex-col gap-2 w-full max-w-sm">
-          <button
-            class="w-full px-4 py-2 rounded bg-primary text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+        <div class="flex flex-row w-full gap-2 p-2">
+          <Button
             onclick={() => handleOpenFile()}
             disabled={!fileExists}
+            class=""
           >
             Open file
-          </button>
-          <button
-            class="w-full px-4 py-2 rounded border border-border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          </Button>
+          <Button
+            variant="outline"
             onclick={() => handleCopyFile()}
             disabled={!fileExists}
           >
+            <Icon name={"copy"} size={18} class="text-white mr-2 flex-1" />
             Copy file to clipboard
-          </button>
+          </Button>
         </div>
       </div>
     </div>

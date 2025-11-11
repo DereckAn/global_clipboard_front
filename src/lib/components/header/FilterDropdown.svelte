@@ -61,7 +61,7 @@
   <!-- Trigger button -->
   <button
     onclick={toggleDropdown}
-    class="flex items-center gap-2 px-3 py-1.5 w-48 rounded-md border border-border bg-surface hover:bg-surface-hover transition-colors text-sm"
+    class="flex items-center gap-2 px-3 py-1 w-48 rounded-md border border-border bg-surface hover:bg-surface-hover transition-colors text-sm"
   >
     <Icon name={selectedOption.icon} size={18} />
     <span class="w-full text-start">{selectedOption.label}</span>

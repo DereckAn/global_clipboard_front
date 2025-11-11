@@ -57,9 +57,9 @@
   <!-- Trigger button - Circle with user icon -->
   <button
     onclick={toggleDropdown}
-    class="w-10 h-10 rounded-full bg-surface border border-border hover:bg-surface-hover transition-colors flex items-center justify-center"
+    class="size-8 rounded-xl bg-surface border border-border hover:bg-surface-hover transition-colors flex items-center justify-center"
   >
-    <Icon name="user" size={20} />
+    <Icon name="user" size={16} />
   </button>
 
   <!-- Dropdown menu -->
