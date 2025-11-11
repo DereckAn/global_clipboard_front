@@ -1,4 +1,4 @@
-use crate::clipboard::image_handler;
+use crate::clipboard::asset_cleanup;
 use chrono::{Duration, Utc};
 use rusqlite::{Connection, Result};
 
@@ -10,27 +10,34 @@ pub fn cleanup_old_items(conn: &Connection, retention_days: Option<i32>) -> Resu
         let cutoff_str = cutoff_date.to_rfc3339();
 
         let mut select_stmt = conn.prepare(
-            "SELECT file_url
+            "SELECT content_type, file_url, content_metadata
              FROM clipboard_items
              WHERE updated_at < ?1
                AND is_favorite = 0
                AND file_url IS NOT NULL",
         )?;
 
-        let file_urls: Vec<String> = select_stmt
-            .query_map([cutoff_str.clone()], |row| row.get(0))
-            .and_then(|mapped| mapped.collect())
-            ?;
+        let file_assets: Vec<(String, String, Option<String>)> = select_stmt
+            .query_map([cutoff_str.clone()], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
+            })
+            .and_then(|mapped| mapped.collect())?;
 
         let deleted = conn.execute(
             "DELETE FROM clipboard_items WHERE updated_at < ?1 AND is_favorite = 0",
             [cutoff_str],
         )?;
 
-        for url in file_urls {
-            if let Err(err) = image_handler::delete_image_from_disk(&url) {
-                eprintln!("Failed to delete image asset: {}", err);
-            }
+        for (content_type, url, metadata) in file_assets {
+            asset_cleanup::delete_file_url(
+                &content_type,
+                &url,
+                metadata.as_deref().unwrap_or("{}"),
+            );
         }
         Ok(deleted)
     } else {
@@ -54,25 +61,28 @@ pub fn cleanup_excess_items(conn: &Connection, max_items: Option<i32>) -> Result
 
             // Eliminar los items menos recientemente usados (updated_at más antiguo)
             let mut select_stmt = conn.prepare(
-                "SELECT id, file_url
+                "SELECT id, file_url, content_type, content_metadata
                  FROM clipboard_items
                  WHERE is_favorite = 0
                  ORDER BY updated_at ASC
                  LIMIT ?1",
             )?;
 
-            let targets: Vec<(String, Option<String>)> = select_stmt
-                .query_map([to_delete], |row| Ok((row.get(0)?, row.get(1)?)))
-                .and_then(|mapped| mapped.collect())
-                ?;
+            let targets: Vec<(String, Option<String>, String, Option<String>)> = select_stmt
+                .query_map([to_delete], |row| {
+                    Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+                })
+                .and_then(|mapped| mapped.collect())?;
 
             let mut deleted = 0;
-            for (id, file_url) in targets {
+            for (id, file_url, content_type, metadata) in targets {
                 conn.execute("DELETE FROM clipboard_items WHERE id = ?1", [id])?;
                 if let Some(url) = file_url {
-                    if let Err(err) = image_handler::delete_image_from_disk(&url) {
-                        eprintln!("Failed to delete image asset: {}", err);
-                    }
+                    asset_cleanup::delete_file_url(
+                        &content_type,
+                        &url,
+                        metadata.as_deref().unwrap_or("{}"),
+                    );
                 }
                 deleted += 1;
             }
@@ -131,7 +141,8 @@ mod tests {
                 server_id TEXT
             )",
             [],
-        ).unwrap();
+        )
+        .unwrap();
 
         conn
     }
@@ -183,7 +194,7 @@ mod tests {
 
         // Insert items: 2 old, 2 recent, 1 old favorite
         insert_test_item(&conn, "old1", false, 10).unwrap(); // Should delete
-        insert_test_item(&conn, "old2", false, 8).unwrap();  // Should delete
+        insert_test_item(&conn, "old2", false, 8).unwrap(); // Should delete
         insert_test_item(&conn, "recent1", false, 3).unwrap(); // Should keep
         insert_test_item(&conn, "recent2", false, 1).unwrap(); // Should keep
         insert_test_item(&conn, "fav_old", true, 15).unwrap(); // Should keep (favorite)
@@ -207,7 +218,10 @@ mod tests {
 
         let deleted = cleanup_old_items(&conn, None).unwrap();
 
-        assert_eq!(deleted, 0, "Should delete nothing when retention_days is None");
+        assert_eq!(
+            deleted, 0,
+            "Should delete nothing when retention_days is None"
+        );
         assert_eq!(count_items(&conn), 2, "All items should remain");
     }
 
@@ -328,12 +342,19 @@ mod tests {
         assert_eq!(deleted_old, 10, "Should delete 10 old non-favorite items");
 
         // After retention cleanup: 10 recent + 5 favorites = 15 items
-        assert_eq!(count_items(&conn), 15, "Should have 15 items after retention cleanup");
+        assert_eq!(
+            count_items(&conn),
+            15,
+            "Should have 15 items after retention cleanup"
+        );
 
         // Step 2: Delete excess (keep max 10 non-favorites)
         // We have 10 non-favorites, so nothing should be deleted
         let deleted_excess = cleanup_excess_items(&conn, Some(10)).unwrap();
-        assert_eq!(deleted_excess, 0, "Should delete nothing (exactly at limit)");
+        assert_eq!(
+            deleted_excess, 0,
+            "Should delete nothing (exactly at limit)"
+        );
 
         assert_eq!(count_items(&conn), 15, "Should have 15 items total");
         assert_eq!(count_favorites(&conn), 5, "All 5 favorites should remain");

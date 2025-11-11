@@ -1,9 +1,12 @@
+use crate::clipboard::file_handler::{
+    generate_document_thumbnail, prepare_file_metadata, store_prepared_file,
+};
 use crate::clipboard::image_handler::{
     copy_image_file_to_storage, detect_mime_type, save_image_to_disk,
 };
 use crate::clipboard::listener::ClipboardEvent;
-use crate::clipboard::state;
 use crate::clipboard::operations::{read_clipboard_content, ClipboardContent};
+use crate::clipboard::state;
 use crate::clipboard::types::{detect_code_language, detect_content_type, get_source_app};
 use crate::db::models::CreateClipboardItemDto;
 use crate::db::repository::ClipboardRepository;
@@ -21,6 +24,8 @@ pub struct ClipboardMonitor {
     images_dir: std::path::PathBuf,
     is_running: Arc<Mutex<bool>>,
     app_handle: tauri::AppHandle,
+    files_dir: std::path::PathBuf,
+    file_thumbs_dir: std::path::PathBuf,
 }
 
 impl ClipboardMonitor {
@@ -34,6 +39,13 @@ impl ClipboardMonitor {
             .app_data_dir()
             .expect("Failed to get app data dir");
         let images_dir = app_data_dir.join("images");
+        let files_dir = app_data_dir.join("files");
+        let file_thumbs_dir = app_data_dir.join("file_thumbnails");
+
+        std::fs::create_dir_all(&images_dir).expect("Failed to create images directory");
+        std::fs::create_dir_all(&files_dir).expect("Failed to create files directory");
+        std::fs::create_dir_all(&file_thumbs_dir)
+            .expect("Failed to create file thumbnails directory");
 
         Self {
             event_rx: Mutex::new(Some(event_rx)),
@@ -44,6 +56,8 @@ impl ClipboardMonitor {
             images_dir,
             is_running: Arc::new(Mutex::new(false)),
             app_handle,
+            files_dir,
+            file_thumbs_dir,
         }
     }
 
@@ -106,8 +120,7 @@ impl ClipboardMonitor {
                 match copy_image_file_to_storage(&file_path, &self.images_dir) {
                     Ok(info) => {
                         if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
-                            if let Ok(Some(existing_item)) =
-                                repo.find_by_file_hash(&info.file_hash)
+                            if let Ok(Some(existing_item)) = repo.find_by_file_hash(&info.file_hash)
                             {
                                 println!(
                                     "🔁 Duplicate image detected (hash: {}), bumping existing item: {}",
@@ -258,8 +271,7 @@ impl ClipboardMonitor {
                 match save_image_to_disk(&image_data, &self.images_dir, screenshot_hint) {
                     Ok(info) => {
                         if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
-                            if let Ok(Some(existing_item)) =
-                                repo.find_by_file_hash(&info.file_hash)
+                            if let Ok(Some(existing_item)) = repo.find_by_file_hash(&info.file_hash)
                             {
                                 println!(
                                     "🔁 Duplicate clipboard image detected (hash: {}), bumping existing item: {}",
@@ -352,6 +364,110 @@ impl ClipboardMonitor {
             }
             Ok(ClipboardContent::Empty) => {
                 // No-op
+            }
+            Ok(ClipboardContent::File(file_path)) => {
+                {
+                    let mut last_path = self.last_file_path.lock().await;
+                    if let Some(prev) = last_path.as_ref() {
+                        if prev == &file_path {
+                            return;
+                        }
+                    }
+                    *last_path = Some(file_path.clone());
+                }
+
+                match prepare_file_metadata(&file_path) {
+                    Ok(prepared) => {
+                        if let Ok(repo) = ClipboardRepository::new(&self.repo_path) {
+                            if let Ok(Some(existing_item)) = repo.find_by_file_hash(&prepared.hash)
+                            {
+                                println!(
+                                    "🔁 Duplicate file detected (hash: {}), bumping existing item: {}",
+                                    &prepared.hash[..12],
+                                    existing_item.id
+                                );
+                                if let Ok(bumped_item) = repo.bump_item(&existing_item.id) {
+                                    let _ =
+                                        self.app_handle.emit("clipboard-item-added", &bumped_item);
+                                }
+                                return;
+                            }
+
+                            match store_prepared_file(&prepared, &file_path, &self.files_dir) {
+                                Ok(info) => {
+                                    let mut thumbnail_path: Option<String> = None;
+                                    match generate_document_thumbnail(
+                                        &info.full_path,
+                                        &self.file_thumbs_dir,
+                                        &info.file_mime_type,
+                                    ) {
+                                        Ok(result) => {
+                                            thumbnail_path = result
+                                                .map(|path| path.to_string_lossy().to_string());
+                                        }
+                                        Err(err) => {
+                                            eprintln!(
+                                                "Failed to generate document thumbnail: {}",
+                                                err
+                                            );
+                                        }
+                                    }
+
+                                    let mut metadata = serde_json::json!({
+                                        "source": "file",
+                                        "original_extension": info.original_extension,
+                                        "original_name": info.original_name.clone(),
+                                    });
+
+                                    if let Some(path) = thumbnail_path {
+                                        if let Some(obj) = metadata.as_object_mut() {
+                                            obj.insert(
+                                                "thumbnail_path".to_string(),
+                                                serde_json::Value::String(path),
+                                            );
+                                        }
+                                    }
+
+                                    let dto = CreateClipboardItemDto {
+                                        content_type: "file".to_string(),
+                                        content_text: info.file_name.clone(),
+                                        content_metadata: Some(metadata.to_string()),
+                                        source_app: get_source_app(),
+                                        code_language: None,
+                                    };
+
+                                    match repo.create_item(dto) {
+                                        Ok(mut item) => {
+                                            item.file_url =
+                                                Some(info.full_path.to_string_lossy().to_string());
+                                            item.file_name = Some(info.file_name.clone());
+                                            item.file_size_bytes = Some(info.file_size as i64);
+                                            item.file_mime_type = Some(info.file_mime_type.clone());
+                                            item.file_hash = Some(info.file_hash.clone());
+
+                                            if let Err(e) = repo.update_file_info(
+                                                &item.id,
+                                                &info.full_path.to_string_lossy(),
+                                                &info.file_name,
+                                                info.file_size as i64,
+                                                &info.file_mime_type,
+                                                Some(&info.file_hash),
+                                            ) {
+                                                eprintln!("Failed to update file info: {}", e);
+                                            }
+
+                                            let _ =
+                                                self.app_handle.emit("clipboard-item-added", &item);
+                                        }
+                                        Err(e) => eprintln!("Failed to save file item: {}", e),
+                                    }
+                                }
+                                Err(e) => eprintln!("Failed to store file: {}", e),
+                            }
+                        }
+                    }
+                    Err(e) => eprintln!("Failed to read file metadata: {}", e),
+                }
             }
             Err(e) => {
                 eprintln!("Failed to read clipboard: {}", e);

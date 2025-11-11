@@ -13,9 +13,7 @@ pub struct LinkMetadata {
 #[tauri::command]
 pub fn fetch_link_metadata(url: String) -> Result<LinkMetadata, String> {
     let client = Client::builder()
-        .user_agent(
-            "Mozilla/5.0 (compatible; ClipboardManager/1.0)",
-        )
+        .user_agent("Mozilla/5.0 (compatible; ClipboardManager/1.0)")
         .timeout(std::time::Duration::from_secs(5))
         .build()
         .map_err(|e| e.to_string())?;

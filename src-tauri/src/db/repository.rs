@@ -1,4 +1,4 @@
-use crate::clipboard::image_handler;
+use crate::clipboard::asset_cleanup;
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use chrono::Utc;
 use rusqlite::{params, Connection, Result};
@@ -197,7 +197,7 @@ impl ClipboardRepository {
     // Removed: Use search_items_paginated() instead for better performance
     pub fn remove_duplicates(&self) -> Result<usize> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, file_url
+            "SELECT id, file_url, content_type, content_metadata
              FROM clipboard_items
              WHERE id NOT IN (
                  SELECT MIN(id)
@@ -206,23 +206,26 @@ impl ClipboardRepository {
              )",
         )?;
 
-        let targets: Vec<(String, Option<String>)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-            .and_then(|mapped| mapped.collect())
-            ?;
+        let targets: Vec<(String, Option<String>, String, Option<String>)> = stmt
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .and_then(|mapped| mapped.collect())?;
 
-        for (id, file_url) in &targets {
+        let deleted_count = targets.len();
+        for (id, file_url, content_type, metadata) in targets {
             if let Some(url) = file_url {
-                if let Err(err) = image_handler::delete_image_from_disk(url) {
-                    eprintln!("Failed to delete image asset: {}", err);
-                }
+                asset_cleanup::delete_file_url(
+                    &content_type,
+                    &url,
+                    metadata.as_deref().unwrap_or("{}"),
+                );
             }
             self.conn
-                .execute("DELETE FROM clipboard_items WHERE id = ?1", [id])
-                ?;
+                .execute("DELETE FROM clipboard_items WHERE id = ?1", [id.as_str()])?;
         }
 
-        Ok(targets.len())
+        Ok(deleted_count)
     }
 
     // Get items con paginación

@@ -1,5 +1,5 @@
-use crate::clipboard::{image_handler, read_clipboard, write_clipboard};
 use crate::clipboard::operations::write_clipboard_image;
+use crate::clipboard::{asset_cleanup, read_clipboard, write_clipboard};
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use crate::db::repository::ClipboardRepository;
 use std::sync::Mutex;
@@ -70,9 +70,7 @@ pub fn delete_clipboard_item(id: String, state: State<Mutex<AppState>>) -> Resul
     let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
     if let Some(item) = repo.get_item(&id).map_err(|e| e.to_string())? {
         if let Some(file_url) = item.file_url.as_deref() {
-            if let Err(err) = image_handler::delete_image_from_disk(file_url) {
-                eprintln!("Failed to delete image asset: {}", err);
-            }
+            asset_cleanup::delete_file_url(&item.content_type, file_url, &item.content_metadata);
         }
     }
     repo.delete_item(&id).map_err(|e| e.to_string())
@@ -85,20 +83,28 @@ pub fn clear_all_clipboard_items(state: State<Mutex<AppState>>) -> Result<(), St
 
     let mut stmt = repo
         .conn
-        .prepare("SELECT file_url FROM clipboard_items WHERE file_url IS NOT NULL")
+        .prepare(
+            "SELECT content_type, content_metadata, file_url
+             FROM clipboard_items
+             WHERE file_url IS NOT NULL",
+        )
         .map_err(|e| e.to_string())?;
-    let file_urls: Vec<String> = stmt
-        .query_map([], |row| row.get::<_, String>(0))
+    let file_assets: Vec<(String, Option<String>, String)> = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
         .map_err(|e| e.to_string())?
         .filter_map(|res| res.ok())
         .collect();
 
     repo.clear_all().map_err(|e| e.to_string())?;
 
-    for path in file_urls {
-        if let Err(err) = image_handler::delete_image_from_disk(&path) {
-            eprintln!("Failed to delete image asset: {}", err);
-        }
+    for (content_type, metadata, path) in file_assets {
+        asset_cleanup::delete_file_url(&content_type, &path, metadata.as_deref().unwrap_or("{}"));
     }
     Ok(())
 }
@@ -166,4 +172,16 @@ pub fn count_search_results_fts(
 #[tauri::command]
 pub fn write_image_to_clipboard(image_path: String) -> Result<(), String> {
     write_clipboard_image(&image_path)
+}
+
+#[tauri::command]
+pub fn write_file_to_clipboard(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::clipboard::file_handler::write_file_to_clipboard(&path)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("File clipboard operations are only supported on macOS.".to_string())
+    }
 }

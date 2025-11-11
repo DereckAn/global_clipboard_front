@@ -130,8 +130,9 @@ pub fn copy_image_file_to_storage(
 
     let img = match dynamic_img {
         Some(img) => img,
-        None => image::open(&full_path)
-            .map_err(|e| format!("Failed to load copied image: {}", e))?,
+        None => {
+            image::open(&full_path).map_err(|e| format!("Failed to load copied image: {}", e))?
+        }
     };
 
     let (width, height) = img.dimensions();
@@ -208,8 +209,8 @@ pub fn detect_mime_type(file_path: &str) -> String {
 }
 
 pub fn calculate_file_hash(file_path: &Path) -> Result<String, String> {
-    let mut file = fs::File::open(file_path)
-        .map_err(|e| format!("Failed to open file for hashing: {}", e))?;
+    let mut file =
+        fs::File::open(file_path).map_err(|e| format!("Failed to open file for hashing: {}", e))?;
 
     let mut hasher = Sha256::new();
     let mut buffer = [0u8; 8192];

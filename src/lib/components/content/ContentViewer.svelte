@@ -6,6 +6,7 @@
     tauriConvertColor,
     tauriExtractDomain,
     tauriFetchLinkMetadata,
+    tauriWriteFileToClipboard,
     tauriWriteImageToClipboard,
     tauriWriteToClipboard,
     type LinkMetadata,
@@ -14,8 +15,8 @@
   import { cn } from "$lib/utils/cn";
   import { sanitizeSvg } from "$lib/utils/svg";
   import { convertFileSrc } from "@tauri-apps/api/core";
+  import { open } from "@tauri-apps/plugin-shell";
   import HighlightedText from "../ui/HighlightedText.svelte";
-
   interface Props {
     item: ClipboardItem | null;
     class?: string;
@@ -39,10 +40,51 @@
   const isCode = $derived(item?.contentType === "code");
   const isSvg = $derived(item?.contentType === "svg");
   const isImage = $derived(item?.contentType === "image");
+  const isFile = $derived(item?.contentType === "file");
   const safeSvg = $derived.by(() => {
     if (!isSvg || !item?.contentText) return "";
     return sanitizeSvg(item.contentText);
   });
+
+  const parsedMetadata = $derived.by(() => {
+    if (!item?.contentMetadata) return null;
+    try {
+      return typeof item.contentMetadata === "string"
+        ? JSON.parse(item.contentMetadata)
+        : item.contentMetadata;
+    } catch (err) {
+      console.error("Failed to parse metadata:", err);
+      return null;
+    }
+  });
+
+  const fileThumbnailPath = $derived(
+    isFile && parsedMetadata?.thumbnail_path ? parsedMetadata.thumbnail_path : null
+  );
+  const fileThumbnailUrl = $derived.by(() => {
+    if (!fileThumbnailPath) return null;
+    return convertFileSrc(fileThumbnailPath);
+  });
+
+  const handleCopyFile = async () => {
+    if (!item?.id || !item.fileUrl) return;
+
+    try {
+      await tauriWriteFileToClipboard(item.fileUrl);
+      await tauriBumpItem(item.id);
+      await clipboardStore.loadItems();
+      copied = true;
+      setTimeout(() => (copied = false), 2000);
+    } catch (err) {
+      console.error("Failed to copy file:", err);
+    }
+  };
+
+  const handleOpenFile = async () => {
+    if (item?.fileUrl) {
+      await open(item.fileUrl);
+    }
+  };
 
   // Load color formats when item changes
   $effect(() => {
@@ -394,9 +436,7 @@
     <!-- Image content -->
     <div class="flex-1 flex flex-col">
       <!-- Image Preview -->
-      <div
-        class="flex-1 flex items-center justify-center p-8 overflow-auto "
-      >
+      <div class="flex-1 flex items-center justify-center p-8 overflow-auto">
         {#if item.fileUrl}
           {@const metadata = (() => {
             if (!item.contentMetadata) return {};
@@ -467,6 +507,47 @@
           <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
           <span>{copied ? "Copied!" : "Copy image to clipboard"}</span>
         </button>
+      </div>
+    </div>
+  {:else if isFile}
+    <div class="flex-1 flex flex-col">
+      <div
+        class="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center"
+      >
+        {#if fileThumbnailUrl}
+          <img
+            src={fileThumbnailUrl}
+            alt="File preview"
+            class="max-h-64 rounded-xl border border-border shadow-lg object-contain bg-surface"
+          />
+        {:else}
+          <Icon name="file" size={48} class="text-primary" />
+        {/if}
+        <div>
+          <p class="text-lg font-semibold text-text">
+            {parsedMetadata?.original_name || item?.fileName || "Document"}
+          </p>
+          {#if item?.fileSizeBytes}
+            <p class="text-sm text-text-muted">
+              {(item.fileSizeBytes / 1024).toFixed(1)} KB • {item?.fileMimeType ||
+                "Unknown type"}
+            </p>
+          {/if}
+        </div>
+        <div class="flex flex-col gap-2 w-full max-w-sm">
+          <button
+            class="w-full px-4 py-2 rounded bg-primary text-white text-sm font-medium"
+            onclick={() => handleOpenFile()}
+          >
+            Open file
+          </button>
+          <button
+            class="w-full px-4 py-2 rounded border border-border text-sm font-medium"
+            onclick={() => handleCopyFile()}
+          >
+            Copy file to clipboard
+          </button>
+        </div>
       </div>
     </div>
   {:else if isSvg}

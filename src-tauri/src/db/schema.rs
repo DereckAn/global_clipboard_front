@@ -30,10 +30,7 @@ pub fn init_database(conn: &Connection) -> Result<()> {
     )?;
 
     // Migration: Add file_hash column if it doesn't exist
-    let _ = conn.execute(
-        "ALTER TABLE clipboard_items ADD COLUMN file_hash TEXT",
-        [],
-    );
+    let _ = conn.execute("ALTER TABLE clipboard_items ADD COLUMN file_hash TEXT", []);
 
     // Create indexes for better performance
     conn.execute(

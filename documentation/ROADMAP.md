@@ -34,6 +34,11 @@ Enfoque en consolidar la base de la aplicación (UI consistente y configuración
   - En el sidebar, eliminar assets asociados al borrar un item (`src-tauri/src/clipboard/image_handler.rs`).  
   - Mostrar confirmación ligera cuando se borra el archivo del disco.
 
+### 1.4 Improve the icon. 
+- [ ] ** Change the icon color when the background change. 
+  - Cambiar de negro a blanco el fill porque a veces no se nota. 
+  - El tray icon. A veces es blanco y con el fondo blanco es muy poco notorio. 
+  - 
 ---
 
 ## 🟡 Fase 2 · Funcionalidades Medias

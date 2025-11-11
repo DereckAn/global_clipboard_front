@@ -35,7 +35,10 @@
         isSearching = true;
         await clipboardStore.search(searchQuery.trim());
         isSearching = false;
-        console.log("✅ Search complete. Results:", clipboardStore.items.length);
+        console.log(
+          "✅ Search complete. Results:",
+          clipboardStore.items.length
+        );
       } else {
         // Si no hay query, volver a cargar items normales
         console.log("🔄 No query, loading all items");
@@ -92,6 +95,7 @@
       snippetName: item.snippet_name,
       synced: item.synced,
       serverId: item.server_id,
+      fileHash: item.file_hash,
     };
   }
 
@@ -133,7 +137,9 @@
   });
 </script>
 
-<div class="h-screen w-screen overflow-hidden flex flex-col bg-background rounded-xl">
+<div
+  class="h-screen w-screen overflow-hidden flex flex-col bg-background rounded-xl"
+>
   <!-- Header -->
   <Header
     bind:searchQuery

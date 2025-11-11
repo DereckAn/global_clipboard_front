@@ -4,10 +4,10 @@
   import { uiStore } from "$lib/stores/ui.svelte";
   import {
     tauriBumpItem,
+    tauriEnsureThumbnail,
     tauriExtractDomain,
     tauriWriteImageToClipboard,
     tauriWriteToClipboard,
-    tauriEnsureThumbnail,
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
@@ -36,6 +36,7 @@
   const isCode = $derived(item.contentType === "code");
   const isSvg = $derived(item.contentType === "svg");
   const isImage = $derived(item.contentType === "image");
+  const isFile = $derived(item.contentType === "file");
   const languageInfo = $derived(
     isCode ? getLanguageInfo(item.codeLanguage) : null
   );
@@ -44,7 +45,7 @@
   const parsedMetadata = $derived.by(() => {
     if (!item.contentMetadata) return null;
     try {
-      return typeof item.contentMetadata === 'string'
+      return typeof item.contentMetadata === "string"
         ? JSON.parse(item.contentMetadata)
         : item.contentMetadata;
     } catch (e) {
@@ -145,27 +146,31 @@
     showDeleteConfirm = false;
   };
 
-    async function computeResolvedThumbnail(): Promise<string | null> {
-    if (!isImage) {
-      return null;
+  async function computeResolvedThumbnail(): Promise<string | null> {
+    if (isImage) {
+      let candidate: string | null = null;
+
+      if (item.fileUrl) {
+        candidate = await tauriEnsureThumbnail(item.fileUrl);
+      }
+
+      if (!candidate && typeof thumbnailPath === "string") {
+        candidate = thumbnailPath;
+      }
+
+      return candidate;
     }
 
-    let candidate: string | null = null;
-
-    if (item.fileUrl) {
-      candidate = await tauriEnsureThumbnail(item.fileUrl);
+    if (isFile && typeof thumbnailPath === "string") {
+      return thumbnailPath;
     }
 
-    if (!candidate && typeof thumbnailPath === "string") {
-      candidate = thumbnailPath;
-    }
-
-    return candidate;
+    return null;
   }
 
   $effect(() => {
     // Re-run when dependencies change
-    const _deps = [item.id, thumbnailPath, item.fileUrl, isImage];
+    const _deps = [item.id, thumbnailPath, item.fileUrl, isImage, isFile];
     void _deps;
 
     let cancelled = false;
@@ -180,7 +185,6 @@
       cancelled = true;
     };
   });
-
 </script>
 
 <div
@@ -251,19 +255,16 @@
           class="w-full h-full object-contain"
         />
       </div>
-    {:else if isImage && resolvedThumbnail}
+    {:else if resolvedThumbnail && (isImage || isFile)}
       <!-- Show actual thumbnail image -->
       <img
         src={convertFileSrc(resolvedThumbnail)}
-        alt="Thumbnail"
+        alt={isFile ? "File preview" : "Thumbnail"}
         class="w-7 h-7 rounded object-cover border border-border"
         onerror={(e) => {
           console.error("Failed to load thumbnail:", resolvedThumbnail);
           resolvedThumbnail = null;
           (e.currentTarget as HTMLImageElement).style.display = "none";
-          (e.currentTarget as HTMLImageElement).parentElement
-            ?.querySelector(".fallback-image-icon")
-            ?.classList.remove("hidden");
         }}
       />
     {:else if isImage && !resolvedThumbnail}
@@ -282,10 +283,7 @@
       </div>
     {:else if isSvg}
       <!-- Show SVG icon with badge -->
-      <div
-        class="relative size-7 flex items-center justify-center"
-        title="SVG"
-      >
+      <div class="relative size-7 flex items-center justify-center" title="SVG">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="1.5em"
@@ -296,6 +294,12 @@
             d="M29.168 14.03a2.7 2.7 0 0 0-1.968-.83a2.51 2.51 0 0 0-1.929.8h-4.443l3.078-3.078a2.835 2.835 0 0 0 2.857-2.842a2.6 2.6 0 0 0-.831-1.969a2.82 2.82 0 0 0-2.014-.788a2.67 2.67 0 0 0-1.968.788a2.36 2.36 0 0 0-.812 1.922L18 11.17V6.726a2.51 2.51 0 0 0 .8-1.929a2.7 2.7 0 0 0-.832-1.968a2.745 2.745 0 0 0-3.936 0a2.7 2.7 0 0 0-.832 1.968a2.51 2.51 0 0 0 .8 1.93v4.443l-3.138-3.138a2.36 2.36 0 0 0-.812-1.922a2.66 2.66 0 0 0-1.968-.788a2.83 2.83 0 0 0-2.014.788a2.6 2.6 0 0 0-.831 1.969a2.74 2.74 0 0 0 .831 2.013a2.8 2.8 0 0 0 2.026.829l3.078 3.078H6.729a2.51 2.51 0 0 0-1.929-.8a2.7 2.7 0 0 0-1.968.831a2.745 2.745 0 0 0 0 3.937a2.7 2.7 0 0 0 1.968.832a2.51 2.51 0 0 0 1.929-.8h4.443l-3.078 3.077a2.835 2.835 0 0 0-2.857 2.842a2.6 2.6 0 0 0 .831 1.969a2.82 2.82 0 0 0 2.014.788a2.67 2.67 0 0 0 1.968-.788a2.36 2.36 0 0 0 .812-1.922L14 20.827v4.444a2.51 2.51 0 0 0-.8 1.929a2.784 2.784 0 0 0 4.768 1.968A2.7 2.7 0 0 0 18.8 27.2a2.51 2.51 0 0 0-.8-1.929v-4.444l3.138 3.138a2.36 2.36 0 0 0 .812 1.922a2.66 2.66 0 0 0 1.968.788a2.83 2.83 0 0 0 2.014-.788a2.6 2.6 0 0 0 .831-1.969a2.74 2.74 0 0 0-.831-2.013a2.8 2.8 0 0 0-2.026-.829L20.828 18h4.443a2.51 2.51 0 0 0 1.93.8a2.784 2.784 0 0 0 1.967-4.769Z"
           /></svg
         >
+      </div>
+    {:else if isFile}
+      <div
+        class="size-7 flex items-center justify-center rounded border border-border bg-surface"
+      >
+        <Icon name="file" size={18} class="text-text-muted" />
       </div>
     {:else}
       <!-- Show type icon -->

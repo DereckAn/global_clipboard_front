@@ -38,13 +38,7 @@ fn setup_test_db() -> (TempDir, PathBuf, Connection) {
     (temp_dir, db_path, conn)
 }
 
-fn insert_item(
-    conn: &Connection,
-    id: &str,
-    content: &str,
-    is_favorite: bool,
-    days_old: i64,
-) {
+fn insert_item(conn: &Connection, id: &str, content: &str, is_favorite: bool, days_old: i64) {
     let now = Utc::now();
     let timestamp = (now - Duration::days(days_old)).to_rfc3339();
 
@@ -118,7 +112,11 @@ fn test_cleanup_integration_with_settings_file() {
         assert_eq!(deleted, 20, "Should delete 20 old non-favorite items");
     }
 
-    assert_eq!(count_items(&conn), 15, "Should have 15 items after retention");
+    assert_eq!(
+        count_items(&conn),
+        15,
+        "Should have 15 items after retention"
+    );
 
     // Excess cleanup
     if settings_json["maxItemsEnabled"].as_bool().unwrap() {
@@ -202,7 +200,11 @@ fn test_cleanup_respects_disabled_settings() {
         .unwrap();
     }
 
-    assert_eq!(count_items(&conn), 20, "No items should be deleted when settings are disabled");
+    assert_eq!(
+        count_items(&conn),
+        20,
+        "No items should be deleted when settings are disabled"
+    );
 }
 
 #[test]
@@ -216,8 +218,11 @@ fn test_database_stats_calculation() {
     insert_item(&conn, "fav2", "favorite", true, 4);
 
     // Mark some as snippets
-    conn.execute("UPDATE clipboard_items SET is_snippet = 1 WHERE id IN ('item1', 'fav1')", [])
-        .unwrap();
+    conn.execute(
+        "UPDATE clipboard_items SET is_snippet = 1 WHERE id IN ('item1', 'fav1')",
+        [],
+    )
+    .unwrap();
 
     // Get stats
     let total: i64 = conn
@@ -270,7 +275,10 @@ fn test_cleanup_preview_accuracy() {
         )
         .unwrap();
 
-    assert_eq!(preview_count, 15, "Preview should show 15 items would be deleted");
+    assert_eq!(
+        preview_count, 15,
+        "Preview should show 15 items would be deleted"
+    );
 
     // Actually delete
     let deleted = conn

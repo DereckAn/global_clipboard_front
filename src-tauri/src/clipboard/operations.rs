@@ -14,6 +14,7 @@ pub enum ClipboardContent {
     Text(String),
     Image(ImageData<'static>, bool),
     ImageFile(PathBuf), // File path to image from Finder
+    File(PathBuf),      // File path to any file from Finder
     Empty,
 }
 
@@ -22,10 +23,17 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
     let mut clipboard = CLIPBOARD.lock().map_err(|e| e.to_string())?;
 
     // First check for file list (Finder copy)
-    // First check for file list (Finder copy)
-    if let Ok(paths) = clipboard.get().file_list() {
-        if let Some(image_path) = paths.into_iter().find(|path| is_image_file_path(path)) {
-            return Ok(ClipboardContent::ImageFile(image_path));
+    if let Ok(paths_vec) = clipboard.get().file_list() {
+        for path in &paths_vec {
+            if is_image_file_path(path) {
+                return Ok(ClipboardContent::ImageFile(path.clone()));
+            }
+        }
+        for path in &paths_vec {
+            if path.is_file() && !is_image_file_path(path) {
+                println!("📁 Detected file from clipboard: {}", path.display());
+                return Ok(ClipboardContent::File(path.clone()));
+            }
         }
     }
 
@@ -36,6 +44,15 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
         if !text.is_empty() {
             let trimmed = text.trim();
             let potential_path = PathBuf::from(trimmed);
+
+            if trimmed.starts_with("file://") {
+                if let Some(resolved) = path_from_file_url(trimmed) {
+                    if resolved.is_file() && !is_image_file_path(&resolved) {
+                        println!("📁 Detected file URL: {}", resolved.display());
+                        return Ok(ClipboardContent::File(resolved));
+                    }
+                }
+            }
             if is_image_file_path(&potential_path) {
                 println!(
                     "📁 Detected image file from text: {}",
@@ -129,7 +146,7 @@ pub fn write_clipboard(text: &str) -> Result<(), String> {
 pub fn write_clipboard_image(image_path: &str) -> Result<(), String> {
     use image::GenericImageView;
 
-    // Load image from file 
+    // Load image from file
     let img = image::open(image_path).map_err(|e| format!("Failed to open image: {}", e))?;
 
     // COnvert to RGBA
@@ -176,7 +193,10 @@ fn looks_like_screenshot_text(text: &str) -> bool {
         "截圖",
     ];
 
-    if screenshot_markers.iter().any(|marker| lowered.contains(marker)) {
+    if screenshot_markers
+        .iter()
+        .any(|marker| lowered.contains(marker))
+    {
         return true;
     }
 

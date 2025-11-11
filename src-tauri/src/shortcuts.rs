@@ -54,11 +54,8 @@ pub fn register_shortcut(app: &AppHandle, shortcut_str: &str) -> Result<(), Stri
 pub fn register_shortcut_upon_start(app: &AppHandle, shortcut_str: &str) -> Result<(), String> {
     // Initialize the plugin WITHOUT any shortcuts or handlers
     // We'll register them separately using register_shortcut()
-    app.plugin(
-        tauri_plugin_global_shortcut::Builder::new()
-            .build()
-    )
-    .map_err(|e| e.to_string())?;
+    app.plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .map_err(|e| e.to_string())?;
 
     println!("Global shortcut plugin initialized");
 

@@ -357,3 +357,7 @@ export async function tauriEnsureThumbnail(imagePath: string): Promise<string | 
     return null;
   }
 }
+
+export async function tauriWriteFileToClipboard(filePath: string): Promise<void> {
+    await invoke("write_file_to_clipboard", { path: filePath });
+}
