@@ -69,6 +69,9 @@
   });
   const textPreview = $derived(parsedMetadata?.text_preview || null);
   const previewLanguage = $derived(parsedMetadata?.preview_language || null);
+  const externalPath = $derived(parsedMetadata?.external_path || item?.fileUrl || null);
+  const externalMissing = $derived(Boolean(parsedMetadata?.external_missing));
+  const fileExists = $derived(externalPath && !externalMissing);
 
   const handleCopyFile = async () => {
     if (!item?.id || !item.fileUrl) return;
@@ -500,7 +503,7 @@
         {/if}
       </div>
 
-      <!-- Copy button -->
+      <!--  Copy button -->
       <div class="px-6 pb-6">
         <button
           onclick={() => handleCopy("")}
@@ -516,10 +519,17 @@
       <div
         class="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4"
       >
-        {#if textPreview}
+        {#if externalMissing}
           <div
-            class="w-full max-w-full py-4 text-left overflow-hidden"
+            class="w-full max-w-xl rounded-2xl border border-border/70 bg-surface-high p-4 text-left"
           >
+            <p class="text-sm font-semibold text-danger mb-1">File not found</p>
+            <p class="text-sm text-text-muted break-all">
+              The original file was moved or deleted ({externalPath ?? "unknown path"}).
+            </p>
+          </div>
+        {:else if textPreview}
+          <div class="w-full max-w-full py-4 text-left overflow-hidden">
             <div class="flex items-center justify-between mb-3">
               <div class="text-xs uppercase tracking-wide text-text-muted">
                 Preview
@@ -535,9 +545,7 @@
               class="font-mono text-xs leading-relaxed text-text overflow-auto whitespace-pre-wrap">{textPreview}</pre>
           </div>
         {:else if fileThumbnailUrl}
-          <div
-            class="w-full p-4 shadow-inner"
-          >
+          <div class="w-full p-4 shadow-inner">
             <img
               src={fileThumbnailUrl}
               alt="File preview"
@@ -552,7 +560,7 @@
             <Icon name="file" size={48} class="text-primary" />
           </div>
         {/if}
-        <div>
+        <div class="flex flex-col items-center gap-1">
           <p class="text-lg font-semibold text-text">
             {parsedMetadata?.original_name || item?.fileName || "Document"}
           </p>
@@ -562,17 +570,24 @@
                 "Unknown type"}
             </p>
           {/if}
+          {#if externalPath}
+            <p class="text-xs text-text-muted break-all">
+              {externalPath}
+            </p>
+          {/if}
         </div>
         <div class="flex flex-col gap-2 w-full max-w-sm">
           <button
-            class="w-full px-4 py-2 rounded bg-primary text-white text-sm font-medium"
+            class="w-full px-4 py-2 rounded bg-primary text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={() => handleOpenFile()}
+            disabled={!fileExists}
           >
             Open file
           </button>
           <button
-            class="w-full px-4 py-2 rounded border border-border text-sm font-medium"
+            class="w-full px-4 py-2 rounded border border-border text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             onclick={() => handleCopyFile()}
+            disabled={!fileExists}
           >
             Copy file to clipboard
           </button>

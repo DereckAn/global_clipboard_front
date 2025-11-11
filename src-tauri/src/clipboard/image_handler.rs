@@ -1,5 +1,5 @@
 use arboard::ImageData;
-use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, ImageFormat, Rgba};
+use image::{imageops, DynamicImage, ImageBuffer, Rgba};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
@@ -77,92 +77,135 @@ pub fn copy_image_file_to_storage(
     source_path: &Path,
     images_dir: &Path,
 ) -> Result<StoredImageInfo, String> {
-    if !source_path.exists() {
-        return Err(format!(
-            "Source file does not exist: {}",
-            source_path.display()
-        ));
+    #[cfg(target_os = "macos")]
+    {
+        let _ = images_dir;
+        if !source_path.exists() {
+            return Err(format!(
+                "Source file does not exist: {}",
+                source_path.display()
+            ));
+        }
+
+        let original_name = source_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("image")
+            .to_string();
+
+        let original_extension = source_path
+            .extension()
+            .and_then(|s| s.to_str())
+            .map(|ext| ext.to_lowercase());
+
+        Ok(StoredImageInfo {
+            full_path: source_path.to_path_buf(),
+            thumb_path: PathBuf::new(),
+            file_name: source_path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("image")
+                .to_string(),
+            width: 0,
+            height: 0,
+            file_size: fs::metadata(source_path).map(|m| m.len()).unwrap_or(0),
+            file_hash: compute_external_hash(source_path)?,
+            original_extension,
+            original_name: Some(original_name.clone()),
+            is_screenshot: looks_like_screenshot_name(&original_name),
+        })
     }
 
-    let original_name = source_path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("image");
-
-    let original_extension = source_path
-        .extension()
-        .and_then(|s| s.to_str())
-        .map(|ext| ext.to_lowercase());
-
-    let target_extension = match original_extension.as_deref() {
-        Some("heic") | Some("heif") | Some("tiff") | Some("tif") => "png",
-        Some(ext) => ext,
-        None => "png",
-    };
-
-    let image_id = Uuid::new_v4();
-    let file_name = format!("{}_{}.{}", original_name, image_id, target_extension);
-    let thumb_name = format!("{}_{}_thumb.png", original_name, image_id);
-
-    let full_path = images_dir.join(&file_name);
-    let thumb_path = images_dir.join(&thumb_name);
-
-    let mut dynamic_img: Option<DynamicImage> = None;
-
-    match original_extension.as_deref() {
-        Some("heic") | Some("heif") => {
-            convert_heic_to_png(source_path, &full_path)?;
-            dynamic_img = Some(
-                image::open(&full_path)
-                    .map_err(|e| format!("Failed to load converted HEIC: {}", e))?,
-            );
+    #[cfg(not(target_os = "macos"))]
+    {
+        // existing implementation unchanged (copy into images_dir)
+        if !source_path.exists() {
+            return Err(format!(
+                "Source file does not exist: {}",
+                source_path.display()
+            ));
         }
-        Some("tiff") | Some("tif") => {
-            let img = image::open(source_path)
-                .map_err(|e| format!("Failed to load TIFF image: {}", e))?;
-            img.save_with_format(&full_path, ImageFormat::Png)
-                .map_err(|e| format!("Failed to convert TIFF to PNG: {}", e))?;
-            dynamic_img = Some(img);
+
+        let original_name = source_path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("image");
+
+        let original_extension = source_path
+            .extension()
+            .and_then(|s| s.to_str())
+            .map(|ext| ext.to_lowercase());
+
+        let target_extension = match original_extension.as_deref() {
+            Some("heic") | Some("heif") | Some("tiff") | Some("tif") => "png",
+            Some(ext) => ext,
+            None => "png",
+        };
+
+        let image_id = Uuid::new_v4();
+        let file_name = format!("{}_{}.{}", original_name, image_id, target_extension);
+        let thumb_name = format!("{}_{}_thumb.png", original_name, image_id);
+
+        let full_path = images_dir.join(&file_name);
+        let thumb_path = images_dir.join(&thumb_name);
+
+        let mut dynamic_img: Option<DynamicImage> = None;
+
+        match original_extension.as_deref() {
+            Some("heic") | Some("heif") => {
+                convert_heic_to_png(source_path, &full_path)?;
+                dynamic_img = Some(
+                    image::open(&full_path)
+                        .map_err(|e| format!("Failed to load converted HEIC: {}", e))?,
+                );
+            }
+            Some("tiff") | Some("tif") => {
+                let img = image::open(source_path)
+                    .map_err(|e| format!("Failed to load TIFF image: {}", e))?;
+                img.save_with_format(&full_path, ImageFormat::Png)
+                    .map_err(|e| format!("Failed to convert TIFF to PNG: {}", e))?;
+                dynamic_img = Some(img);
+            }
+            _ => {
+                fs::copy(source_path, &full_path)
+                    .map_err(|e| format!("Failed to copy image file: {}", e))?;
+            }
         }
-        _ => {
-            fs::copy(source_path, &full_path)
-                .map_err(|e| format!("Failed to copy image file: {}", e))?;
-        }
+
+        let img = match dynamic_img {
+            Some(img) => img,
+            None => {
+                image::open(&full_path).map_err(|e| format!("Failed to load copied image: {}", e))?
+            }
+        };
+
+        let (width, height) = img.dimensions();
+
+        let thumbnail = img.resize(256, 256, imageops::FilterType::Lanczos3);
+        thumbnail
+            .save(&thumb_path)
+            .map_err(|e| format!("Failed to save thumbnail: {}", e))?;
+
+        let file_size = fs::metadata(&full_path).map(|m| m.len()).unwrap_or(0);
+        let file_hash = calculate_file_hash(&full_path)?;
+
+        let mut info = StoredImageInfo {
+            full_path,
+            thumb_path,
+            file_name,
+            width,
+            height,
+            file_size,
+            file_hash,
+            original_extension,
+            original_name: Some(original_name.to_string()),
+            is_screenshot: looks_like_screenshot_name(original_name),
+        };
+
+        info.is_screenshot |= guess_screenshot_from_dimensions(info.width, info.height);
+
+        Ok(info)
     }
-
-    let img = match dynamic_img {
-        Some(img) => img,
-        None => {
-            image::open(&full_path).map_err(|e| format!("Failed to load copied image: {}", e))?
-        }
-    };
-
-    let (width, height) = img.dimensions();
-
-    let thumbnail = img.resize(256, 256, imageops::FilterType::Lanczos3);
-    thumbnail
-        .save(&thumb_path)
-        .map_err(|e| format!("Failed to save thumbnail: {}", e))?;
-
-    let file_size = fs::metadata(&full_path).map(|m| m.len()).unwrap_or(0);
-    let file_hash = calculate_file_hash(&full_path)?;
-
-    let mut info = StoredImageInfo {
-        full_path,
-        thumb_path,
-        file_name,
-        width,
-        height,
-        file_size,
-        file_hash,
-        original_extension,
-        original_name: Some(original_name.to_string()),
-        is_screenshot: looks_like_screenshot_name(original_name),
-    };
-
-    info.is_screenshot |= guess_screenshot_from_dimensions(info.width, info.height);
-
-    Ok(info)
 }
 
 pub fn delete_image_from_disk(file_path: &str) -> Result<(), String> {
@@ -325,4 +368,8 @@ pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
         .map_err(|e| format!("Failed to save regenerated thumbnail: {}", e))?;
 
     Ok(thumb_path)
+}
+#[cfg(target_os = "macos")]
+fn compute_external_hash(path: &Path) -> Result<String, String> {
+    calculate_file_hash(path)
 }

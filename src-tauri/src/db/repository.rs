@@ -2,6 +2,8 @@ use crate::clipboard::asset_cleanup;
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use chrono::Utc;
 use rusqlite::{params, Connection, Result};
+use serde_json::json;
+use std::path::PathBuf;
 use uuid::Uuid;
 
 pub struct ClipboardRepository {
@@ -240,32 +242,54 @@ impl ClipboardRepository {
              LIMIT ?1 OFFSET ?2",
         )?;
 
-        let items = stmt.query_map([limit, offset], |row| {
-            Ok(ClipboardItem {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                content_text: row.get(2)?,
-                content_metadata: row.get(3)?,
-                source_app: row.get(4)?,
-                code_language: row.get(5)?,
-                file_url: row.get(6)?,
-                file_name: row.get(7)?,
-                file_size_bytes: row.get(8)?,
-                file_mime_type: row.get(9)?,
-                file_hash: row.get(10)?,
-                is_favorite: row.get(11)?,
-                is_snippet: row.get(12)?,
-                snippet_name: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
-                synced: row.get(16)?,
-                server_id: row.get(17)?,
-            })
-        })?;
+        let mut items: Vec<ClipboardItem> = stmt
+            .query_map([limit, offset], |row| {
+                Ok(ClipboardItem {
+                    id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    content_text: row.get(2)?,
+                    content_metadata: row.get(3)?,
+                    source_app: row.get(4)?,
+                    code_language: row.get(5)?,
+                    file_url: row.get(6)?,
+                    file_name: row.get(7)?,
+                    file_size_bytes: row.get(8)?,
+                    file_mime_type: row.get(9)?,
+                    file_hash: row.get(10)?,
+                    is_favorite: row.get(11)?,
+                    is_snippet: row.get(12)?,
+                    snippet_name: row.get(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                    synced: row.get(16)?,
+                    server_id: row.get(17)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
-        items.collect()
+        for item in &mut items {
+            if let Some(url) = &item.file_url {
+                if let Ok(mut value) =
+                    serde_json::from_str::<serde_json::Value>(&item.content_metadata)
+                {
+                    if let Some(obj) = value.as_object_mut() {
+                        let path = obj
+                            .get("external_path")
+                            .and_then(|v| v.as_str())
+                            .map(PathBuf::from)
+                            .unwrap_or_else(|| PathBuf::from(url));
+
+                        if !path.exists() {
+                            obj.insert("external_missing".to_string(), json!(true));
+                            item.content_metadata = value.to_string();
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(items)
     }
-
     // Contar total de items
     pub fn count_items(&self) -> Result<i64> {
         let mut stmt = self.conn.prepare("SELECT COUNT(*) FROM clipboard_items")?;

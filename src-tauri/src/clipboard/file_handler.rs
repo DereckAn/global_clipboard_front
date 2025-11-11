@@ -4,11 +4,13 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+#[cfg(not(target_os = "macos"))]
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct StoredFileInfo {
     pub full_path: PathBuf,
+    pub original_path: Option<PathBuf>,
     pub file_name: String,
     pub file_size: u64,
     pub file_mime_type: String,
@@ -60,32 +62,60 @@ pub fn store_prepared_file(
     source_path: &Path,
     files_dir: &Path,
 ) -> Result<StoredFileInfo, String> {
-    let uuid = Uuid::new_v4();
-    let file_name = match prepared.extension.as_deref() {
-        Some(ext) => format!("{}_{}.{}", prepared.file_name, uuid, ext),
-        None => format!("{}_{}", prepared.file_name, uuid),
-    };
+    #[cfg(target_os = "macos")]
+    {
+        let _ = files_dir;
+        let file_name = source_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_else(|| prepared.file_name.as_str())
+            .to_string();
 
-    let destination = files_dir.join(&file_name);
-    fs::copy(source_path, &destination).map_err(|e| format!("Failed to copy file: {}", e))?;
+        let original_name = file_name.clone();
 
-    let original_name = source_path
-        .file_name()
-        .and_then(|s| s.to_str())
-        .unwrap_or_else(|| prepared.file_name.as_str())
-        .to_string();
+        return Ok(StoredFileInfo {
+            full_path: source_path.to_path_buf(),
+            original_path: Some(source_path.to_path_buf()),
+            file_name,
+            file_size: prepared.size,
+            file_mime_type: prepared.mime_type.clone(),
+            file_hash: prepared.hash.clone(),
+            original_extension: prepared.extension.clone(),
+            original_name,
+        });
+    }
 
-    Ok(StoredFileInfo {
-        full_path: destination,
-        file_name,
-        file_size: prepared.size,
-        file_mime_type: prepared.mime_type.clone(),
-        file_hash: prepared.hash.clone(),
-        original_extension: prepared.extension.clone(),
-        original_name,
-    })
+    #[cfg(not(target_os = "macos"))]
+    {
+        let uuid = Uuid::new_v4();
+        let file_name = match prepared.extension.as_deref() {
+            Some(ext) => format!("{}_{}.{}", prepared.file_name, uuid, ext),
+            None => format!("{}_{}", prepared.file_name, uuid),
+        };
+
+        let destination = files_dir.join(&file_name);
+        fs::copy(source_path, &destination).map_err(|e| format!("Failed to copy file: {}", e))?;
+
+        let original_name = source_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or_else(|| prepared.file_name.as_str())
+            .to_string();
+
+        Ok(StoredFileInfo {
+            full_path: destination,
+            original_path: None,
+            file_name,
+            file_size: prepared.size,
+            file_mime_type: prepared.mime_type.clone(),
+            file_hash: prepared.hash.clone(),
+            original_extension: prepared.extension.clone(),
+            original_name,
+        })
+    }
 }
 
+#[cfg(not(target_os = "macos"))]
 pub fn delete_file_from_disk(file_path: &str) -> Result<(), String> {
     let path = Path::new(file_path);
     if path.exists() {
@@ -94,10 +124,25 @@ pub fn delete_file_from_disk(file_path: &str) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(target_os = "macos")]
+#[allow(dead_code)]
+pub fn delete_file_from_disk(_file_path: &str) -> Result<(), String> {
+    Ok(())
+}
+
 pub fn delete_file_thumbnail(thumbnail_path: &str) -> Result<(), String> {
     document_thumbnail::delete_thumbnail(Path::new(thumbnail_path))
 }
 
+#[cfg(target_os = "macos")]
+pub fn delete_file_assets(_file_path: &str, metadata_json: &str) -> Result<(), String> {
+    if let Some(thumb_path) = extract_thumbnail_path(metadata_json) {
+        delete_file_thumbnail(&thumb_path)?;
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn delete_file_assets(file_path: &str, metadata_json: &str) -> Result<(), String> {
     delete_file_from_disk(file_path)?;
     if let Some(thumb_path) = extract_thumbnail_path(metadata_json) {

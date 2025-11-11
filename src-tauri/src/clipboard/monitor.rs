@@ -145,7 +145,7 @@ impl ClipboardMonitor {
                             "width": info.width,
                             "height": info.height,
                             "thumbnail_path": info.thumb_path.to_string_lossy().to_string(),
-                            "original_path": file_path.to_string_lossy().to_string(),
+                            "original_path": info.full_path.to_string_lossy().to_string(),
                             "is_screenshot": info.is_screenshot,
                             "source": "file",
                         });
@@ -443,6 +443,10 @@ impl ClipboardMonitor {
                                         "source": "file",
                                         "original_extension": info.original_extension,
                                         "original_name": info.original_name.clone(),
+                                        "external_path": info.original_path.as_ref()
+                                            .unwrap_or(&info.full_path)
+                                            .to_string_lossy(),
+                                        "external_missing": false,
                                     });
 
                                     if let Some(obj) = metadata.as_object_mut() {

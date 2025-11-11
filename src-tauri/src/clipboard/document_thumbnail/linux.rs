@@ -8,32 +8,36 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use uuid::Uuid;
 
-pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<Option<PathBuf>, String> {
+pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, String> {
     if !path.exists() {
-        return Ok(None);
+        return Ok(false);
     }
 
     let Some(target_dir) = target_path.parent() else {
         return Err("Invalid thumbnail target path".to_string());
     };
 
+    if target_path.exists() {
+        return Ok(true);
+    }
+
     if let Some(existing) = lookup_freedesktop_cache(path) {
         if fs::copy(&existing, target_path).is_ok() {
-            return Ok(Some(target_path.to_path_buf()));
+            return Ok(true);
         }
     }
 
     if is_pdf(path) {
         if generate_pdf_thumbnail(path, target_dir, target_path)? {
-            return Ok(Some(target_path.to_path_buf()));
+            return Ok(true);
         }
     } else if is_text_like(path) {
         if generate_text_thumbnail(path, target_path)? {
-            return Ok(Some(target_path.to_path_buf()));
+            return Ok(true);
         }
     }
 
-    Ok(None)
+    Ok(false)
 }
 
 fn lookup_freedesktop_cache(path: &Path) -> Option<PathBuf> {

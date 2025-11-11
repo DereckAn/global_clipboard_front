@@ -1,5 +1,5 @@
 use image::{DynamicImage, ImageBuffer, Rgba};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use widestring::U16CString;
 use windows::core::PCWSTR;
 use windows::Win32::Graphics::Gdi::{
@@ -9,13 +9,17 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF};
 
-pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<Option<PathBuf>, String> {
+pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, String> {
     if !path.exists() {
-        return Ok(None);
+        return Ok(false);
     }
 
     if target_path.parent().is_none() {
         return Err("Invalid thumbnail target path".to_string());
+    }
+
+    if target_path.exists() {
+        return Ok(true);
     }
 
     unsafe {
@@ -30,7 +34,7 @@ pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<Option<Path
     }
 }
 
-unsafe fn generate_with_shell(path: &Path, target_path: &Path) -> Result<Option<PathBuf>, String> {
+unsafe fn generate_with_shell(path: &Path, target_path: &Path) -> Result<bool, String> {
     let wide = U16CString::from_os_str(path).map_err(|_| "Invalid UTF-16 path".to_string())?;
     let shell_item =
         SHCreateItemFromParsingName::<IShellItemImageFactory>(PCWSTR(wide.as_ptr()), None)
@@ -47,7 +51,7 @@ unsafe fn generate_with_shell(path: &Path, target_path: &Path) -> Result<Option<
         .save(target_path)
         .map_err(|e| format!("Failed to save PNG: {e}"))?;
 
-    Ok(Some(target_path.to_path_buf()))
+    Ok(true)
 }
 
 fn hbitmap_to_image(hbitmap: HBITMAP) -> Result<DynamicImage, String> {

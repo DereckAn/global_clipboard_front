@@ -1,7 +1,7 @@
-// src-tauri/src/clipboard/document_thumbnail.rs
-
+use sha2::{Digest, Sha256};
+use std::fs;
 use std::path::{Path, PathBuf};
-use uuid::Uuid;
+use std::time::UNIX_EPOCH;
 
 #[cfg(target_os = "linux")]
 mod linux;
@@ -20,38 +20,48 @@ mod windows;
 /// * `Ok(Some(PathBuf))` - Thumbnail was successfully generated, returns path to thumbnail
 /// * `Ok(None)` - Platform can't generate thumbnail for this file type (graceful fallback)
 /// * `Err(String)` - Error occurred during generation
-pub fn generate_document_thumbnail(
-    path: &Path,
-    target_dir: &Path,
-) -> Result<Option<PathBuf>, String> {
+pub fn generate_document_thumbnail(path: &Path, target_dir: &Path) -> Result<Option<PathBuf>, String> {
     // Validate input path exists
     if !path.exists() {
         return Err(format!("Source file does not exist: {}", path.display()));
     }
 
     // Ensure target directory exists
-    std::fs::create_dir_all(target_dir)
+    fs::create_dir_all(target_dir)
         .map_err(|e| format!("Failed to create thumbnail directory: {}", e))?;
 
-    // Generate unique thumbnail filename
-    let uuid = Uuid::new_v4();
-    let thumb_filename = format!("{}_thumb.png", uuid);
-    let thumb_path = target_dir.join(thumb_filename);
+    let thumb_path = build_cached_path(path, target_dir)?;
+    if thumb_path.exists() {
+        return Ok(Some(thumb_path));
+    }
 
-    // Delegate to platform-specific implementation
     #[cfg(target_os = "macos")]
-    let result = macos::generate_thumbnail(path, &thumb_path);
+    {
+        if macos::generate_thumbnail(path, &thumb_path)? {
+            return Ok(Some(thumb_path));
+        }
+    }
 
     #[cfg(target_os = "windows")]
-    let result = windows::generate_thumbnail(path, &thumb_path);
+    {
+        if windows::generate_thumbnail(path, &thumb_path)? {
+            return Ok(Some(thumb_path));
+        }
+    }
 
     #[cfg(target_os = "linux")]
-    let result = linux::generate_thumbnail(path, &thumb_path);
+    {
+        if linux::generate_thumbnail(path, &thumb_path)? {
+            return Ok(Some(thumb_path));
+        }
+    }
 
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-    let result: Result<Option<PathBuf>, String> = Ok(None);
+    {
+        let _ = (path, target_dir);
+    }
 
-    result
+    Ok(None)
 }
 
 /// Deletes a thumbnail file if it exists
@@ -61,6 +71,24 @@ pub fn delete_thumbnail(thumb_path: &Path) -> Result<(), String> {
             .map_err(|e| format!("Failed to delete thumbnail: {}", e))?;
     }
     Ok(())
+}
+
+fn build_cached_path(path: &Path, target_dir: &Path) -> Result<PathBuf, String> {
+    let mut hasher = Sha256::new();
+    hasher.update(path.to_string_lossy().as_bytes());
+
+    if let Ok(metadata) = fs::metadata(path) {
+        hasher.update(metadata.len().to_le_bytes());
+        if let Ok(modified) = metadata.modified() {
+            if let Ok(duration) = modified.duration_since(UNIX_EPOCH) {
+                hasher.update(duration.as_secs().to_le_bytes());
+                hasher.update(duration.subsec_nanos().to_le_bytes());
+            }
+        }
+    }
+
+    let hash = format!("{:x}", hasher.finalize());
+    Ok(target_dir.join(format!("{hash}.png")))
 }
 
 #[cfg(test)]
