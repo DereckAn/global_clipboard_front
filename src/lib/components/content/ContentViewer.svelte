@@ -59,12 +59,16 @@
   });
 
   const fileThumbnailPath = $derived(
-    isFile && parsedMetadata?.thumbnail_path ? parsedMetadata.thumbnail_path : null
+    isFile && parsedMetadata?.thumbnail_path
+      ? parsedMetadata.thumbnail_path
+      : null
   );
   const fileThumbnailUrl = $derived.by(() => {
     if (!fileThumbnailPath) return null;
     return convertFileSrc(fileThumbnailPath);
   });
+  const textPreview = $derived(parsedMetadata?.text_preview || null);
+  const previewLanguage = $derived(parsedMetadata?.preview_language || null);
 
   const handleCopyFile = async () => {
     if (!item?.id || !item.fileUrl) return;
@@ -303,7 +307,7 @@
     </div>
   {:else if isLink}
     <!-- Link content with metadata preview -->
-    <div class="flex flex-col px-6 py-8 flex-1">
+    <div class="flex flex-col px-6 py-8 flex-1 max-w-full">
       <!-- Link URL -->
       <div class="flex items-center justify-between gap-3 mb-3">
         <div class="flex gap-2">
@@ -436,7 +440,7 @@
     <!-- Image content -->
     <div class="flex-1 flex flex-col">
       <!-- Image Preview -->
-      <div class="flex-1 flex items-center justify-center p-8 overflow-auto">
+      <div class="flex-1 flex items-center justify-center mb-4 overflow-auto">
         {#if item.fileUrl}
           {@const metadata = (() => {
             if (!item.contentMetadata) return {};
@@ -455,14 +459,12 @@
             dimensions: `${metadata.width}x${metadata.height}`,
             parsedMetadata: metadata,
           })}
-          <div
-            class="max-w-full max-h-full relative flex items-center justify-center"
-          >
+          <div class="max-w-full relative flex items-center justify-center">
             <!-- Load full resolution image directly (like PasteBarApp) -->
             <img
               src={convertFileSrc(item.fileUrl)}
               alt={item.fileName || "Clipboard image"}
-              class="max-w-full max-h-[calc(100vh-16rem)] object-scale-down rounded-lg shadow-2xl animate-in fade-in duration-300"
+              class="max-w-full object-scale-down shadow-2xl animate-in fade-in duration-300"
               decoding="async"
               draggable={false}
               onload={() =>
@@ -510,18 +512,45 @@
       </div>
     </div>
   {:else if isFile}
-    <div class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col max-w-full">
       <div
-        class="flex-1 flex flex-col items-center justify-center gap-4 p-8 text-center"
+        class="flex-1 flex flex-col items-center justify-center gap-4 text-center px-4"
       >
-        {#if fileThumbnailUrl}
-          <img
-            src={fileThumbnailUrl}
-            alt="File preview"
-            class="max-h-64 rounded-xl border border-border shadow-lg object-contain bg-surface"
-          />
+        {#if textPreview}
+          <div
+            class="w-full max-w-full py-4 text-left overflow-hidden"
+          >
+            <div class="flex items-center justify-between mb-3">
+              <div class="text-xs uppercase tracking-wide text-text-muted">
+                Preview
+              </div>
+              {#if previewLanguage}
+                <span
+                  class="text-[11px] px-2 py-0.5 rounded-full bg-surface-hover text-text-muted uppercase tracking-wide"
+                  >{previewLanguage}</span
+                >
+              {/if}
+            </div>
+            <pre
+              class="font-mono text-xs leading-relaxed text-text overflow-auto whitespace-pre-wrap">{textPreview}</pre>
+          </div>
+        {:else if fileThumbnailUrl}
+          <div
+            class="w-full p-4 shadow-inner"
+          >
+            <img
+              src={fileThumbnailUrl}
+              alt="File preview"
+              class="max-h-[360px] w-full object-contain"
+              style="filter: brightness(1.25) contrast(1.05);"
+            />
+          </div>
         {:else}
-          <Icon name="file" size={48} class="text-primary" />
+          <div
+            class="w-full max-w-md bg-surface rounded-2xl border border-border p-6 flex items-center justify-center"
+          >
+            <Icon name="file" size={48} class="text-primary" />
+          </div>
         {/if}
         <div>
           <p class="text-lg font-semibold text-text">

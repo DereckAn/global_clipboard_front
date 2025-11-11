@@ -51,7 +51,9 @@
     </div>
   {:else}
     <!-- Info grid -->
-    <div class="flex-1 overflow-y-auto px-3 py-3 text-xs divide-y divide-white/5">
+    <div
+      class="flex-1 overflow-y-auto px-3 py-3 text-xs divide-y divide-white/5"
+    >
       <!-- Content Type -->
       <div class="flex items-center justify-between p-1.5">
         <dt class="text-text-muted">Content type</dt>
@@ -123,13 +125,13 @@
         </div>
       {/if}
 
+      <div class="flex justify-between p-1.5">
+        <span class="text-text-muted">File name</span>
+        <span class="font-medium"
+          >{parsedMetadata?.original_name || item.fileName || "-"}</span
+        >
+      </div>
       {#if isFile}
-        <li class="flex justify-between p-1.5">
-          <span class="text-text-muted">File name</span>
-          <span class="font-medium"
-            >{parsedMetadata?.original_name || item.fileName || "-"}</span
-          >
-        </li>
         <li class="flex justify-between p-1.5">
           <span class="text-text-muted">Type</span>
           <span class="font-medium"

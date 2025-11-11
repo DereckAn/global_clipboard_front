@@ -55,6 +55,9 @@
   });
 
   const thumbnailPath = $derived(parsedMetadata?.thumbnail_path || null);
+  const originalName = $derived(
+    parsedMetadata?.original_name || item.fileName || null
+  );
   let resolvedThumbnail = $state<string | null>(null);
 
   // Load favicon for links
@@ -309,9 +312,15 @@
 
   <!-- Content text -->
   <div class="flex-1 min-w-0">
-    <p class="text-sm text-text truncate">
-      {displayText}
-    </p>
+    {#if (isFile || isImage) && originalName}
+      <p class="text-sm text-text truncate">
+        {originalName}
+      </p>
+    {:else}
+      <p class="text-sm text-text truncate">
+        {displayText}
+      </p>
+    {/if}
   </div>
 
   <!-- Delete button or confirmation -->

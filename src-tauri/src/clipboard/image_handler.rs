@@ -18,6 +18,7 @@ pub struct StoredImageInfo {
     pub file_size: u64,
     pub file_hash: String,
     pub original_extension: Option<String>,
+    pub original_name: Option<String>,
     pub is_screenshot: bool,
 }
 
@@ -63,6 +64,7 @@ pub fn save_image_to_disk(
         file_size,
         file_hash,
         original_extension: Some("png".to_string()),
+        original_name: None,
         is_screenshot,
     };
 
@@ -154,6 +156,7 @@ pub fn copy_image_file_to_storage(
         file_size,
         file_hash,
         original_extension,
+        original_name: Some(original_name.to_string()),
         is_screenshot: looks_like_screenshot_name(original_name),
     };
 

@@ -9,7 +9,7 @@ use crate::clipboard::state;
 use crate::clipboard::types::{detect_code_language, detect_content_type, get_source_app};
 use crate::db::models::CreateClipboardItemDto;
 use crate::db::repository::ClipboardRepository;
-use std::sync::Arc;
+use std::{fs, sync::Arc, time::{Duration, Instant}};
 use tauri::{Emitter, Manager};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::Mutex;
@@ -18,7 +18,7 @@ pub struct ClipboardMonitor {
     event_rx: Mutex<Option<UnboundedReceiver<ClipboardEvent>>>,
     last_text_content: Arc<Mutex<String>>,
     last_image_hash: Arc<Mutex<Option<Vec<u8>>>>,
-    last_file_path: Arc<Mutex<Option<std::path::PathBuf>>>,
+    last_file_path: Arc<Mutex<Option<(std::path::PathBuf, Instant)>>>,
     repo_path: String,
     images_dir: std::path::PathBuf,
     is_running: Arc<Mutex<bool>>,
@@ -103,12 +103,12 @@ impl ClipboardMonitor {
             Ok(ClipboardContent::ImageFile(file_path)) => {
                 {
                     let mut last_path = self.last_file_path.lock().await;
-                    if let Some(prev) = last_path.as_ref() {
-                        if prev == &file_path {
+                    if let Some((prev, ts)) = last_path.as_ref() {
+                        if prev == &file_path && ts.elapsed() < Duration::from_millis(750) {
                             return;
                         }
                     }
-                    *last_path = Some(file_path.clone());
+                    *last_path = Some((file_path.clone(), Instant::now()));
                 }
 
                 println!(
@@ -150,11 +150,18 @@ impl ClipboardMonitor {
                             "source": "file",
                         });
 
-                        if let Some(ext) = info.original_extension.as_ref() {
-                            if let Some(obj) = metadata.as_object_mut() {
+                        if let Some(obj) = metadata.as_object_mut() {
+                            if let Some(ext) = info.original_extension.as_ref() {
                                 obj.insert(
                                     "original_extension".to_string(),
                                     serde_json::Value::String(ext.clone()),
+                                );
+                            }
+
+                            if let Some(name) = info.original_name.as_ref() {
+                                obj.insert(
+                                    "original_name".to_string(),
+                                    serde_json::Value::String(name.clone()),
                                 );
                             }
                         }
@@ -367,12 +374,12 @@ impl ClipboardMonitor {
             Ok(ClipboardContent::File(file_path)) => {
                 {
                     let mut last_path = self.last_file_path.lock().await;
-                    if let Some(prev) = last_path.as_ref() {
-                        if prev == &file_path {
+                    if let Some((prev, ts)) = last_path.as_ref() {
+                        if prev == &file_path && ts.elapsed() < Duration::from_millis(750) {
                             return;
                         }
                     }
-                    *last_path = Some(file_path.clone());
+                    *last_path = Some((file_path.clone(), Instant::now()));
                 }
 
                 match prepare_file_metadata(&file_path) {
@@ -394,20 +401,41 @@ impl ClipboardMonitor {
 
                             match store_prepared_file(&prepared, &file_path, &self.files_dir) {
                                 Ok(info) => {
+                                    let is_textual = is_textual_mime(
+                                        &info.file_mime_type,
+                                        info.original_extension.as_ref(),
+                                    );
                                     let mut thumbnail_path: Option<String> = None;
-                                    match generate_document_thumbnail(
-                                        &info.full_path,
-                                        &self.file_thumbs_dir,
-                                    ) {
-                                        Ok(result) => {
-                                            thumbnail_path = result
-                                                .map(|path| path.to_string_lossy().to_string());
+                                    let mut text_preview: Option<String> = None;
+                                    let mut preview_language: Option<String> = None;
+
+                                    if is_textual {
+                                        match extract_text_preview(&info.full_path, 32_768) {
+                                            Ok(preview_text) => {
+                                                preview_language =
+                                                    detect_code_language(&preview_text);
+                                                text_preview = Some(preview_text);
+                                            }
+                                            Err(err) => eprintln!(
+                                                "Failed to read text preview for {}: {}",
+                                                info.file_name, err
+                                            ),
                                         }
-                                        Err(err) => {
-                                            eprintln!(
-                                                "Failed to generate document thumbnail: {}",
-                                                err
-                                            );
+                                    } else {
+                                        match generate_document_thumbnail(
+                                            &info.full_path,
+                                            &self.file_thumbs_dir,
+                                        ) {
+                                            Ok(result) => {
+                                                thumbnail_path = result
+                                                    .map(|path| path.to_string_lossy().to_string());
+                                            }
+                                            Err(err) => {
+                                                eprintln!(
+                                                    "Failed to generate document thumbnail: {}",
+                                                    err
+                                                );
+                                            }
                                         }
                                     }
 
@@ -417,12 +445,34 @@ impl ClipboardMonitor {
                                         "original_name": info.original_name.clone(),
                                     });
 
-                                    if let Some(path) = thumbnail_path {
-                                        if let Some(obj) = metadata.as_object_mut() {
+                                    if let Some(obj) = metadata.as_object_mut() {
+                                        if let Some(path) = thumbnail_path {
+                                            obj.insert(
+                                                "preview_type".to_string(),
+                                                serde_json::Value::String("image".to_string()),
+                                            );
                                             obj.insert(
                                                 "thumbnail_path".to_string(),
                                                 serde_json::Value::String(path),
                                             );
+                                        }
+
+                                        if let Some(preview) = text_preview {
+                                            obj.insert(
+                                                "preview_type".to_string(),
+                                                serde_json::Value::String("text".to_string()),
+                                            );
+                                            obj.insert(
+                                                "text_preview".to_string(),
+                                                serde_json::Value::String(preview),
+                                            );
+
+                                            if let Some(lang) = preview_language {
+                                                obj.insert(
+                                                    "preview_language".to_string(),
+                                                    serde_json::Value::String(lang),
+                                                );
+                                            }
                                         }
                                     }
 
@@ -472,4 +522,72 @@ impl ClipboardMonitor {
             }
         }
     }
+}
+
+fn is_textual_mime(mime: &str, extension: Option<&String>) -> bool {
+    if mime.starts_with("text/") {
+        return true;
+    }
+
+    let normalized_mime = mime.to_lowercase();
+    let ext_match = extension
+        .map(|ext| ext.as_str())
+        .unwrap_or_default()
+        .to_lowercase();
+
+    matches!(
+        normalized_mime.as_str(),
+        "application/json"
+            | "application/xml"
+            | "application/javascript"
+            | "application/x-javascript"
+            | "application/x-sh"
+            | "application/x-shellscript"
+            | "application/x-yaml"
+            | "application/x-toml"
+            | "application/x-ruby"
+            | "application/x-python"
+            | "application/x-httpd-php"
+    ) || matches!(
+        ext_match.as_str(),
+        "md"
+            | "markdown"
+            | "txt"
+            | "csv"
+            | "ts"
+            | "tsx"
+            | "js"
+            | "jsx"
+            | "rs"
+            | "go"
+            | "py"
+            | "rb"
+            | "java"
+            | "kt"
+            | "swift"
+            | "c"
+            | "h"
+            | "hpp"
+            | "cpp"
+            | "cs"
+            | "toml"
+            | "yaml"
+            | "yml"
+            | "json"
+            | "log"
+            | "sh"
+            | "zsh"
+            | "bash"
+    )
+}
+
+fn extract_text_preview(path: &std::path::Path, max_bytes: usize) -> Result<String, String> {
+    let data = fs::read(path).map_err(|e| format!("Failed to read file: {}", e))?;
+    let take = std::cmp::min(max_bytes, data.len());
+    let mut text = String::from_utf8_lossy(&data[..take]).to_string();
+    text = text.trim_start_matches('\u{feff}').to_string(); // drop BOM if present
+    if data.len() > max_bytes {
+        text.push_str("\n…");
+    }
+    Ok(text)
 }
