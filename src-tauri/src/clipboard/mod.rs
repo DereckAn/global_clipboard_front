@@ -6,6 +6,7 @@ pub mod monitor;
 pub mod operations;
 pub mod state;
 pub mod types;
+pub mod document_thumbnail;
 
 pub use listener::spawn_clipboard_listener;
 pub use monitor::ClipboardMonitor;

@@ -1,6 +1,5 @@
-use crate::clipboard::file_handler::{
-    generate_document_thumbnail, prepare_file_metadata, store_prepared_file,
-};
+use crate::clipboard::document_thumbnail::generate_document_thumbnail;
+use crate::clipboard::file_handler::{prepare_file_metadata, store_prepared_file};
 use crate::clipboard::image_handler::{
     copy_image_file_to_storage, detect_mime_type, save_image_to_disk,
 };
@@ -399,7 +398,6 @@ impl ClipboardMonitor {
                                     match generate_document_thumbnail(
                                         &info.full_path,
                                         &self.file_thumbs_dir,
-                                        &info.file_mime_type,
                                     ) {
                                         Ok(result) => {
                                             thumbnail_path = result

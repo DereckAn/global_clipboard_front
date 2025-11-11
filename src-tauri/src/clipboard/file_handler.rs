@@ -1,10 +1,9 @@
-use mime::Mime;
+use crate::clipboard::document_thumbnail;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::{BufReader, BufWriter, Read};
+use std::io::Read;
 use std::path::{Path, PathBuf};
-use thumbnailer::{create_thumbnails, ThumbnailSize};
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -96,11 +95,7 @@ pub fn delete_file_from_disk(file_path: &str) -> Result<(), String> {
 }
 
 pub fn delete_file_thumbnail(thumbnail_path: &str) -> Result<(), String> {
-    let path = Path::new(thumbnail_path);
-    if path.exists() {
-        fs::remove_file(path).map_err(|e| format!("Failed to delete file thumbnail: {}", e))?;
-    }
-    Ok(())
+    document_thumbnail::delete_thumbnail(Path::new(thumbnail_path))
 }
 
 pub fn delete_file_assets(file_path: &str, metadata_json: &str) -> Result<(), String> {
@@ -269,51 +264,5 @@ pub fn write_file_to_clipboard(file_path: &str) -> Result<(), String> {
         Ok(())
     } else {
         Err("Failed to write file to clipboard".into())
-    }
-}
-
-pub fn generate_document_thumbnail(
-    source_path: &Path,
-    thumbs_dir: &Path,
-    mime_str: &str,
-) -> Result<Option<PathBuf>, String> {
-    if !thumbs_dir.exists() {
-        fs::create_dir_all(thumbs_dir)
-            .map_err(|e| format!("Failed to create file thumbnails dir: {}", e))?;
-    }
-
-    let mime: Mime = match mime_str.parse() {
-        Ok(m) => m,
-        Err(_) => return Ok(None),
-    };
-
-    let should_attempt = mime.type_() == mime::TEXT
-        || (mime.type_() == mime::APPLICATION && mime.subtype() == mime::PDF);
-    if !should_attempt {
-        return Ok(None);
-    }
-
-    let file = fs::File::open(source_path)
-        .map_err(|e| format!("Failed to open file for thumbnail: {}", e))?;
-    let reader = BufReader::new(file);
-
-    let thumbs = create_thumbnails(reader, mime, [ThumbnailSize::Medium])
-        .map_err(|e| format!("Failed to create document thumbnail: {e}"))?;
-
-    if let Some(thumbnail) = thumbs.into_iter().next() {
-        let name = source_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("doc");
-        let thumb_path = thumbs_dir.join(format!("{name}_thumb.png"));
-        let output = fs::File::create(&thumb_path)
-            .map_err(|e| format!("Failed to create thumbnail file: {e}"))?;
-        let mut writer = BufWriter::new(output);
-        thumbnail
-            .write_png(&mut writer)
-            .map_err(|e| format!("Failed to write document thumbnail: {e}"))?;
-        Ok(Some(thumb_path))
-    } else {
-        Ok(None)
     }
 }
