@@ -58,6 +58,12 @@
   const originalName = $derived(
     parsedMetadata?.original_name || item.fileName || null
   );
+  const previewType = $derived(parsedMetadata?.preview_type || null);
+  const textPreview = $derived(parsedMetadata?.text_preview || null);
+  const textPreviewSnippet = $derived.by(() => {
+    if (!textPreview) return null;
+    return textPreview.trim().split("\n").slice(0, 6).join("\n");
+  });
   let resolvedThumbnail = $state<string | null>(null);
 
   // Load favicon for links
@@ -192,7 +198,7 @@
 
 <div
   class={cn(
-    "group relative flex items-center gap-3 px-3 py-1 text-sm cursor-pointer transition-colors mx-2",
+    "group relative flex items-center gap-3 px-1.5 py-0.5 text-sm cursor-pointer transition-colors mx-2",
     isSelected
       ? "bg-surface-hover rounded-xl"
       : " border-transparent hover:bg-surface-hover rounded-xl"
@@ -257,6 +263,18 @@
           alt={languageInfo.name}
           class="w-full h-full object-contain"
         />
+      </div>
+    {:else if isFile && previewType === "text" && textPreviewSnippet}
+      <div
+        class="size-7 rounded border border-border bg-surface-high overflow-hidden flex items-center justify-center"
+        title="Text preview"
+      >
+        <span
+          class="text-[8px] leading-tight font-mono text-text-muted px-0.5 overflow-hidden"
+          style="-webkit-box-orient: vertical; display: -webkit-box; -webkit-line-clamp: 4;"
+        >
+          {textPreviewSnippet}
+        </span>
       </div>
     {:else if resolvedThumbnail && (isImage || isFile)}
       <!-- Show actual thumbnail image -->

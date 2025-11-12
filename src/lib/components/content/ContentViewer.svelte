@@ -404,7 +404,10 @@
 
       <!-- Copy button -->
       <div class=" my-3 flex justify-center p-2">
-        <Button onclick={() => handleCopy(item.contentText || "")} class="w-full" >
+        <Button
+          onclick={() => handleCopy(item.contentText || "")}
+          class="w-full"
+        >
           <Icon
             name={copied ? "check" : "copy"}
             size={16}
@@ -507,22 +510,11 @@
             </p>
           </div>
         {:else if textPreview}
-          <div class="w-full max-w-full py-4 text-left overflow-hidden p-2">
-            <div class="flex items-center justify-between mb-3">
-              <div class="text-xs uppercase tracking-wide text-text-muted">
-                Preview
-              </div>
-              {#if previewLanguage}
-                <span
-                  class="text-[11px] px-2 py-0.5 rounded-full bg-surface-hover text-text-muted uppercase tracking-wide"
-                  >{previewLanguage}</span
-                >
-              {/if}
-            </div>
+          <div class="w-full max-w-full py-4 text-left p-2 overflow-hidden">
             <pre
-              class="font-mono text-xs leading-relaxed text-text overflow-auto whitespace-pre-wrap">{textPreview}</pre>
+              class="font-mono text-xs max-w-full w-fit leading-relaxed text-text whitespace-pre-wrap wrap-break-words">{textPreview}</pre>
           </div>
-        {:else if fileThumbnailUrl}
+        {:else if fileThumbnailUrl} 
           <div class="w-full">
             <img
               src={fileThumbnailUrl}
@@ -533,9 +525,9 @@
           </div>
         {:else}
           <div
-            class="w-full max-w-md bg-surface rounded-2xl border border-border p-6 flex items-center justify-center"
+            class="w-full max-w-md p-6 flex items-center justify-center"
           >
-            <Icon name="file" size={48} class="text-primary" />
+            <Icon name="file" size={70} class="text-primary" />
           </div>
         {/if}
         <div class="flex flex-row w-full gap-2 p-2">
@@ -590,8 +582,7 @@
             "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 "
           )}>{#if searchQuery.trim()}
             <HighlightedText text={item.contentText!} query={searchQuery} />
-          {:else}
-            {item.contentText}
+          {:else}{item.contentText}
           {/if}</pre>
       </div>
 

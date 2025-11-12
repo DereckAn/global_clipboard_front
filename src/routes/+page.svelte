@@ -138,7 +138,7 @@
 </script>
 
 <div
-  class="h-screen w-screen overflow-hidden flex flex-col bg-background rounded-xl"
+  class="h-screen w-[750px] overflow-hidden flex flex-col bg-background rounded-xl"
 >
   <!-- Header -->
   <Header
@@ -152,16 +152,16 @@
   />
 
   <!-- Main content area -->
-  <div class="flex-1 flex overflow-hidden">
-    <!-- Sidebar (30%) -->
+  <div class="flex-1 flex overflow-hidden ">
+    <!-- Sidebar (40%) -->
     <Sidebar
       items={filteredItems}
       isLoading={clipboardStore.isLoading}
       searchQuery={debouncedSearchQuery}
     />
 
-    <!-- Right panel (70%) -->
-    <div class="flex flex-col flex-1">
+    <!-- Right panel (60%) -->
+    <div class="flex flex-col w-[60%]">
       <!-- Content viewer (top) -->
       <ContentViewer item={selectedItem} searchQuery={debouncedSearchQuery} />
 

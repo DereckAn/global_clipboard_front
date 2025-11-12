@@ -1,4 +1,4 @@
-# macOS Preview Pipeline (v1.2)
+# macOS Preview Pipeline (v1.3)
 
 ## Resumen
 
@@ -9,6 +9,7 @@
   - Caché de miniaturas (`file_thumbnails/<hash>.png`) producidas por **Quick Look / QLThumbnailImageCreate**.
 - Los formatos textuales (.log, .md, .rs, .ts, etc.) almacenan `text_preview` (primeros ~32 KB) y `preview_language`. En el frontend se muestran en un bloque monoespaciado, similar a Raycast.
 - Eliminamos los archivos del usuario solamente cuando el mismo usuario los borra en Finder; desde la app se elimina únicamente el registro/caché.
+- El botón “Open file” usa `tauri-plugin-opener` (`openPath`). El capability `default.json` restringe las rutas a `$HOME/**` y `$APPDATA/**`; ajustar si la app necesita abrir rutas adicionales.
 
 ## Flujo macOS
 
@@ -19,7 +20,8 @@
 5. En `get_items_paginated`, antes de retornar cada item:
    - Se comprueba `external_path`/`file_url`.
    - Si no existe → `external_missing = true` en metadata.
-6. `ContentViewer`:
+- `SidebarItem` muestra una mini tarjeta con el preview textual cuando `preview_type === "text"`; si no hay snippet se reutiliza la miniatura caché.
+- `ContentViewer`:
    - Muestra “File not found” + acciones deshabilitadas cuando `external_missing` es true.
    - Para previews de texto, muestra el snippet; para el resto, la miniatura Quick Look.
 
