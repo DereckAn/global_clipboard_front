@@ -10,7 +10,10 @@ mod shortcuts;
 use clipboard::{spawn_clipboard_listener, ClipboardMonitor};
 use commands::AppState;
 use std::sync::Mutex;
+#[cfg(target_os = "macos")]
+use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
+use tauri::path::BaseDirectory;
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
@@ -49,9 +52,31 @@ pub fn run() {
 
             let menu = Menu::with_items(app, &[&show_item, &quit_item])?;
 
+            #[cfg(target_os = "macos")]
+            let tray_icon = {
+                let template_icon = app
+                    .path()
+                    .resolve("icons/tray_icon_template.png", BaseDirectory::Resource)
+                    .ok()
+                    .and_then(|path| match Image::from_path(&path) {
+                        Ok(image) => Some(image),
+                        Err(err) => {
+                            eprintln!("Failed to load tray template icon ({path:?}): {err}");
+                            None
+                        }
+                    });
+
+                template_icon
+                    .or_else(|| app.default_window_icon().cloned())
+                    .expect("Failed to obtain tray icon image")
+            };
+
+            #[cfg(not(target_os = "macos"))]
+            let tray_icon = app.default_window_icon().unwrap().clone();
+
             // Crear el tray icon
-            let tray = TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
+            let tray_builder = TrayIconBuilder::new()
+                .icon(tray_icon)
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
@@ -66,8 +91,12 @@ pub fn run() {
                         }
                     }
                     _ => {}
-                })
-                .build(app)?;
+                });
+
+            #[cfg(target_os = "macos")]
+            let tray_builder = tray_builder.icon_as_template(true);
+
+            let tray = tray_builder.build(app)?;
 
             app.manage(std::sync::Mutex::new(tray));
 

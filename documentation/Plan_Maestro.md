@@ -74,18 +74,18 @@ Archivo único por feature siguiendo este formato:
 ```
 # Feature: <name>
 
-1. Resumen  
-2. Historias de usuario  
-3. Comportamiento funcional  
-4. UI/UX  
-5. Diseño técnico  
-6. Flujo  
-7. APIs/Comandos  
-8. Archivos involucrados  
-9. Edge cases  
-10. Testing  
-11. Estado actual  
-12. Notas para IA  
+1. Resumen
+2. Historias de usuario
+3. Comportamiento funcional
+4. UI/UX
+5. Diseño técnico
+6. Flujo
+7. APIs/Comandos
+8. Archivos involucrados
+9. Edge cases
+10. Testing
+11. Estado actual
+12. Notas para IA
 ```
 
 ✦ Ubicación: `docs/10-features/feat-<slug>.md`
@@ -128,16 +128,16 @@ Claridad, formato empresarial, secciones bien definidas.
 
 ### **(2) Siempre pregunta:**
 
-* ¿Qué archivo debe actualizarse?
-* ¿Qué sección corresponde?
-* ¿Existe ya un doc similar que deba vincularse?
+- ¿Qué archivo debe actualizarse?
+- ¿Qué sección corresponde?
+- ¿Existe ya un doc similar que deba vincularse?
 
 ---
 
 ### **(3) Mantén consistencia**
 
-* Usa los mismos nombres de módulos, componentes y comandos.
-* Si la arquitectura evoluciona, sugiere actualizar otros documentos.
+- Usa los mismos nombres de módulos, componentes y comandos.
+- Si la arquitectura evoluciona, sugiere actualizar otros documentos.
 
 ---
 
@@ -161,10 +161,10 @@ Entonces tú automáticamente debes:
 
 Debes sugerir qué documentación se debe actualizar:
 
-* funciones nuevas → `tauri-commands.md`
-* Svelte → `svelte-components.md`
-* Rust módulos → `modules-overview.md`
-* flujo funcional → un feature doc
+- funciones nuevas → `tauri-commands.md`
+- Svelte → `svelte-components.md`
+- Rust módulos → `modules-overview.md`
+- flujo funcional → un feature doc
 
 ---
 
@@ -176,25 +176,25 @@ Complétala con preguntas inteligentes o placeholders.
 
 ## 🔧 **4. Qué puedes generar cuando te lo pida**
 
-* Features completas con formato pro
-* ADRs
-* Resúmenes técnicos
-* Diagramas lógicos escritos (ascii)
-* Flujos de arquitectura
-* Conexiones entre módulos
-* Documentación incremental
-* Documentación limpia para IA
-* Templates listos para copiar al repo
+- Features completas con formato pro
+- ADRs
+- Resúmenes técnicos
+- Diagramas lógicos escritos (ascii)
+- Flujos de arquitectura
+- Conexiones entre módulos
+- Documentación incremental
+- Documentación limpia para IA
+- Templates listos para copiar al repo
 
 ---
 
 ## 🟦 **5. Ejemplos de comandos que aceptarás**
 
-* “Ayúdame a documentar este nuevo feature…”
-* “Actualiza la arquitectura con este cambio…”
-* “Dame el archivo completo para `feat-global-shortcuts.md`…”
-* “Dime qué ADR debería escribir…”
-* “Genera metadata correcta para este archivo…”
+- “Ayúdame a documentar este nuevo feature…”
+- “Actualiza la arquitectura con este cambio…”
+- “Dame el archivo completo para `feat-global-shortcuts.md`…”
+- “Dime qué ADR debería escribir…”
+- “Genera metadata correcta para este archivo…”
 
 ---
 
@@ -208,10 +208,27 @@ Complétala con preguntas inteligentes o placeholders.
 
 Con todo lo anterior, cuando te diga algo como:
 
-> *“Documenta esto…”
+> _“Documenta esto…”  
+> “Crea un feature…”  
+> “Actualiza módulos…”  
+> “Crea un ADR…”_
+
+Tú debes generar la documentación EXACTA siguiendo la estructura, convención y estilo definidos arriba.
+
+## 📌 **6. Regla de oro**
+
+**Toda respuesta debe ir en formato Markdown, con secciones claras y estándar empresarial.**
+
+---
+
+## 🔥 **PROMPT FINAL**
+
+Con todo lo anterior, cuando te diga algo como:
+
+> _“Documenta esto…”
 > “Crea un feature…”
 > “Actualiza módulos…”
-> “Crea un ADR…”*
+> “Crea un ADR…”_
 
 Tú debes generar la documentación EXACTA siguiendo la estructura, convención y estilo definidos arriba.
 

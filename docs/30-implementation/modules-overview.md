@@ -20,7 +20,7 @@ related_docs:
 | --- | --- | --- | --- |
 | `db::repository` | `src-tauri/src/db/repository.rs` | CRUD sobre SQLite, paginación, FTS5, limpieza de assets. | `cleanup_missing_file_records()` y `prune_missing_file_items()` eliminan registros cuyos archivos ya no existen y devuelven los IDs para la UI. |
 | `commands::clipboard` | `src-tauri/src/commands/clipboard.rs` | Comandos CRUD + utilidades de portapapeles. | Nuevo comando `cleanup_missing_clipboard_files` expone la limpieza de archivos huérfanos. |
-| `lib.rs` (builder) | `src-tauri/src/lib.rs` | Configura ventanas, tray, eventos y listeners. | En el evento `WindowEvent::Focused(false)` ahora se ejecuta la limpieza y se emite `clipboard-items-removed`. |
+| `lib.rs` (builder) | `src-tauri/src/lib.rs` | Configura ventanas, tray, eventos y listeners. | - Limpieza en `WindowEvent::Focused(false)` → `clipboard-items-removed`. <br> - En macOS el tray carga `tray_icon_template.png` y lo marca como template (con fallback). |
 
 ## 2. Frontend (Svelte)
 
