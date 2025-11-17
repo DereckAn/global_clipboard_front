@@ -354,28 +354,6 @@ fn guess_screenshot_from_dimensions(width: u32, height: u32) -> bool {
     aspect_ratio >= 1.2 && aspect_ratio <= 3.6
 }
 
-#[cfg(target_os = "macos")]
-fn convert_heic_to_png(source: &Path, destination: &Path) -> Result<(), String> {
-    let status = Command::new("sips")
-        .arg("-s")
-        .arg("format")
-        .arg("png")
-        .arg(source)
-        .arg("--out")
-        .arg(destination)
-        .status()
-        .map_err(|e| format!("Failed to run sips for HEIC conversion: {}", e))?;
-
-    if !status.success() {
-        return Err(format!(
-            "sips failed to convert HEIC (exit code {:?})",
-            status.code()
-        ));
-    }
-
-    Ok(())
-}
-
 #[cfg(not(target_os = "macos"))]
 fn convert_heic_to_png(_source: &Path, _destination: &Path) -> Result<(), String> {
     Err("HEIC conversion is not supported on this platform.".to_string())
@@ -417,4 +395,49 @@ pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
 #[cfg(target_os = "macos")]
 fn compute_external_hash(path: &Path) -> Result<String, String> {
     calculate_file_hash(path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    #[test]
+    fn detect_mime_type_handles_common_extensions() {
+        assert_eq!(detect_mime_type("photo.JPG"), "image/jpeg");
+        assert_eq!(detect_mime_type("icon.svg"), "image/svg+xml");
+        assert_eq!(detect_mime_type("picture.heic"), "image/heic");
+        assert_eq!(detect_mime_type("drawing.bmp"), "image/bmp");
+        assert_eq!(detect_mime_type("unknown.xyz"), "image/png"); // fallback
+    }
+
+    #[test]
+    fn looks_like_screenshot_name_detects_languages() {
+        assert!(looks_like_screenshot_name(
+            "Screenshot 2024-09-01 at 10.18.00"
+        ));
+        assert!(looks_like_screenshot_name("Captura de pantalla 2024-01-01"));
+        assert!(looks_like_screenshot_name("スクリーンショット-2024"));
+        assert!(!looks_like_screenshot_name("HolidayPhoto"));
+    }
+
+    #[test]
+    fn guess_screenshot_from_dimensions_filters_non_screenshots() {
+        assert!(guess_screenshot_from_dimensions(4032, 3024)); // typical mac screenshot
+        assert!(!guess_screenshot_from_dimensions(800, 600)); // area too small
+        assert!(!guess_screenshot_from_dimensions(6000, 300)); // aspect ratio extreme
+        assert!(!guess_screenshot_from_dimensions(0, 0)); // invalid
+    }
+
+    #[test]
+    fn calculate_file_hash_matches_known_value() {
+        let mut file = NamedTempFile::new().unwrap();
+        file.write_all(b"hello world").unwrap();
+        let hash = calculate_file_hash(file.path()).unwrap();
+        assert_eq!(
+            hash,
+            "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        );
+    }
 }

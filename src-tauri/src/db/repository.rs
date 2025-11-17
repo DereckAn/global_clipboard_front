@@ -439,3 +439,107 @@ impl ClipboardRepository {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{json, Value};
+    use std::time::Duration;
+    use tempfile::TempDir;
+
+    fn setup_repo() -> (ClipboardRepository, TempDir) {
+        let dir = TempDir::new().expect("temp dir");
+        let path = dir.path().join("clipboard.db");
+        let repo = ClipboardRepository::new(path.to_str().unwrap()).expect("repo init");
+        (repo, dir)
+    }
+
+    fn sample_dto(text: &str) -> CreateClipboardItemDto {
+        CreateClipboardItemDto {
+            content_type: "text".to_string(),
+            content_text: text.to_string(),
+            content_metadata: Some("{}".to_string()),
+            source_app: Some("test-suite".to_string()),
+            code_language: None,
+        }
+    }
+
+    #[test]
+    fn create_and_get_item_returns_persisted_record() {
+        let (repo, _dir) = setup_repo();
+        let created = repo.create_item(sample_dto("hello world")).unwrap();
+        let fetched = repo.get_item(&created.id).unwrap().unwrap();
+        assert_eq!(fetched.id, created.id);
+        assert_eq!(fetched.content_text.as_deref(), Some("hello world"));
+        assert_eq!(fetched.content_type, "text");
+    }
+
+    #[test]
+    fn upsert_item_bumps_existing_record() {
+        let (repo, _dir) = setup_repo();
+        let first = repo.upsert_item(sample_dto("dedupe me")).unwrap();
+        std::thread::sleep(Duration::from_millis(10));
+        let second = repo.upsert_item(sample_dto("dedupe me")).unwrap();
+
+        assert_eq!(first.id, second.id, "upsert should not create duplicates");
+        assert!(
+            second.updated_at >= first.updated_at,
+            "timestamp should be refreshed"
+        );
+    }
+
+    #[test]
+    fn pagination_marks_missing_external_files() {
+        let (repo, _dir) = setup_repo();
+        let metadata = json!({
+            "external_path": "/tmp/i/do/not/exist"
+        })
+        .to_string();
+
+        let dto = CreateClipboardItemDto {
+            content_type: "file".into(),
+            content_text: "orphan".into(),
+            content_metadata: Some(metadata),
+            source_app: Some("tester".into()),
+            code_language: None,
+        };
+
+        let created = repo.create_item(dto).unwrap();
+        repo.update_file_info(
+            &created.id,
+            "/tmp/i/do/not/exist",
+            "ghost.png",
+            123,
+            "image/png",
+            Some("hash123"),
+        )
+        .unwrap();
+
+        let items = repo.get_items_paginated(10, 0).unwrap();
+        let parsed: Value = serde_json::from_str(&items[0].content_metadata).unwrap();
+        assert_eq!(
+            parsed.get("external_missing"),
+            Some(&Value::Bool(true)),
+            "external_missing flag should be injected when file is gone"
+        );
+    }
+
+    #[test]
+    fn fts_search_returns_matching_results() {
+        let (repo, _dir) = setup_repo();
+        repo.create_item(sample_dto("Rust testing is fun"))
+            .unwrap();
+        repo.create_item(sample_dto("Another entry"))
+            .unwrap();
+
+        let results = repo.search_items_fts("Rust", 10, 0).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(
+            results[0].content_text.as_deref(),
+            Some("Rust testing is fun")
+        );
+
+        let count = repo.count_search_results_fts("Rust").unwrap();
+        assert_eq!(count, 1);
+    }
+}

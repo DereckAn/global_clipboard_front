@@ -29,6 +29,9 @@ bun run test:all              # type check + Rust tests in one go
 - Expand backend coverage under `src-tauri/tests/`, following the `_integration_tests.rs` suffix for integration cases.
 - Leverage `bun run test:integration` to exercise the cleanup workflow; for manual scenarios mirror the steps in `documentation/TESTING_CLEANUP.md`.
 - When frontend automation is absent, record verification steps from `bun run tauri dev` in the PR so reviewers can reproduce.
+- Unit tests now exist for critical Rust modules (`clipboard/image_handler.rs`, `db/repository.rs`, `commands/images.rs`). Run them via `bun run test:unit` or `bun run test` (full cargo suite). Use `TempDir` for filesystem-heavy tests.
+- Frontend utilities and stores are covered with Vitest. Run `bun run test:frontend` (one-shot) or `bun run test:frontend:watch`. `bun run test:all` executes `bun run check`, the Vitest suite, and then the Rust tests for parity with CI.
+- If Vitest fails to start in constrained environments (esbuild limitations), note it in the PR and rerun locally before merging.
 
 ## Commit & Pull Request Guidelines
 - Follow Conventional Commits (`feat:`, `fix:`, `chore:`) as reflected in history; scope messages to a single concern and note migrations for database or tray changes.
