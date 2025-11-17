@@ -15,6 +15,7 @@
   let debouncedSearchQuery = $state("");
   let searchTimeoutId: number | null = null;
   let unlistenClipboard: UnlistenFn | null = null;
+  let unlistenRemoved: UnlistenFn | null = null;
   let isSearching = $state(false);
 
   // Debounced search - Ahora busca en la base de datos
@@ -127,12 +128,35 @@
         console.log("New item added:", newItem.id);
       }
     });
+
+    unlistenRemoved = await listen<string[]>(
+      "clipboard-items-removed",
+      (event) => {
+        const removedIds = event.payload || [];
+        if (!removedIds.length) return;
+
+        console.log("🧹 Removing clipboard items:", removedIds);
+        const toRemove = new Set(removedIds);
+        clipboardStore.items = clipboardStore.items.filter(
+          (item) => !toRemove.has(item.id)
+        );
+        clipboardStore.totalItems = Math.max(
+          0,
+          clipboardStore.totalItems - removedIds.length
+        );
+        clipboardStore.hasMore =
+          clipboardStore.items.length < clipboardStore.totalItems;
+      }
+    );
   });
 
   // Cleanup on destroy
   onDestroy(() => {
     if (unlistenClipboard) {
       unlistenClipboard();
+    }
+    if (unlistenRemoved) {
+      unlistenRemoved();
     }
   });
 </script>

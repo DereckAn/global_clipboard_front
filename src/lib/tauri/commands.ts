@@ -159,6 +159,10 @@ export async function tauriRemoveDuplicates(): Promise<number> {
   return await invoke("remove_duplicate_items");
 }
 
+export async function tauriCleanupMissingFiles(): Promise<string[]> {
+  return await invoke("cleanup_missing_clipboard_files");
+}
+
 // Settings
 export async function tauriGetSetting(key: string): Promise<string> {
   return await invoke("get_setting", { key });

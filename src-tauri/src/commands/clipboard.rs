@@ -127,6 +127,16 @@ pub fn remove_duplicate_items(state: State<Mutex<AppState>>) -> Result<usize, St
 }
 
 #[tauri::command]
+pub fn cleanup_missing_clipboard_files(
+    state: State<Mutex<AppState>>,
+) -> Result<Vec<String>, String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    let repo = ClipboardRepository::new(&app_state.db_path).map_err(|e| e.to_string())?;
+    repo.cleanup_missing_file_records()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub fn get_clipboard_items_paginated(
     limit: i64,
     offset: i64,

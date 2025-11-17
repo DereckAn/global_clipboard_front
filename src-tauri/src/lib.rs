@@ -12,7 +12,7 @@ use commands::AppState;
 use std::sync::Mutex;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -229,6 +229,25 @@ pub fn run() {
             }
             tauri::WindowEvent::Focused(focused) => {
                 if !focused {
+                    if let Some(state) = window.try_state::<Mutex<AppState>>() {
+                        if let Ok(app_state) = state.lock() {
+                            let db_path = app_state.db_path.clone();
+                            let event_window = window.clone();
+                            tauri::async_runtime::spawn(async move {
+                                if let Ok(repo) =
+                                    crate::db::repository::ClipboardRepository::new(&db_path)
+                                {
+                                    if let Ok(removed) = repo.cleanup_missing_file_records() {
+                                        if !removed.is_empty() {
+                                            let _ = event_window
+                                                .emit("clipboard-items-removed", removed);
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    }
+
                     #[cfg(target_os = "windows")]
                     {
                         // En Windows: delay para evitar ocultar durante drag
@@ -267,6 +286,7 @@ pub fn run() {
             commands::extract_domain_from_url,
             commands::fetch_link_metadata,
             commands::remove_duplicate_items,
+            commands::cleanup_missing_clipboard_files,
             commands::toggle_window_visibility,
             commands::get_setting,
             commands::save_setting,

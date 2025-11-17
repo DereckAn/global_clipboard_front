@@ -2,7 +2,7 @@ use crate::clipboard::asset_cleanup;
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use chrono::Utc;
 use rusqlite::{params, Connection, Result};
-use serde_json::json;
+use serde_json::Value;
 use std::path::PathBuf;
 use uuid::Uuid;
 
@@ -267,26 +267,7 @@ impl ClipboardRepository {
             })?
             .collect::<Result<Vec<_>, _>>()?;
 
-        for item in &mut items {
-            if let Some(url) = &item.file_url {
-                if let Ok(mut value) =
-                    serde_json::from_str::<serde_json::Value>(&item.content_metadata)
-                {
-                    if let Some(obj) = value.as_object_mut() {
-                        let path = obj
-                            .get("external_path")
-                            .and_then(|v| v.as_str())
-                            .map(PathBuf::from)
-                            .unwrap_or_else(|| PathBuf::from(url));
-
-                        if !path.exists() {
-                            obj.insert("external_missing".to_string(), json!(true));
-                            item.content_metadata = value.to_string();
-                        }
-                    }
-                }
-            }
-        }
+        let _removed = self.prune_missing_file_items(&mut items)?;
 
         Ok(items)
     }
@@ -326,31 +307,34 @@ impl ClipboardRepository {
            LIMIT ?2 OFFSET ?3",
         )?;
 
-        let items = stmt.query_map(params![&fts_query, limit, offset], |row| {
-            Ok(ClipboardItem {
-                id: row.get(0)?,
-                content_type: row.get(1)?,
-                content_text: row.get(2)?,
-                content_metadata: row.get(3)?,
-                source_app: row.get(4)?,
-                code_language: row.get(5)?,
-                file_url: row.get(6)?,
-                file_name: row.get(7)?,
-                file_size_bytes: row.get(8)?,
-                file_mime_type: row.get(9)?,
-                file_hash: row.get(10)?,
-                is_favorite: row.get(11)?,
-                is_snippet: row.get(12)?,
-                snippet_name: row.get(13)?,
-                created_at: row.get(14)?,
-                updated_at: row.get(15)?,
-                synced: row.get(16)?,
-                server_id: row.get(17)?,
-                // Ignoramos rank (row 18) por ahora
-            })
-        })?;
+        let mut items = stmt
+            .query_map(params![&fts_query, limit, offset], |row| {
+                Ok(ClipboardItem {
+                    id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    content_text: row.get(2)?,
+                    content_metadata: row.get(3)?,
+                    source_app: row.get(4)?,
+                    code_language: row.get(5)?,
+                    file_url: row.get(6)?,
+                    file_name: row.get(7)?,
+                    file_size_bytes: row.get(8)?,
+                    file_mime_type: row.get(9)?,
+                    file_hash: row.get(10)?,
+                    is_favorite: row.get(11)?,
+                    is_snippet: row.get(12)?,
+                    snippet_name: row.get(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                    synced: row.get(16)?,
+                    server_id: row.get(17)?,
+                    // Ignoramos rank (row 18) por ahora
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
 
-        items.collect()
+        let _removed = self.prune_missing_file_items(&mut items)?;
+        Ok(items)
     }
 
     // Contar resultados FTS
@@ -440,11 +424,99 @@ impl ClipboardRepository {
     }
 }
 
+impl ClipboardRepository {
+    fn prune_missing_file_items(&self, items: &mut Vec<ClipboardItem>) -> Result<Vec<String>> {
+        let mut stale_items: Vec<(String, String, String, String)> = Vec::new();
+
+        items.retain(|item| {
+            if let Some(file_url) = &item.file_url {
+                let candidate_path = Self::resolve_external_path(&item.content_metadata, file_url);
+                if !candidate_path.exists() {
+                    stale_items.push((
+                        item.id.clone(),
+                        item.content_type.clone(),
+                        file_url.clone(),
+                        item.content_metadata.clone(),
+                    ));
+                    return false;
+                }
+            }
+            true
+        });
+
+        let mut removed_ids = Vec::new();
+
+        for (id, content_type, file_url, metadata) in stale_items {
+            asset_cleanup::delete_file_url(&content_type, &file_url, &metadata);
+            if let Err(err) = self.delete_item(&id) {
+                eprintln!("Failed to delete missing file item {}: {}", id, err);
+            } else {
+                removed_ids.push(id);
+            }
+        }
+
+        Ok(removed_ids)
+    }
+
+    fn resolve_external_path(metadata_json: &str, fallback_url: &str) -> PathBuf {
+        let path_string = serde_json::from_str::<Value>(metadata_json)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("external_path")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+            });
+
+        path_string
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from(fallback_url))
+    }
+
+    pub fn cleanup_missing_file_records(&self) -> Result<Vec<String>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, content_type, content_text, content_metadata, source_app, code_language,
+                    file_url, file_name, file_size_bytes, file_mime_type, file_hash,
+                    is_favorite, is_snippet, snippet_name,
+                    created_at, updated_at, synced, server_id
+             FROM clipboard_items
+             WHERE file_url IS NOT NULL",
+        )?;
+
+        let mut items: Vec<ClipboardItem> = stmt
+            .query_map([], |row| {
+                Ok(ClipboardItem {
+                    id: row.get(0)?,
+                    content_type: row.get(1)?,
+                    content_text: row.get(2)?,
+                    content_metadata: row.get(3)?,
+                    source_app: row.get(4)?,
+                    code_language: row.get(5)?,
+                    file_url: row.get(6)?,
+                    file_name: row.get(7)?,
+                    file_size_bytes: row.get(8)?,
+                    file_mime_type: row.get(9)?,
+                    file_hash: row.get(10)?,
+                    is_favorite: row.get(11)?,
+                    is_snippet: row.get(12)?,
+                    snippet_name: row.get(13)?,
+                    created_at: row.get(14)?,
+                    updated_at: row.get(15)?,
+                    synced: row.get(16)?,
+                    server_id: row.get(17)?,
+                })
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        self.prune_missing_file_items(&mut items)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::{json, Value};
-    use std::time::Duration;
+    use serde_json::json;
+    use std::{fs, time::Duration};
     use tempfile::TempDir;
 
     fn setup_repo() -> (ClipboardRepository, TempDir) {
@@ -516,21 +588,15 @@ mod tests {
         .unwrap();
 
         let items = repo.get_items_paginated(10, 0).unwrap();
-        let parsed: Value = serde_json::from_str(&items[0].content_metadata).unwrap();
-        assert_eq!(
-            parsed.get("external_missing"),
-            Some(&Value::Bool(true)),
-            "external_missing flag should be injected when file is gone"
-        );
+        assert!(items.is_empty(), "Missing files should be removed entirely");
+        assert_eq!(repo.count_items().unwrap(), 0);
     }
 
     #[test]
     fn fts_search_returns_matching_results() {
         let (repo, _dir) = setup_repo();
-        repo.create_item(sample_dto("Rust testing is fun"))
-            .unwrap();
-        repo.create_item(sample_dto("Another entry"))
-            .unwrap();
+        repo.create_item(sample_dto("Rust testing is fun")).unwrap();
+        repo.create_item(sample_dto("Another entry")).unwrap();
 
         let results = repo.search_items_fts("Rust", 10, 0).unwrap();
         assert_eq!(results.len(), 1);
@@ -541,5 +607,42 @@ mod tests {
 
         let count = repo.count_search_results_fts("Rust").unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn fts_search_prunes_missing_files() {
+        let (repo, _dir) = setup_repo();
+        let file_dir = TempDir::new().unwrap();
+        let file_path = file_dir.path().join("missing2.png");
+        fs::write(&file_path, b"fake").unwrap();
+
+        let metadata = json!({ "external_path": file_path.to_string_lossy() }).to_string();
+        let dto = CreateClipboardItemDto {
+            content_type: "file".into(),
+            content_text: "search orphan".into(),
+            content_metadata: Some(metadata),
+            source_app: Some("tester".into()),
+            code_language: None,
+        };
+
+        let created = repo.create_item(dto).unwrap();
+        repo.update_file_info(
+            &created.id,
+            file_path.to_str().unwrap(),
+            "missing2.png",
+            4,
+            "image/png",
+            Some("hash999"),
+        )
+        .unwrap();
+
+        fs::remove_file(&file_path).unwrap();
+
+        let results = repo.search_items_fts("search", 10, 0).unwrap();
+        assert!(
+            results.is_empty(),
+            "search results should skip missing files and delete the row"
+        );
+        assert_eq!(repo.count_items().unwrap(), 0);
     }
 }
