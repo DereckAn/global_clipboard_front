@@ -1,4 +1,6 @@
 use arboard::ImageData;
+#[cfg(target_os = "macos")]
+use image::image_dimensions;
 use image::{imageops, DynamicImage, ImageBuffer, Rgba};
 use sha2::{Digest, Sha256};
 use std::fs;
@@ -20,6 +22,48 @@ pub struct StoredImageInfo {
     pub original_extension: Option<String>,
     pub original_name: Option<String>,
     pub is_screenshot: bool,
+}
+
+#[cfg(target_os = "macos")]
+fn read_external_image_dimensions(path: &Path) -> Option<(u32, u32)> {
+    if let Ok((width, height)) = image_dimensions(path) {
+        return Some((width, height));
+    }
+
+    read_dimensions_with_sips(path)
+}
+
+#[cfg(target_os = "macos")]
+fn read_dimensions_with_sips(path: &Path) -> Option<(u32, u32)> {
+    let output = Command::new("sips")
+        .arg("-g")
+        .arg("pixelWidth")
+        .arg("-g")
+        .arg("pixelHeight")
+        .arg(path)
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let mut width: Option<u32> = None;
+    let mut height: Option<u32> = None;
+
+    for line in stdout.lines() {
+        if let Some(value) = line.strip_prefix("pixelWidth:") {
+            width = value.trim().parse().ok();
+        } else if let Some(value) = line.strip_prefix("pixelHeight:") {
+            height = value.trim().parse().ok();
+        }
+    }
+
+    match (width, height) {
+        (Some(w), Some(h)) => Some((w, h)),
+        _ => None,
+    }
 }
 
 pub fn save_image_to_disk(
@@ -98,6 +142,8 @@ pub fn copy_image_file_to_storage(
             .and_then(|s| s.to_str())
             .map(|ext| ext.to_lowercase());
 
+        let (width, height) = read_external_image_dimensions(source_path).unwrap_or((0, 0));
+
         Ok(StoredImageInfo {
             full_path: source_path.to_path_buf(),
             thumb_path: PathBuf::new(),
@@ -106,8 +152,8 @@ pub fn copy_image_file_to_storage(
                 .and_then(|s| s.to_str())
                 .unwrap_or("image")
                 .to_string(),
-            width: 0,
-            height: 0,
+            width,
+            height,
             file_size: fs::metadata(source_path).map(|m| m.len()).unwrap_or(0),
             file_hash: compute_external_hash(source_path)?,
             original_extension,
@@ -174,9 +220,8 @@ pub fn copy_image_file_to_storage(
 
         let img = match dynamic_img {
             Some(img) => img,
-            None => {
-                image::open(&full_path).map_err(|e| format!("Failed to load copied image: {}", e))?
-            }
+            None => image::open(&full_path)
+                .map_err(|e| format!("Failed to load copied image: {}", e))?,
         };
 
         let (width, height) = img.dimensions();

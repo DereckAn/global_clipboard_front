@@ -121,14 +121,15 @@ fn generate_text_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Stri
     let content = fs::read_to_string(path).unwrap_or_default();
     let preview: String = content.lines().take(20).collect::<Vec<_>>().join("\n");
 
-    let surface =
-        ImageSurface::create(cairo::Format::ARgb32, 512, 512)
-            .map_err(|e| format!("Failed to create surface: {e}"))?;
+    let surface = ImageSurface::create(cairo::Format::ARgb32, 512, 512)
+        .map_err(|e| format!("Failed to create surface: {e}"))?;
     let context = Context::new(&surface);
 
     context.set_source_rgb(0.11, 0.12, 0.15);
     context.rectangle(0.0, 0.0, 512.0, 512.0);
-    context.fill().map_err(|e| format!("Failed to fill surface: {e}"))?;
+    context
+        .fill()
+        .map_err(|e| format!("Failed to fill surface: {e}"))?;
 
     let layout = create_layout(&context).map_err(|e| format!("{e}"))?;
     let font_desc = FontDescription::from_string("JetBrains Mono 12");

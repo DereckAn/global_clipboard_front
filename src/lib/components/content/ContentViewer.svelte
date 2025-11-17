@@ -75,6 +75,20 @@
   );
   const externalMissing = $derived(Boolean(parsedMetadata?.external_missing));
   const fileExists = $derived(externalPath && !externalMissing);
+  const isExternalImage = $derived(
+    isImage && parsedMetadata?.source === "file"
+  );
+  const imagePreviewPath = $derived.by(() => {
+    if (!isImage) return null;
+    if (isExternalImage) {
+      return parsedMetadata?.thumbnail_path || null;
+    }
+    return item?.fileUrl || null;
+  });
+  const imagePreviewUrl = $derived.by(() => {
+    if (!imagePreviewPath) return null;
+    return convertFileSrc(imagePreviewPath);
+  });
 
   const handleCopyFile = async () => {
     if (!item?.id || !item.fileUrl) return;
@@ -424,36 +438,23 @@
     <div class="flex-1 flex flex-col">
       <!-- Image Preview -->
       <div class="flex-1 flex items-center justify-center mb-4 overflow-auto">
-        {#if item.fileUrl}
-          {@const metadata = (() => {
-            if (!item.contentMetadata) return {};
-            try {
-              return typeof item.contentMetadata === "string"
-                ? JSON.parse(item.contentMetadata)
-                : item.contentMetadata;
-            } catch (e) {
-              console.error("Failed to parse metadata:", e);
-              return {};
-            }
-          })()}
-          {console.log("🖼️ Loading full resolution image:", {
-            fullPath: item.fileUrl,
-            fileName: item.fileName,
-            dimensions: `${metadata.width}x${metadata.height}`,
-            parsedMetadata: metadata,
+        {#if imagePreviewUrl}
+          {console.log("🖼️ Loading image preview:", {
+            previewPath: imagePreviewPath,
+            originalPath: item.fileUrl,
+            metadata: parsedMetadata,
           })}
           <div class="max-w-full relative flex items-center justify-center">
-            <!-- Load full resolution image directly (like PasteBarApp) -->
             <img
-              src={convertFileSrc(item.fileUrl)}
+              src={imagePreviewUrl}
               alt={item.fileName || "Clipboard image"}
               class="max-w-full object-scale-down shadow-2xl animate-in fade-in duration-300"
               decoding="async"
               draggable={false}
               onload={() =>
-                console.log("✅ Full image loaded from:", item.fileUrl)}
+                console.log("✅ Image preview loaded from:", imagePreviewPath)}
               onerror={(e) =>
-                console.error("❌ Failed to load image:", item.fileUrl, e)}
+                console.error("❌ Failed to load image:", imagePreviewPath, e)}
             />
 
             <!-- Image info overlay -->
@@ -465,11 +466,17 @@
                   <Icon name="image" size={20} class="text-primary" />
                   <div>
                     <p class="text-xs text-white">
-                      {metadata.width || "?"}x{metadata.height || "?"} •
+                      {(parsedMetadata?.width as number) || "?"}x{(parsedMetadata?.height as number) ||
+                        "?"} •
                       {item.fileSizeBytes
                         ? (item.fileSizeBytes / 1024).toFixed(0)
                         : "?"} KB
                     </p>
+                    {#if isExternalImage}
+                      <p class="text-[10px] text-white/70">
+                        Preview from Quick Look cache
+                      </p>
+                    {/if}
                   </div>
                 </div>
               </div>

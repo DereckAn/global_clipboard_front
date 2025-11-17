@@ -20,7 +20,10 @@ mod windows;
 /// * `Ok(Some(PathBuf))` - Thumbnail was successfully generated, returns path to thumbnail
 /// * `Ok(None)` - Platform can't generate thumbnail for this file type (graceful fallback)
 /// * `Err(String)` - Error occurred during generation
-pub fn generate_document_thumbnail(path: &Path, target_dir: &Path) -> Result<Option<PathBuf>, String> {
+pub fn generate_document_thumbnail(
+    path: &Path,
+    target_dir: &Path,
+) -> Result<Option<PathBuf>, String> {
     // Validate input path exists
     if !path.exists() {
         return Err(format!("Source file does not exist: {}", path.display()));

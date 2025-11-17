@@ -32,12 +32,7 @@ pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Strin
 
     let size = CGSize::new(512.0, 512.0);
     let cg_image_ref = unsafe {
-        QLThumbnailImageCreate(
-            ptr::null(),
-            cf_url.as_concrete_TypeRef(),
-            size,
-            ptr::null(),
-        )
+        QLThumbnailImageCreate(ptr::null(), cf_url.as_concrete_TypeRef(), size, ptr::null())
     };
 
     if cg_image_ref.is_null() {
@@ -73,10 +68,8 @@ fn write_cgimage_to_png(image: &CGImage, target_path: &Path) -> Result<bool, Str
     context.draw_image(rect, image);
     let buffer = context.data().to_vec();
 
-    let image_buffer =
-        ImageBuffer::<Rgba<u8>, _>::from_raw(width as u32, height as u32, buffer).ok_or_else(
-            || "Failed to convert Quick Look image data".to_string(),
-        )?;
+    let image_buffer = ImageBuffer::<Rgba<u8>, _>::from_raw(width as u32, height as u32, buffer)
+        .ok_or_else(|| "Failed to convert Quick Look image data".to_string())?;
     let dynamic_image = DynamicImage::ImageRgba8(image_buffer);
     dynamic_image
         .save(target_path)

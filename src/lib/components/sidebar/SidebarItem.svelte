@@ -59,6 +59,7 @@
     parsedMetadata?.original_name || item.fileName || null
   );
   const previewType = $derived(parsedMetadata?.preview_type || null);
+  const previewSource = $derived(parsedMetadata?.source || null);
   const textPreview = $derived(parsedMetadata?.text_preview || null);
   const textPreviewSnippet = $derived.by(() => {
     if (!textPreview) return null;
@@ -156,22 +157,18 @@
   };
 
   async function computeResolvedThumbnail(): Promise<string | null> {
-    if (isImage) {
-      let candidate: string | null = null;
-
-      if (item.fileUrl) {
-        candidate = await tauriEnsureThumbnail(item.fileUrl);
-      }
-
-      if (!candidate && typeof thumbnailPath === "string") {
-        candidate = thumbnailPath;
-      }
-
-      return candidate;
+    if (typeof thumbnailPath === "string" && thumbnailPath.length > 0) {
+      return thumbnailPath;
     }
 
-    if (isFile && typeof thumbnailPath === "string") {
-      return thumbnailPath;
+    const canGenerateFromStore =
+      isImage && item.fileUrl && previewSource !== "file";
+
+    if (canGenerateFromStore) {
+      const regenerated = await tauriEnsureThumbnail(item.fileUrl!);
+      if (regenerated) {
+        return regenerated;
+      }
     }
 
     return null;

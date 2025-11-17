@@ -9,7 +9,11 @@ use crate::clipboard::state;
 use crate::clipboard::types::{detect_code_language, detect_content_type, get_source_app};
 use crate::db::models::CreateClipboardItemDto;
 use crate::db::repository::ClipboardRepository;
-use std::{fs, sync::Arc, time::{Duration, Instant}};
+use std::{
+    fs,
+    sync::Arc,
+    time::{Duration, Instant},
+};
 use tauri::{Emitter, Manager};
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::Mutex;
@@ -141,16 +145,40 @@ impl ClipboardMonitor {
                             }
                         }
 
+                        let quicklook_thumbnail = match generate_document_thumbnail(
+                            &info.full_path,
+                            &self.file_thumbs_dir,
+                        ) {
+                            Ok(Some(path)) => Some(path),
+                            Ok(None) => None,
+                            Err(err) => {
+                                eprintln!(
+                                    "Failed to generate Quick Look thumbnail for Finder image: {err}"
+                                );
+                                None
+                            }
+                        };
+
                         let mut metadata = serde_json::json!({
                             "width": info.width,
                             "height": info.height,
-                            "thumbnail_path": info.thumb_path.to_string_lossy().to_string(),
                             "original_path": info.full_path.to_string_lossy().to_string(),
                             "is_screenshot": info.is_screenshot,
                             "source": "file",
                         });
 
                         if let Some(obj) = metadata.as_object_mut() {
+                            if let Some(path) = quicklook_thumbnail {
+                                obj.insert(
+                                    "preview_type".to_string(),
+                                    serde_json::Value::String("image".to_string()),
+                                );
+                                obj.insert(
+                                    "thumbnail_path".to_string(),
+                                    serde_json::Value::String(path.to_string_lossy().to_string()),
+                                );
+                            }
+
                             if let Some(ext) = info.original_extension.as_ref() {
                                 obj.insert(
                                     "original_extension".to_string(),
@@ -308,8 +336,13 @@ impl ClipboardMonitor {
                             "source": "clipboard",
                         });
 
-                        if let Some(ext) = info.original_extension.as_ref() {
-                            if let Some(obj) = metadata.as_object_mut() {
+                        if let Some(obj) = metadata.as_object_mut() {
+                            obj.insert(
+                                "preview_type".to_string(),
+                                serde_json::Value::String("image".to_string()),
+                            );
+
+                            if let Some(ext) = info.original_extension.as_ref() {
                                 obj.insert(
                                     "original_extension".to_string(),
                                     serde_json::Value::String(ext.clone()),
@@ -554,8 +587,7 @@ fn is_textual_mime(mime: &str, extension: Option<&String>) -> bool {
             | "application/x-httpd-php"
     ) || matches!(
         ext_match.as_str(),
-        "md"
-            | "markdown"
+        "md" | "markdown"
             | "txt"
             | "csv"
             | "ts"
