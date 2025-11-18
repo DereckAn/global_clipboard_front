@@ -37,7 +37,7 @@
 <div
   bind:this={scrollContainer}
   onscroll={handleScroll}
-  class="min-w-sidebar max-w-sidebar bg-surface border-r border-border flex flex-col overflow-y-auto"
+  class="min-w-sidebar max-w-sidebar rounded-2xl mb-3 ml-3 border border-border flex flex-col overflow-y-auto bg-[rgba(19,18,20,0.81)]"
 >
   {#if isLoading && items.length === 0}
     <div class="flex-1 flex items-center justify-center">

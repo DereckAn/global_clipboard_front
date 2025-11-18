@@ -135,7 +135,9 @@ class ClipboardStore {
     const item = this.items.find((i) => i.id === id);
     if (!item) return;
 
-    await this.updateItem(id, { isFavorite: !item.isFavorite });
+    const updated = await this.updateItem(id, { isFavorite: !item.isFavorite });
+    const filtered = this.items.filter((i) => i.id !== id);
+    this.items = [updated, ...filtered];
   }
 
   // Clear all

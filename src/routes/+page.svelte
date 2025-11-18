@@ -162,7 +162,7 @@
 </script>
 
 <div
-  class="h-screen w-[750px] overflow-hidden flex flex-col bg-background rounded-xl"
+  class="h-screen w-[750px] overflow-hidden flex flex-col rounded-3xl bg-[rgba(18,18,20,0.71)]"
 >
   <!-- Header -->
   <Header
@@ -185,7 +185,7 @@
     />
 
     <!-- Right panel (60%) -->
-    <div class="flex flex-col w-[60%]">
+    <div class="flex flex-col w-[65%]">
       <!-- Content viewer (top) -->
       <ContentViewer item={selectedItem} searchQuery={debouncedSearchQuery} />
 

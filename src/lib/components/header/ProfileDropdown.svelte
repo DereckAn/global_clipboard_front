@@ -65,7 +65,7 @@
   <!-- Dropdown menu -->
   {#if isOpen}
     <div
-      class="absolute top-full left-2 mt-2 w-32 bg-surface border border-border rounded-md shadow-lg py-2 z-50"
+      class="absolute top-full left-2 mt-2 w-32 bg-surface backdrop-blur-xs border border-border rounded-md shadow-lg py-2 z-50"
     >
       {#if !isAuthenticated}
         <!-- OAuth login section -->

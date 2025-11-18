@@ -57,11 +57,11 @@
   });
 </script>
 
-<div class="relative" data-filter-dropdown>
+<div class="relative bg-surface" data-filter-dropdown>
   <!-- Trigger button -->
   <button
     onclick={toggleDropdown}
-    class="flex items-center gap-2 px-3 py-1 w-48 rounded-md border border-border bg-surface hover:bg-surface-hover transition-colors text-sm"
+    class="flex items-center gap-2 px-3 py-1 w-48 rounded-md border border-border hover:bg-surface-hover transition-colors text-sm"
   >
     <Icon name={selectedOption.icon} size={18} />
     <span class="w-full text-start">{selectedOption.label}</span>
@@ -75,7 +75,7 @@
   <!-- Dropdown menu -->
   {#if isOpen}
     <div
-      class="absolute top-full right-0 mt-2 w-48 bg-surface border border-border rounded-md shadow-lg py-1 z-50"
+      class="absolute top-full right-0 mt-2 w-48 bg-surface backdrop-blur-sm border border-border rounded-md shadow-lg py-1 z-50"
     >
       {#each options as option}
         <button
@@ -92,3 +92,4 @@
     </div>
   {/if}
 </div>
+<style></style>
