@@ -75,13 +75,13 @@
   <!-- Dropdown menu -->
   {#if isOpen}
     <div
-      class="absolute top-full right-0 mt-2 w-48 bg-surface backdrop-blur-sm border border-border rounded-md shadow-lg py-1 z-50"
+      class="absolute top-full mt-2 right-0 px-2 w-48 bg-surface backdrop-blur-sm border border-border rounded-md shadow-lg z-50"
     >
       {#each options as option}
         <button
           onclick={() => handleSelect(option.value)}
           class={cn(
-            "w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-surface-hover transition-colors text-left",
+            "flex items-center w-full gap-3 px-4 py-2 rounded-xl text-xs hover:bg-white/10 transition-colors text-left",
             selected === option.value && "bg-primary/10 text-primary"
           )}
         >

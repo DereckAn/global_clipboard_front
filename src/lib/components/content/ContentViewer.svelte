@@ -198,59 +198,6 @@
       window.open(item.contentText, "_blank");
     }
   };
-
-  // Svelte action to render image on canvas
-  function renderImageOnCanvas(canvas: HTMLCanvasElement, imageUrl: string) {
-    const img = new Image();
-    const ctx = canvas.getContext("2d");
-
-    if (!ctx) {
-      console.error("Failed to get canvas context");
-      return;
-    }
-
-    img.onload = () => {
-      console.log("✅ Image loaded for canvas:", {
-        width: img.width,
-        height: img.height,
-      });
-
-      // Calculate dimensions to fit in viewport while maintaining aspect ratio
-      const maxWidth = window.innerWidth - 200; // Account for sidebar
-      const maxHeight = window.innerHeight - 300; // Account for header/footer
-
-      let width = img.width;
-      let height = img.height;
-
-      // Scale down if needed
-      if (width > maxWidth || height > maxHeight) {
-        const ratio = Math.min(maxWidth / width, maxHeight / height);
-        width = width * ratio;
-        height = height * ratio;
-      }
-
-      // Set canvas size
-      canvas.width = width;
-      canvas.height = height;
-
-      // Draw image
-      ctx.drawImage(img, 0, 0, width, height);
-      console.log("✅ Image drawn on canvas");
-    };
-
-    img.onerror = (e) => {
-      console.error("❌ Failed to load image for canvas:", e);
-    };
-
-    img.src = imageUrl;
-
-    return {
-      destroy() {
-        img.onload = null;
-        img.onerror = null;
-      },
-    };
-  }
 </script>
 
 <div class={cn("flex-1 overflow-y-auto flex flex-col", className)}>
@@ -344,11 +291,11 @@
         <div class="w-full">
           <!-- Preview image -->
           {#if linkMetadata.image}
-            <div class="w-full h-64 bg-surface-hover overflow-hidden">
+            <div class="w-full h-64 overflow-hidden px-3 rounded-2xl">
               <img
                 src={linkMetadata.image}
                 alt={linkMetadata.title || "Link preview"}
-                class="w-full h-full object-cover"
+                class="w-full h-full object-cover rounded-2xl"
                 onerror={(e) => {
                   (
                     e.currentTarget as HTMLImageElement
@@ -417,8 +364,9 @@
       {/if}
 
       <!-- Copy button -->
-      <div class=" my-3 flex justify-center p-2">
+      <div class=" my-3 flex justify-center px-2">
         <Button
+          variant="default"
           onclick={() => handleCopy(item.contentText || "")}
           class="w-full"
         >
@@ -466,8 +414,8 @@
                   <Icon name="image" size={20} class="text-primary" />
                   <div>
                     <p class="text-xs text-white">
-                      {(parsedMetadata?.width as number) || "?"}x{(parsedMetadata?.height as number) ||
-                        "?"} •
+                      {(parsedMetadata?.width as number) ||
+                        "?"}x{(parsedMetadata?.height as number) || "?"} •
                       {item.fileSizeBytes
                         ? (item.fileSizeBytes / 1024).toFixed(0)
                         : "?"} KB
@@ -521,7 +469,7 @@
             <pre
               class="font-mono text-xs max-w-full w-fit leading-relaxed text-text whitespace-pre-wrap wrap-break-words">{textPreview}</pre>
           </div>
-        {:else if fileThumbnailUrl} 
+        {:else if fileThumbnailUrl}
           <div class="w-full">
             <img
               src={fileThumbnailUrl}
@@ -531,9 +479,7 @@
             />
           </div>
         {:else}
-          <div
-            class="w-full max-w-md p-6 flex items-center justify-center"
-          >
+          <div class="w-full max-w-md p-6 flex items-center justify-center">
             <Icon name="file" size={70} class="text-primary" />
           </div>
         {/if}
@@ -586,7 +532,7 @@
       <div class="flex-1">
         <pre
           class={cn(
-            "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 "
+            "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 text-wrap long-content-guard"
           )}>{#if searchQuery.trim()}
             <HighlightedText text={item.contentText!} query={searchQuery} />
           {:else}{item.contentText}

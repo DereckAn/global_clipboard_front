@@ -34,3 +34,23 @@ export const DEFAULT_SETTINGS: AppSettings = {
   notificationsEnabled: false,
   notificationSound: false,
 };
+
+export type TabId =
+  | "account"
+  | "clipboard"
+  | "items"
+  | "memory"
+  | "privacy"
+  | "application"
+  | "laboratory"
+  | "about";
+
+export type TabIcon =
+  | "user"
+  | "text"
+  | "trash"
+  | "database"
+  | "lock"
+  | "settings"
+  | "flask"
+  | "info";

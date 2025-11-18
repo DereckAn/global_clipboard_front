@@ -3,7 +3,7 @@
 @theme {
   /* Colors */
   --color-background: #1c2027;
-  --color-surface: rgba(19,18,20,0.81);
+  --color-surface: rgba(19, 18, 20, 0.81);
   --color-surface-hover: #2d3340;
   --color-border: #3a404d;
   --color-text: #ececec;
@@ -64,4 +64,9 @@ body {
 /* Para Firefox */
 * {
   scrollbar-width: none;
+}
+
+.long-content-guard {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }

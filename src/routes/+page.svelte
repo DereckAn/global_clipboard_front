@@ -176,7 +176,7 @@
   />
 
   <!-- Main content area -->
-  <div class="flex-1 flex overflow-hidden ">
+  <div class="flex-1 flex overflow-hidden  w-[750px]">
     <!-- Sidebar (40%) -->
     <Sidebar
       items={filteredItems}

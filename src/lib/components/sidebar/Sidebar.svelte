@@ -37,7 +37,7 @@
 <div
   bind:this={scrollContainer}
   onscroll={handleScroll}
-  class="min-w-sidebar max-w-sidebar rounded-2xl mb-3 ml-3 border border-border flex flex-col overflow-y-auto bg-[rgba(19,18,20,0.81)]"
+  class="min-w-sidebar max-w-sidebar rounded-2xl mb-3 ml-3 border border-border flex flex-col overflow-y-auto bg-surface"
 >
   {#if isLoading && items.length === 0}
     <div class="flex-1 flex items-center justify-center">
@@ -52,7 +52,7 @@
           <p class="text-xs text-text-muted mt-2">
             Try a different search term
           </p>
-        {:else} 
+        {:else}
           <!-- No items at all -->
           <p class="text-text-muted">No items yet</p>
           <p class="text-xs text-text-muted mt-2">

@@ -1,52 +1,86 @@
 <script lang="ts">
-    import { cn } from '$lib/utils/cn'
+  import { cn } from "$lib/utils/cn";
 
-    interface Props {
-      variant?: 'default' | 'destructive' | 'outline' | 'ghost'
-      size?: 'default' | 'sm' | 'lg' | 'icon'
-      class?: string
-      onclick?: (event: MouseEvent) => void
-      disabled?: boolean
-      type?: 'button' | 'submit' | 'reset'
-      children?: import('svelte').Snippet
-    }
+  interface Props {
+    variant?: "default" | "destructive" | "outline" | "ghost" | "other";
+    size?: "default" | "sm" | "lg" | "icon";
+    class?: string;
+    onclick?: (event: MouseEvent) => void;
+    disabled?: boolean;
+    type?: "button" | "submit" | "reset";
+    children?: import("svelte").Snippet;
+  }
 
-    let {
-      variant = 'default',
-      size = 'default',
-      class: className,
-      onclick,
-      disabled = false,
-      type = 'button',
-      children
-    }: Props = $props()
+  let {
+    variant = "default",
+    size = "default",
+    class: className,
+    onclick,
+    disabled = false,
+    type = "button",
+    children,
+  }: Props = $props();
 
-    // Base styles
-    const baseStyles = `inline-flex items-center justify-center rounded-md font-medium transition-colors focus-visible:outline-none 
-    focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50`
+  // Base estilo “píldora de vidrio”
+  const baseStyles = [
+    "inline-flex items-center justify-center gap-2",
+    "rounded-full text-[13px] font-medium select-none",
+    "border",
+    "transition-colors transition-shadow duration-150",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-sky-500",
+    "disabled:opacity-60 disabled:cursor-default",
+    // Liquid Glass vibes
+    "bg-clip-padding backdrop-blur-md",
+  ].join(" ");
 
-    // Variant styles
-    const variants = {
-      default: 'text-white bg-gray-700 rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2',
-      destructive: 'bg-[var(--color-danger)] text-white hover:bg-red-600',
-      outline: 'ring ring-border text-sm bg-transparent hover:bg-surface-hover',
-      ghost: 'hover:bg-[var(--color-surface-hover)] bg-transparent',
-    }
+  const variants: Record<NonNullable<Props["variant"]>, string> = {
+    // Botón principal (tinte azul, líquido)
+    default: ["bg-white/10 text-white rounded-xl hover:bg-white/20"].join(" "),
 
-    // Size styles
-    const sizes = {
-      default: 'px-4 py-1',
-      sm: 'h-8 px-3 text-sm',
-      lg: 'h-12 px-8',
-      icon: 'h-9 w-9'
-    }
-  </script>
+    // Botón “vidrio neutro”, ideal para secundarios
+    outline: [
+      "bg-white/45 dark:bg-slate-900/45",
+      "text-slate-900 dark:text-slate-50",
+      "border-white/50 dark:border-slate-500/40",
+      "shadow-[0_0_0_1px_rgba(255,255,255,0.5)_inset,0_8px_20px_rgba(15,23,42,0.4)]",
+      "hover:bg-white/65 dark:hover:bg-slate-900/65",
+      "active:bg-white/75 dark:active:bg-slate-900/75",
+    ].join(" "),
 
-  <button
-    {type}
-    {disabled}
-    {onclick}
-    class={cn(baseStyles, variants[variant], sizes[size], className)}
-  >
-    {@render children?.()}
-  </button>
+    // Botón casi invisible, solo sugerido
+    ghost: [
+      "bg-white/5 dark:bg-slate-900/10",
+      "text-slate-900 dark:text-slate-100",
+      "border-transparent",
+      "hover:bg-white/15 dark:hover:bg-slate-800/40",
+      "active:bg-white/25 dark:active:bg-slate-800/55",
+    ].join(" "),
+
+    // Botón de peligro con tinte rojo líquido
+    destructive: [
+      "bg-red-500/80 text-white",
+      "border-white/40 dark:border-red-300/40",
+      "shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset,0_8px_24px_rgba(127,29,29,0.6)]",
+      "hover:bg-red-400/85",
+      "active:bg-red-500/95 active:shadow-[0_0_0_1px_rgba(127,29,29,0.6)_inset]",
+    ].join(" "),
+
+    other: "",
+  };
+
+  const sizes: Record<NonNullable<Props["size"]>, string> = {
+    default: "h-9 px-4",
+    sm: "h-8 px-3 text-[12px]",
+    lg: "h-10 px-5 text-[14px]",
+    icon: "h-8 w-8",
+  };
+</script>
+
+<button
+  {type}
+  {disabled}
+  {onclick}
+  class={cn(variants[variant], sizes[size], className)}
+>
+  {@render children?.()}
+</button>
