@@ -43,7 +43,7 @@
   const isFile = $derived(item?.contentType === "file");
 </script>
 
-<div class="h-32 bg-surface flex flex-col max-w-full">
+<div class="h-44 bg-surface flex flex-col max-w-full">
   {#if !item}
     <!-- Empty state -->
     <div class="flex-1 flex items-center justify-center px-6 text-center">

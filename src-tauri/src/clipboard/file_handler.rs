@@ -175,6 +175,7 @@ fn detect_mime_type(extension: Option<&str>) -> String {
     match extension {
         // Text files
         Some("txt") => "text/plain".to_string(),
+        Some("log") => "text/plain".to_string(),
         Some("md") => "text/markdown".to_string(),
         Some("csv") => "text/csv".to_string(),
         Some("xml") => "application/xml".to_string(),

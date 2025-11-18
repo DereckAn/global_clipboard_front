@@ -54,17 +54,15 @@ pub fn run() {
 
             #[cfg(target_os = "macos")]
             let tray_icon = {
-                let template_icon = app
-                    .path()
-                    .resolve("icons/tray_icon_template.png", BaseDirectory::Resource)
-                    .ok()
-                    .and_then(|path| match Image::from_path(&path) {
-                        Ok(image) => Some(image),
-                        Err(err) => {
-                            eprintln!("Failed to load tray template icon ({path:?}): {err}");
-                            None
-                        }
-                    });
+                // Compile-time embedded bytes to avoid filesystem lookups.
+                const ICON_BYTES: &[u8] = include_bytes!("../assets/images/tray_icon_template.png");
+
+                let template_icon = Image::from_bytes(ICON_BYTES).ok().or_else(|| {
+                    app.path()
+                        .resolve("icons/tray_icon_template.png", BaseDirectory::Resource)
+                        .ok()
+                        .and_then(|path| Image::from_path(&path).ok())
+                });
 
                 template_icon
                     .or_else(|| app.default_window_icon().cloned())
@@ -80,11 +78,11 @@ pub fn run() {
                 .menu(&menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "quit" => {
-                        println!("🛑 Quit clicked from tray");
+                        // println!("🛑 Quit clicked from tray");
                         app.exit(0);
                     }
                     "show" => {
-                        println!("👁️ Show window clicked from tray");
+                        // println!("👁️ Show window clicked from tray");
                         if let Some(window) = app.get_webview_window("main") {
                             let _ = window.show();
                             let _ = window.set_focus();
@@ -100,7 +98,13 @@ pub fn run() {
 
             app.manage(std::sync::Mutex::new(tray));
 
-            println!("✅ System tray initialized");
+            // Traer ventana principal al frente en arranque
+            if let Some(main_window) = app.get_webview_window("main") {
+                let _ = main_window.show();
+                let _ = main_window.set_focus();
+                let _ = main_window.set_always_on_top(true);
+                let _ = main_window.set_always_on_top(false);
+            }
 
             // ================================================================
             // CONFIGURACIÓN COMÚN (todas las plataformas)
