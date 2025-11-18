@@ -52,7 +52,7 @@
           <p class="text-xs text-text-muted mt-2">
             Try a different search term
           </p>
-        {:else}
+        {:else} 
           <!-- No items at all -->
           <p class="text-text-muted">No items yet</p>
           <p class="text-xs text-text-muted mt-2">
