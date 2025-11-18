@@ -3,8 +3,8 @@ use std::path::Path;
 use widestring::U16CString;
 use windows::core::PCWSTR;
 use windows::Win32::Graphics::Gdi::{
-    CreateCompatibleDC, DeleteObject, GetDIBits, GetObjectW, SelectObject, BITMAP, BITMAPINFO,
-    BITMAPINFOHEADER, DIB_RGB_COLORS, HBITMAP, HDC,
+    CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, SelectObject, BITMAP,
+    BITMAPINFO, BITMAPINFOHEADER, DIB_RGB_COLORS, HBITMAP, HDC,
 };
 use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_MULTITHREADED};
 use windows::Win32::UI::Shell::{IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF};
@@ -100,6 +100,7 @@ fn hbitmap_to_image(hbitmap: HBITMAP) -> Result<DynamicImage, String> {
 
         SelectObject(hdc, old);
         DeleteObject(hbitmap);
+        DeleteDC(hdc);
 
         if result == 0 {
             return Err("GetDIBits failed".into());

@@ -27,6 +27,10 @@ pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Strin
         }
     }
 
+    if generate_with_gdk_pixbuf(path, target_path)? {
+        return Ok(true);
+    }
+
     if is_pdf(path) {
         if generate_pdf_thumbnail(path, target_dir, target_path)? {
             return Ok(true);
@@ -146,4 +150,24 @@ fn generate_text_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Stri
         .map_err(|e| format!("Failed to save text thumbnail: {e}"))?;
 
     Ok(true)
+}
+fn generate_with_gdk_pixbuf(path: &Path, target_path: &Path) -> Result<bool, String> {
+    let status = Command::new("gdk-pixbuf-thumbnailer")
+        .arg("-s")
+        .arg("512")
+        .arg(path)
+        .arg("--output")
+        .arg(target_path)
+        .status();
+
+    match status {
+        Ok(code) if code.success() && target_path.exists() => Ok(true),
+        Ok(_) => Ok(false),
+        Err(e) => {
+            if cfg!(debug_assertions) {
+                eprintln!("Failed to run gdk-pixbuf-thumbnailer: {e}");
+            }
+            Ok(false)
+        }
+    }
 }
