@@ -128,23 +128,29 @@ jobs:
           retention-days: 3
 
   build-tauri:
-    name: Build desktop artifacts
+    name: Build desktop (${{ matrix.name }})
     needs: [tests, build-frontend]
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-22.04
+          - name: linux-x64
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-          - os: ubuntu-22.04
+          - name: linux-arm64
+            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
-          - os: macos-13
+          - name: macos-intel
+            os: macos-13
             target: x86_64-apple-darwin
-          - os: macos-14
+          - name: macos-apple-silicon
+            os: macos-14
             target: aarch64-apple-darwin
-          - os: windows-latest
+          - name: windows-x64
+            os: windows-latest
             target: x86_64-pc-windows-msvc
-          - os: windows-latest
+          - name: windows-arm64
+            os: windows-latest
             target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
@@ -179,7 +185,10 @@ jobs:
               libgtk-3-dev:arm64 \
               libayatana-appindicator3-dev:arm64 \
               librsvg2-dev:arm64 \
-              libssl-dev:arm64
+              libssl-dev:arm64 \
+              libxdo-dev:arm64 \
+              liblcms2-dev:arm64 \
+              libjpeg-dev:arm64
           fi
           sudo apt-get install -y \
             libwebkit2gtk-4.1-dev \
@@ -187,6 +196,9 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libssl-dev \
+            libxdo-dev \
+            liblcms2-dev \
+            libjpeg-dev \
             pkg-config \
             build-essential \
             curl \
@@ -201,6 +213,13 @@ jobs:
 
       - name: Install JS dependencies
         run: bun install --frozen-lockfile
+
+      - name: Disable macOS private API on non-mac builds
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          node -e "const fs=require('fs');const cfg=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));cfg.app.macOSPrivateApi=false;fs.writeFileSync('src-tauri/tauri.nonmac.json',JSON.stringify(cfg));"
+          echo "TAURI_CONFIG=src-tauri/tauri.nonmac.json" >> "$GITHUB_ENV"
 
       - name: Build Tauri app
         env:
