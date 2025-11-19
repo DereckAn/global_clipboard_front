@@ -43,6 +43,12 @@ jobs:
             curl \
             wget \
             file
+          sudo apt-get install -y \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxdo-dev \
+            liblcms2-dev \
+            libjpeg-dev
 
       - name: Set up Bun
         uses: oven-sh/setup-bun@v2
