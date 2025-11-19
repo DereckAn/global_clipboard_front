@@ -66,6 +66,8 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_HOME: ${{ runner.temp }}/rustup
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -175,16 +177,24 @@ jobs:
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
+        env:
+          RUSTUP_HOME: ${{ runner.temp }}/rustup
         with:
           targets: ${{ matrix.target }}
 
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             sudo dpkg --add-architecture arm64
-            sudo apt-get update
+            sudo tee /etc/apt/sources.list.d/ubuntu-arm64.list >/dev/null <<'EOF'
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy-updates main restricted universe multiverse
+          deb [arch=arm64] http://ports.ubuntu.com/ jammy-security main restricted universe multiverse
+          EOF
+          fi
+          sudo apt-get update
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
             sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
             sudo apt-get install -y \
               libwebkit2gtk-4.1-dev:arm64 \
@@ -221,13 +231,6 @@ jobs:
 
       - name: Install JS dependencies
         run: bun install --frozen-lockfile
-
-      - name: Disable macOS private API on non-mac builds
-        if: runner.os != 'macOS'
-        shell: bash
-        run: |
-          node -e "const fs=require('fs');const cfg=JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json','utf8'));cfg.app.macOSPrivateApi=false;fs.writeFileSync('src-tauri/tauri.nonmac.json',JSON.stringify(cfg));"
-          echo "TAURI_CONFIG=src-tauri/tauri.nonmac.json" >> "$GITHUB_ENV"
 
       - name: Build Tauri app
         env:
