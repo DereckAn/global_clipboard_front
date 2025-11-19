@@ -280,23 +280,22 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           REPO=${{ github.repository }}
           cat > body.md <<'EOF'
-## Desktop Application
 
-| Platform | Architecture | Download |
-|----------|-------------|----------|
-| Windows | x64 | [GlobalClipboard_${VERSION}_x64-setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64.msi) |
-| Windows | ARM64 | [GlobalClipboard_${VERSION}_arm64-setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64.msi) |
-| macOS | Intel | [GlobalClipboard_${VERSION}_x64.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-Intel.dmg) |
-| macOS | Apple Silicon | [GlobalClipboard_${VERSION}_arm64.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg) |
-| Linux | x64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.rpm) / [.pkg.tar.zst](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.pkg.tar.zst) |
-| Linux | ARM64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.rpm) / [.pkg.tar.zst](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.pkg.tar.zst) |
+          | Platform | Architecture | Download |
+          |----------|-------------|----------|
+          | Windows | x64 | [GlobalClipboard_${VERSION}_x64-setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64.msi) |
+          | Windows | ARM64 | [GlobalClipboard_${VERSION}_arm64-setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64.msi) |
+          | macOS | Intel | [GlobalClipboard_${VERSION}_x64.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-Intel.dmg) |
+          | macOS | Apple Silicon | [GlobalClipboard_${VERSION}_arm64.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg) |
+          | Linux | x64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.rpm) / [.pkg.tar.zst](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.pkg.tar.zst) |
+          | Linux | ARM64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.rpm) / [.pkg.tar.zst](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.pkg.tar.zst) |
 
-> **macOS**: si aparece el mensaje "app is damaged", ejecutar:
-> ```bash
-> sudo xattr -d com.apple.quarantine "/Applications/Global Clipboard.app"
-> ```
+          > **macOS**: si aparece el mensaje "app is damaged", ejecutar:
+          > ```bash
+          > sudo xattr -d com.apple.quarantine "/Applications/Global Clipboard.app"
+          > ```
+          EOF
 
-EOF
           sed -i "s|\${VERSION}|${VERSION}|g" body.md
           sed -i "s|\${TAG}|${TAG}|g" body.md
           sed -i "s|\${REPO}|${REPO}|g" body.md
