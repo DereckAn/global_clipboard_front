@@ -1,7 +1,7 @@
 use cairo::{Context, ImageSurface};
 use md5;
 use pango::FontDescription;
-use pangocairo::LayoutExt;
+use pangocairo::functions::{create_layout, show_layout};
 use std::env;
 use std::fs;
 use std::fs::File;
@@ -135,7 +135,7 @@ fn generate_text_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Stri
         .fill()
         .map_err(|e| format!("Failed to fill surface: {e}"))?;
 
-    let layout = pangocairo::create_layout(&context);
+    let layout = create_layout(&context);
     let font_desc = FontDescription::from_string("JetBrains Mono 12");
     layout.set_font_description(Some(&font_desc));
     layout.set_width(480 * pango::SCALE);
@@ -143,7 +143,7 @@ fn generate_text_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Stri
 
     context.set_source_rgb(0.85, 0.87, 0.92);
     context.move_to(16.0, 16.0);
-    pangocairo::show_layout(&context, &layout);
+    show_layout(&context, &layout);
 
     let mut file =
         File::create(target_path).map_err(|e| format!("Failed to create target file: {e}"))?;
