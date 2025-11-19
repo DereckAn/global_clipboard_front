@@ -5,11 +5,15 @@ on:
   push:
     branches:
       - main
+      - app
+      - develop
     tags:
       - "v*"
   pull_request:
     branches:
       - main
+      - app
+      - develop
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
