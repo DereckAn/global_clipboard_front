@@ -3,7 +3,7 @@
 
   interface Props {
     variant?: "default" | "destructive" | "outline" | "ghost" | "other";
-    size?: "default" | "sm" | "lg" | "icon";
+    size?: "default" | "sm" | "lg" | "icon" | "other";
     class?: string;
     onclick?: (event: MouseEvent) => void;
     disabled?: boolean;
@@ -73,6 +73,7 @@
     sm: "h-8 px-3 text-[12px]",
     lg: "h-10 px-5 text-[14px]",
     icon: "h-8 w-8",
+    other: "py-1 px-2 text-[12px]",
   };
 </script>
 

@@ -392,11 +392,11 @@
             originalPath: item.fileUrl,
             metadata: parsedMetadata,
           })}
-          <div class="max-w-full relative flex items-center justify-center">
+          <div class="max-w-full relative flex items-center justify-center p-3 ">
             <img
               src={imagePreviewUrl}
               alt={item.fileName || "Clipboard image"}
-              class="max-w-full object-scale-down shadow-2xl animate-in fade-in duration-300"
+              class="max-w-full object-scale-down shadow-2xl animate-in fade-in duration-300 rounded-2xl "
               decoding="async"
               draggable={false}
               onload={() =>
@@ -439,10 +439,10 @@
       </div>
 
       <!--  Copy button -->
-      <div class="px-6 pb-6">
+      <div class="px-3 pb-6">
         <button
           onclick={() => handleCopy("")}
-          class="w-full px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+          class="w-full px-2 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
         >
           <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
           <span>{copied ? "Copied!" : "Copy image to clipboard"}</span>
@@ -515,7 +515,7 @@
       </div>
 
       <!-- Copy and View Source buttons -->
-      <div class="px-6 pb-6 flex gap-3">
+      <div class="px-3 pb-6 flex gap-3">
         <button
           onclick={() => handleCopy(item.contentText || "")}
           class="flex-1 px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
@@ -540,7 +540,7 @@
       </div>
 
       <!-- Copy button -->
-      <div class="px-6 pb-6">
+      <div class="px-3 pb-6">
         <button
           onclick={() => handleCopy(item.contentText || "")}
           class="w-full px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"

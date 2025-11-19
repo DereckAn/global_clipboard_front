@@ -9,7 +9,7 @@
 </script>
 
 <section
-  class="flex gap-3 border border-border/60 bg-surface p-2 rounded-2xl"
+  class="flex gap-3 border border-border/60 bg-surface p-2 rounded-2xl relative"
 >
   <Button variant="other" onclick={onSave} class="h-fit text-sm bg-white/5 hover:bg-blue-500/20 rounded-md z-10">Save Changes</Button>
   <Button variant="ghost" onclick={onCancel} class="h-fit text-sm bg-white/5 rounded-md z-10">Cancel</Button>

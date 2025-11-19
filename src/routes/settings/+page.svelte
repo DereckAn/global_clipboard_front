@@ -35,7 +35,7 @@
   class="h-screen w-screen overflow-hidden flex flex-col bg-surface rounded-3xl relative"
 >
   <div
-    class="absolute bg-transparent w-full h-full"
+    class="absolute  w-full h-full"
     data-tauri-drag-region
   ></div>
   <div class="flex-1 flex overflow-hidden">
