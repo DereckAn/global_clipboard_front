@@ -10,7 +10,9 @@
   let { showQuitConfirm = $bindable<boolean>() }: Props = $props();
 </script>
 
-<section class="relative bg-surface rounded-2xl border border-border/60 p-6 space-y-6">
+<section
+  class="relative bg-surface rounded-2xl border border-border/60 p-6 space-y-6"
+>
   <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
     <Icon name="settings" size={20} />
     Application
@@ -85,20 +87,18 @@
         </p>
       </div>
       {#if !showQuitConfirm}
-        <button
-          type="button"
-          class="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium bg-danger text-white"
+        <Button
+          variant="destructive"
           onclick={() => (showQuitConfirm = true)}
+          class=""
         >
           <Icon name="x" size={16} />
           Quit App
-        </button>
+        </Button>
       {:else}
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-text-muted mr-2">Are you sure?</span>
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium bg-danger text-white"
+        <div class="flex items-center flex-col gap-2">
+          <Button
+            variant="destructive"
             onclick={async () => {
               try {
                 await settingsStore.quitApplication();
@@ -109,7 +109,7 @@
           >
             <Icon name="check" size={16} />
             Yes, Quit
-          </button>
+          </Button>
           <Button
             variant="outline"
             size="sm"

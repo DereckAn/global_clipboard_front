@@ -1,9 +1,18 @@
 use crate::cleanup;
 use crate::AppState;
+use serde::Serialize;
 use std::{fs, sync::Mutex};
 use tauri::tray::TrayIcon;
 use tauri::{AppHandle, Manager, Runtime, State};
 use tauri_plugin_autostart::ManagerExt;
+
+#[derive(Debug, Serialize)]
+pub struct CleanupSettings {
+    pub max_items_enabled: bool,
+    pub max_local_items: i32,
+    pub retention_enabled: bool,
+    pub retention_days: i32,
+}
 
 #[tauri::command]
 pub fn get_setting<R: Runtime>(app: AppHandle<R>, key: String) -> Result<String, String> {
@@ -116,6 +125,51 @@ pub fn save_cleanup_settings<R: Runtime>(
     );
 
     Ok(())
+}
+
+/// Load cleanup settings stored in `settings.json`, falling back to defaults when absent.
+#[tauri::command]
+pub fn get_cleanup_settings<R: Runtime>(app: AppHandle<R>) -> Result<CleanupSettings, String> {
+    let defaults = CleanupSettings {
+        max_items_enabled: false,
+        max_local_items: 100,
+        retention_enabled: false,
+        retention_days: 30,
+    };
+
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let settings_file = app_data_dir.join("settings.json");
+
+    if !settings_file.exists() {
+        return Ok(defaults);
+    }
+
+    let contents = fs::read_to_string(&settings_file).map_err(|e| e.to_string())?;
+    let json: serde_json::Value = serde_json::from_str(&contents).unwrap_or_default();
+
+    let max_items_enabled = json
+        .get("maxItemsEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.max_items_enabled);
+    let max_local_items = json
+        .get("maxLocalItems")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(defaults.max_local_items as i64) as i32;
+    let retention_enabled = json
+        .get("retentionEnabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(defaults.retention_enabled);
+    let retention_days = json
+        .get("retentionDays")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(defaults.retention_days as i64) as i32;
+
+    Ok(CleanupSettings {
+        max_items_enabled,
+        max_local_items,
+        retention_enabled,
+        retention_days,
+    })
 }
 
 /// TEST COMMAND: Preview what would be deleted by cleanup (without deleting)

@@ -324,6 +324,7 @@ pub fn run() {
             commands::get_setting,
             commands::save_setting,
             commands::save_cleanup_settings,
+            commands::get_cleanup_settings,
             commands::update_global_hotkey,
             commands::get_current_shortcut,
             commands::unregister_shortcut,

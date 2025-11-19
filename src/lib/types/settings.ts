@@ -1,7 +1,6 @@
 export interface AppSettings {
   // General
   maxLocalItems: number;
-  autoSaveClipboard: boolean;
 
   // NUEVOS: Límite y retención
   maxItemsEnabled: boolean;
@@ -24,7 +23,6 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   maxLocalItems: 100,
-  autoSaveClipboard: true,
   showHotkey: "Control+Shift+V",
   enableAnalytics: false,
   maxItemsEnabled: false,

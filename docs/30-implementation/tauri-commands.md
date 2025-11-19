@@ -25,6 +25,7 @@ Documento de referencia para los comandos expuestos a la capa Svelte. Cada fila 
 | `cleanup_missing_clipboard_files` | `commands::clipboard` (nuevo v1.1) | Recorre ítems con `file_url` y elimina los que referencian rutas inexistentes; además borra assets asociados. | — | `Vec<String>` (IDs eliminados) | Invocado desde backend al evento `Focused(false)` y disponible para llamadas manuales desde frontend. Emite `clipboard-items-removed`. |
 | `count_clipboard_items` | `commands::clipboard` | Total de registros en DB. | — | `i64` | Útil para calcular `hasMore`. |
 | `count_search_results_fts` | `commands::clipboard` | Total de resultados de búsqueda. | `query: String` | `i64` | Debe llamarse tras `search_clipboard_items_fts`. |
+| `get_cleanup_settings` | `commands::settings` | Lee desde `settings.json` los flags y valores de limpieza (límite de items y retención). | — | `{ max_items_enabled, max_local_items, retention_enabled, retention_days }` | `settingsStore.loadSettings()` lo consume para alinear la UI con lo que usará el backend en la tarea automática. |
 | `ensure_thumbnail` | `commands::images` | Garantiza miniatura junto al archivo. | `file_path: String` | `String` (ruta miniatura) | Usa `image_handler::ensure_thumbnail`. |
 | `write_image_to_clipboard` | `commands::clipboard` | Copia una imagen guardada en sandbox al clipboard del sistema. | `image_path: String` | `()` | Usa `write_clipboard_image`. |
 | `write_file_to_clipboard` | `commands::clipboard` | Copia un archivo externo (macOS). | `path: String` | `()` | Disponible solo en macOS. |

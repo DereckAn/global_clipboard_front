@@ -16,8 +16,6 @@
   }
 
   let { activeTab, onBack }: Props = $props();
-  let maxLocalItems = $state(settingsStore.maxLocalItems.toString());
-  let autoSaveClipboard = $state(settingsStore.autoSaveClipboard);
   let enableAnalytics = $state(settingsStore.enableAnalytics);
   let globalHotkey = $state(settingsStore.hotkey);
   let hotkeyFeedback = $state<{
@@ -27,13 +25,6 @@
   let showQuitConfirm = $state(false);
 
   const handleSave = async () => {
-    const parsed = parseInt(maxLocalItems, 10);
-    if (!Number.isNaN(parsed) && parsed !== settingsStore.maxLocalItems) {
-      settingsStore.updateMaxLocalItems(parsed);
-    }
-    if (autoSaveClipboard !== settingsStore.autoSaveClipboard) {
-      settingsStore.toggleAutoSave();
-    }
     if (enableAnalytics !== settingsStore.enableAnalytics) {
       settingsStore.toggleAnalytics();
     }
@@ -49,15 +40,11 @@
 
   const handleReset = () => {
     settingsStore.reset();
-    maxLocalItems = String(settingsStore.maxLocalItems);
-    autoSaveClipboard = settingsStore.autoSaveClipboard;
     enableAnalytics = settingsStore.enableAnalytics;
     globalHotkey = settingsStore.hotkey;
   };
 
   const handleCancel = () => {
-    maxLocalItems = String(settingsStore.maxLocalItems);
-    autoSaveClipboard = settingsStore.autoSaveClipboard;
     enableAnalytics = settingsStore.enableAnalytics;
     globalHotkey = settingsStore.hotkey;
     onBack?.();
@@ -71,8 +58,6 @@
 
   {#if activeTab === "clipboard"}
     <TabAccountClipboard
-      bind:maxLocalItems
-      bind:autoSaveClipboard
       bind:globalHotkey
       {hotkeyFeedback}
     />

@@ -457,7 +457,6 @@ export interface GetItemsOptions {
 export interface AppSettings {
   // General
   maxLocalItems: number
-  autoSaveClipboard: boolean
   
   // UI
   theme: 'light' | 'dark' | 'system'
@@ -471,7 +470,6 @@ export interface AppSettings {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   maxLocalItems: 1000,
-  autoSaveClipboard: true,
   theme: 'system',
   showHotkey: 'CommandOrControl+Shift+V',
   enableAnalytics: false,
@@ -953,7 +951,6 @@ import { DEFAULT_SETTINGS, type AppSettings } from '$lib/types'
 
 class SettingsStore {
   maxLocalItems = $state(DEFAULT_SETTINGS.maxLocalItems)
-  autoSaveClipboard = $state(DEFAULT_SETTINGS.autoSaveClipboard)
   showHotkey = $state(DEFAULT_SETTINGS.showHotkey)
   enableAnalytics = $state(DEFAULT_SETTINGS.enableAnalytics)
   
@@ -964,7 +961,6 @@ class SettingsStore {
       if (saved) {
         const parsed = JSON.parse(saved)
         this.maxLocalItems = parsed.maxLocalItems ?? DEFAULT_SETTINGS.maxLocalItems
-        this.autoSaveClipboard = parsed.autoSaveClipboard ?? DEFAULT_SETTINGS.autoSaveClipboard
         this.showHotkey = parsed.showHotkey ?? DEFAULT_SETTINGS.showHotkey
         this.enableAnalytics = parsed.enableAnalytics ?? DEFAULT_SETTINGS.enableAnalytics
       }
@@ -973,7 +969,6 @@ class SettingsStore {
       $effect(() => {
         localStorage.setItem('settings-store', JSON.stringify({
           maxLocalItems: this.maxLocalItems,
-          autoSaveClipboard: this.autoSaveClipboard,
           showHotkey: this.showHotkey,
           enableAnalytics: this.enableAnalytics,
         }))
@@ -983,10 +978,6 @@ class SettingsStore {
   
   updateMaxLocalItems(value: number) {
     this.maxLocalItems = value
-  }
-  
-  toggleAutoSave() {
-    this.autoSaveClipboard = !this.autoSaveClipboard
   }
   
   updateShowHotkey(key: string) {
@@ -999,7 +990,6 @@ class SettingsStore {
   
   reset() {
     this.maxLocalItems = DEFAULT_SETTINGS.maxLocalItems
-    this.autoSaveClipboard = DEFAULT_SETTINGS.autoSaveClipboard
     this.showHotkey = DEFAULT_SETTINGS.showHotkey
     this.enableAnalytics = DEFAULT_SETTINGS.enableAnalytics
   }
@@ -1943,21 +1933,6 @@ export const settingsStore = new SettingsStore()
       <CardTitle>Clipboard</CardTitle>
     </CardHeader>
     <CardContent class="space-y-4">
-      <div class="flex items-center justify-between">
-        <div>
-          <div class="font-medium">Auto-save clipboard</div>
-          <div class="text-sm text-muted-foreground">
-            Automatically save copied items
-          </div>
-        </div>
-        <Button
-          variant={settingsStore.autoSaveClipboard ? 'default' : 'outline'}
-          onclick={() => settingsStore.toggleAutoSave()}
-        >
-          {settingsStore.autoSaveClipboard ? 'On' : 'Off'}
-        </Button>
-      </div>
-      
       <div>
         <div class="font-medium mb-2">Max local items</div>
         <div class="text-sm text-muted-foreground">

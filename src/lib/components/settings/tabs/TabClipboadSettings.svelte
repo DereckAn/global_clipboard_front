@@ -1,21 +1,13 @@
 <script lang="ts">
   import Icon from "$lib/components/icons/Icon.svelte";
-  import Input from "$lib/components/ui/Input.svelte";
   import HotkeyRecorder from "../HotkeyRecorder.svelte";
 
   interface Props {
-    maxLocalItems: string;
-    autoSaveClipboard: boolean;
     globalHotkey: string;
     hotkeyFeedback: { type: "success" | "error"; message: string } | null;
   }
 
-  let {
-    maxLocalItems = $bindable(""),
-    autoSaveClipboard = $bindable(false),
-    globalHotkey = $bindable(""),
-    hotkeyFeedback,
-  }: Props = $props();
+  let { globalHotkey = $bindable(""), hotkeyFeedback }: Props = $props();
 
 </script>
 
@@ -24,48 +16,6 @@
     <Icon name="text" size={20} />
     Clipboard
   </h2>
-  <div>
-    <label
-      for="max-items-input"
-      class="block text-sm font-medium text-text mb-2"
-    >
-      Maximum local items
-    </label>
-    <Input
-      type="text"
-      bind:value={maxLocalItems}
-      placeholder="1000"
-      class="w-32"
-    />
-    <p class="text-xs text-text-muted mt-1">
-      Maximum number of items to store locally
-    </p>
-  </div>
-
-  <div class="flex items-center justify-between">
-    <div>
-      <p class="block text-sm font-medium text-text mb-1">
-        Auto-save clipboard
-      </p>
-      <p class="text-xs text-text-muted">
-        Automatically save copied content to history
-      </p>
-    </div>
-    <button
-      onclick={() => (autoSaveClipboard = !autoSaveClipboard)}
-      class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${autoSaveClipboard ? "bg-primary" : "bg-border"}`}
-      role="switch"
-      aria-checked={autoSaveClipboard}
-      aria-label="Toggle auto-save clipboard"
-    >
-      <span
-        class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-          autoSaveClipboard ? "translate-x-6" : "translate-x-1"
-        }`}
-      ></span>
-    </button>
-  </div>
-
   <div>
     <label for="global-hotkey" class="block text-sm font-medium text-text mb-2">
       Global window hotkey

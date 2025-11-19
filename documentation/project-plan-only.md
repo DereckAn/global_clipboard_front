@@ -209,7 +209,7 @@ Definir entidades y contratos del dominio.
 
 **Definir**:
 - `interface AppSettings`
-  - maxLocalItems, autoSaveClipboard
+  - maxLocalItems
   - showHotkey, enableAnalytics
 - `const DEFAULT_SETTINGS` con valores por defecto
 
@@ -365,7 +365,6 @@ Crear stores con Svelte 5 runes.
 - `class SettingsStore`
 - Properties con `$state()`:
   - `maxLocalItems`
-  - `autoSaveClipboard`
   - `showHotkey`
   - `enableAnalytics`
 - Constructor:
@@ -373,7 +372,6 @@ Crear stores con Svelte 5 runes.
   - Usar `$effect()` para guardar automáticamente
 - Métodos:
   - `updateMaxLocalItems(value)`
-  - `toggleAutoSave()`
   - `updateShowHotkey(key)`
   - `toggleAnalytics()`
   - `reset()` - Restaurar valores por defecto

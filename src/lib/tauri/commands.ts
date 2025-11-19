@@ -135,6 +135,13 @@ export interface LinkMetadata {
   site_name: string | null;
 }
 
+export interface CleanupSettings {
+  maxItemsEnabled: boolean;
+  maxLocalItems: number;
+  retentionEnabled: boolean;
+  retentionDays: number;
+}
+
 // Color conversion
 export async function tauriConvertColor(
   color: string
@@ -161,6 +168,22 @@ export async function tauriRemoveDuplicates(): Promise<number> {
 
 export async function tauriCleanupMissingFiles(): Promise<string[]> {
   return await invoke("cleanup_missing_clipboard_files");
+}
+
+export async function tauriGetCleanupSettings(): Promise<CleanupSettings> {
+  const result = await invoke<{
+    max_items_enabled: boolean;
+    max_local_items: number;
+    retention_enabled: boolean;
+    retention_days: number;
+  }>("get_cleanup_settings");
+
+  return {
+    maxItemsEnabled: result.max_items_enabled,
+    maxLocalItems: result.max_local_items,
+    retentionEnabled: result.retention_enabled,
+    retentionDays: result.retention_days,
+  };
 }
 
 // Settings

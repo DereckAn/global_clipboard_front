@@ -5,6 +5,7 @@ import {
   tauriEnableAutoStart,
   tauriGetDatabaseStats,
   tauriGetSetting,
+  tauriGetCleanupSettings,
   tauriIsAutoStartEnabled,
   tauriIsTrayVisible,
   tauriOptimizeDatabase,
@@ -19,9 +20,8 @@ import { DEFAULT_SETTINGS } from "$lib/types";
 interface Settings {
   hotkey: string;
 }
-class SettingsStore {
+export class SettingsStore {
   maxLocalItems = $state(DEFAULT_SETTINGS.maxLocalItems);
-  autoSaveClipboard = $state(DEFAULT_SETTINGS.autoSaveClipboard);
   showHotkey = $state(DEFAULT_SETTINGS.showHotkey);
   enableAnalytics = $state(DEFAULT_SETTINGS.enableAnalytics);
   hotkey = $state<string>("CommandOrControl+Shift+V");
@@ -49,8 +49,6 @@ class SettingsStore {
           const parsed = JSON.parse(saved);
           this.maxLocalItems =
             parsed.maxLocalItems ?? DEFAULT_SETTINGS.maxLocalItems;
-          this.autoSaveClipboard =
-            parsed.autoSaveClipboard ?? DEFAULT_SETTINGS.autoSaveClipboard;
           this.showHotkey = parsed.showHotkey ?? DEFAULT_SETTINGS.showHotkey;
           this.enableAnalytics =
             parsed.enableAnalytics ?? DEFAULT_SETTINGS.enableAnalytics;
@@ -75,16 +73,6 @@ class SettingsStore {
         }
       }
     }
-  }
-
-  updateMaxLocalItems(value: number) {
-    this.maxLocalItems = value;
-    this.save();
-  }
-
-  toggleAutoSave() {
-    this.autoSaveClipboard = !this.autoSaveClipboard;
-    this.save();
   }
 
   updateShowHotkey(key: string) {
@@ -119,7 +107,6 @@ class SettingsStore {
 
   reset() {
     this.maxLocalItems = DEFAULT_SETTINGS.maxLocalItems;
-    this.autoSaveClipboard = DEFAULT_SETTINGS.autoSaveClipboard;
     this.showHotkey = DEFAULT_SETTINGS.showHotkey;
     this.enableAnalytics = DEFAULT_SETTINGS.enableAnalytics;
     this.maxItemsEnabled = DEFAULT_SETTINGS.maxItemsEnabled;
@@ -154,6 +141,17 @@ class SettingsStore {
       this.trayIconVisible = await tauriIsTrayVisible();
     } catch (err) {
       console.log("Could not check tray icon visibility");
+    }
+
+    try {
+      const cleanupSettings = await tauriGetCleanupSettings();
+      this.maxItemsEnabled = cleanupSettings.maxItemsEnabled;
+      this.maxLocalItems = cleanupSettings.maxLocalItems;
+      this.retentionEnabled = cleanupSettings.retentionEnabled;
+      this.retentionDays = cleanupSettings.retentionDays;
+      this.save();
+    } catch (err) {
+      console.error("Failed to load cleanup settings:", err);
     }
   }
 
@@ -287,7 +285,6 @@ class SettingsStore {
           "settings-store",
           JSON.stringify({
             maxLocalItems: this.maxLocalItems,
-            autoSaveClipboard: this.autoSaveClipboard,
             showHotkey: this.showHotkey,
             enableAnalytics: this.enableAnalytics,
             maxItemsEnabled: this.maxItemsEnabled,

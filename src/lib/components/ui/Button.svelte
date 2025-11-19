@@ -39,9 +39,8 @@
 
     // Botón “vidrio neutro”, ideal para secundarios
     outline: [
-      "bg-white/45 dark:bg-slate-900/45",
-      "text-slate-900 dark:text-slate-50",
-      "border-white/50 dark:border-slate-500/40",
+      "text-white/70 rounded-xl",
+      "border-white/30",
       "shadow-[0_0_0_1px_rgba(255,255,255,0.5)_inset,0_8px_20px_rgba(15,23,42,0.4)]",
       "hover:bg-white/65 dark:hover:bg-slate-900/65",
       "active:bg-white/75 dark:active:bg-slate-900/75",
@@ -58,19 +57,15 @@
 
     // Botón de peligro con tinte rojo líquido
     destructive: [
-      "bg-red-500/80 text-white",
-      "border-white/40 dark:border-red-300/40",
-      "shadow-[0_0_0_1px_rgba(255,255,255,0.35)_inset,0_8px_24px_rgba(127,29,29,0.6)]",
-      "hover:bg-red-400/85",
-      "active:bg-red-500/95 active:shadow-[0_0_0_1px_rgba(127,29,29,0.6)_inset]",
+      "bg-red-500/30 text-white rounded-xl hover:bg-red-500/50 text-sm flex items-center justify-center gap-2 text-nowrap",
     ].join(" "),
 
     other: "",
   };
 
   const sizes: Record<NonNullable<Props["size"]>, string> = {
-    default: "h-9 px-4",
-    sm: "h-8 px-3 text-[12px]",
+    default: "p-1 px-4",
+    sm: "px-3 text-[12px]",
     lg: "h-10 px-5 text-[14px]",
     icon: "h-8 w-8",
     other: "py-1 px-2 text-[12px]",
