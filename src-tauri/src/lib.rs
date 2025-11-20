@@ -12,6 +12,8 @@ use commands::AppState;
 use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 use tauri::image::Image;
+#[cfg(target_os = "macos")]
+use tauri::path::BaseDirectory;
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
