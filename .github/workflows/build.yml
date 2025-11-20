@@ -1,4 +1,4 @@
-name: Build and Release
+﻿name: Build and Release
 
 on:
   workflow_dispatch:
@@ -187,54 +187,51 @@ jobs:
         run: rustup target add aarch64-pc-windows-msvc
 
       - name: Linux dependencies
-          if: runner.os == 'Linux'
-          run: |
-            if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-              sudo dpkg --add-architecture arm64
-              cat <<'EOF' | sudo tee /etc/apt/sources.list >/dev/null
-                deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
-                deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
-                deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
-                deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
-                deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe
-                multiverse
-                deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe
-                multiverse
-                EOF
-            fi
+        if: runner.os == 'Linux'
+        run: |
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            sudo dpkg --add-architecture arm64
+            cat <<'EOF' | sudo tee /etc/apt/sources.list >/dev/null
+              deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
+              deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
+              deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+              deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+              EOF
+          fi
 
-            sudo apt-get update
+          sudo apt-get update
 
-            if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
-              sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-              sudo apt-get install -y \
-                libwebkit2gtk-4.1-dev:arm64 \
-                libgtk-3-dev:arm64 \
-                libayatana-appindicator3-dev:arm64 \
-                librsvg2-dev:arm64 \
-                libssl-dev:arm64 \
-                libxdo-dev:arm64 \
-                liblcms2-dev:arm64 \
-                libjpeg-dev:arm64
-            fi
-
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
             sudo apt-get install -y \
-              libwebkit2gtk-4.1-dev \
-              libgtk-3-dev \
-              libayatana-appindicator3-dev \
-              librsvg2-dev \
-              libssl-dev \
-              libxcb-shape0-dev \
-              libxcb-xfixes0-dev \
-              libxdo-dev \
-              liblcms2-dev \
-              libjpeg-dev \
-              pkg-config \
-              build-essential \
-              curl \
-              wget \
-              file
+              libwebkit2gtk-4.1-dev:arm64 \
+              libgtk-3-dev:arm64 \
+              libayatana-appindicator3-dev:arm64 \
+              librsvg2-dev:arm64 \
+              libssl-dev:arm64 \
+              libxdo-dev:arm64 \
+              liblcms2-dev:arm64 \
+              libjpeg-dev:arm64
+          fi
 
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxdo-dev \
+            liblcms2-dev \
+            libjpeg-dev \
+            pkg-config \
+            build-essential \
+            curl \
+            wget \
+            file
       - name: Cache cargo builds
         uses: swatinem/rust-cache@v2
         with:
@@ -296,9 +293,9 @@ jobs:
             dir="artifacts/tauri-${target}"
             if file=$(find "$dir" -type f -name "$src_pattern" | head -1); then
               cp "$file" "release-assets/${dest_name}"
-              echo "✔ copied $(basename "$file") -> ${dest_name}"
+              echo "âœ” copied $(basename "$file") -> ${dest_name}"
             else
-              echo "⚠ missing artifact ${src_pattern} in ${dir}" >&2
+              echo "âš  missing artifact ${src_pattern} in ${dir}" >&2
             fi
           }
 
