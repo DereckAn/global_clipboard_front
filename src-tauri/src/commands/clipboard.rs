@@ -192,6 +192,7 @@ pub fn write_file_to_clipboard(path: String) -> Result<(), String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
+        let _ = path;
         Err("File clipboard operations are only supported on macOS.".to_string())
     }
 }
