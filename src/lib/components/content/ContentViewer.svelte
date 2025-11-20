@@ -78,16 +78,22 @@
   const isExternalImage = $derived(
     isImage && parsedMetadata?.source === "file"
   );
-  const imagePreviewPath = $derived.by(() => {
+  const preferredImagePath = $derived.by(() => {
     if (!isImage) return null;
     if (isExternalImage) {
-      return parsedMetadata?.thumbnail_path || null;
+      return parsedMetadata?.thumbnail_path || item?.fileUrl || null;
     }
     return item?.fileUrl || null;
   });
+  let currentImagePath = $state<string | null>(null);
   const imagePreviewUrl = $derived.by(() => {
-    if (!imagePreviewPath) return null;
-    return convertFileSrc(imagePreviewPath);
+    if (!currentImagePath) return null;
+    return convertFileSrc(currentImagePath);
+  });
+
+  // Keep image source in sync; allows falling back to the original file when thumb is missing.
+  $effect(() => {
+    currentImagePath = preferredImagePath;
   });
 
   const handleCopyFile = async () => {
@@ -387,11 +393,6 @@
       <!-- Image Preview -->
       <div class="flex-1 flex items-center justify-center mb-4 overflow-auto">
         {#if imagePreviewUrl}
-          {console.log("🖼️ Loading image preview:", {
-            previewPath: imagePreviewPath,
-            originalPath: item.fileUrl,
-            metadata: parsedMetadata,
-          })}
           <div class="max-w-full relative flex items-center justify-center p-3 ">
             <img
               src={imagePreviewUrl}
@@ -400,9 +401,16 @@
               decoding="async"
               draggable={false}
               onload={() =>
-                console.log("✅ Image preview loaded from:", imagePreviewPath)}
-              onerror={(e) =>
-                console.error("❌ Failed to load image:", imagePreviewPath, e)}
+                console.log("Image preview loaded from:", currentImagePath)}
+              onerror={(e) => {
+                console.error("Failed to load image:", currentImagePath, e);
+                if (item?.fileUrl && currentImagePath !== item.fileUrl) {
+                  // Fallback: try original image path when thumb is missing
+                  currentImagePath = item.fileUrl;
+                } else {
+                  currentImagePath = null;
+                }
+              }}
             />
 
             <!-- Image info overlay -->
@@ -415,7 +423,7 @@
                   <div>
                     <p class="text-xs text-white">
                       {(parsedMetadata?.width as number) ||
-                        "?"}x{(parsedMetadata?.height as number) || "?"} •
+                        "?"}x{(parsedMetadata?.height as number) || "?"} -
                       {item.fileSizeBytes
                         ? (item.fileSizeBytes / 1024).toFixed(0)
                         : "?"} KB
@@ -437,8 +445,6 @@
           </div>
         {/if}
       </div>
-
-      <!--  Copy button -->
       <div class="px-3 pb-6">
         <button
           onclick={() => handleCopy("")}
@@ -596,3 +602,4 @@
     }
   }
 </style>
+

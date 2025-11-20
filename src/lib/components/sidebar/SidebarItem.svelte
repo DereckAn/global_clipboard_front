@@ -281,6 +281,11 @@
         class="w-7 h-7 rounded object-cover border border-border"
         onerror={(e) => {
           console.error("Failed to load thumbnail:", resolvedThumbnail);
+          if (isImage && item.fileUrl && resolvedThumbnail !== item.fileUrl) {
+            // Fallback to original image path when cached thumb is missing
+            resolvedThumbnail = item.fileUrl;
+            return;
+          }
           resolvedThumbnail = null;
           (e.currentTarget as HTMLImageElement).style.display = "none";
         }}

@@ -149,8 +149,9 @@ impl ClipboardMonitor {
                             &info.full_path,
                             &self.file_thumbs_dir,
                         ) {
-                            Ok(Some(path)) => Some(path),
-                            Ok(None) => None,
+                            Ok(Some(path)) if path.exists() => Some(path),
+                            Ok(Some(_)) => None, // generated path missing; fall back to image thumb
+                            Ok(_none) => None,
                             Err(err) => {
                                 eprintln!(
                                     "Failed to generate Quick Look thumbnail for Finder image: {err}"
@@ -158,6 +159,12 @@ impl ClipboardMonitor {
                                 None
                             }
                         };
+                        let fallback_thumbnail = if info.thumb_path.exists() {
+                            Some(info.thumb_path.clone())
+                        } else {
+                            None
+                        };
+                        let chosen_thumbnail = quicklook_thumbnail.or(fallback_thumbnail);
 
                         let mut metadata = serde_json::json!({
                             "width": info.width,
@@ -168,7 +175,7 @@ impl ClipboardMonitor {
                         });
 
                         if let Some(obj) = metadata.as_object_mut() {
-                            if let Some(path) = quicklook_thumbnail {
+                            if let Some(path) = chosen_thumbnail {
                                 obj.insert(
                                     "preview_type".to_string(),
                                     serde_json::Value::String("image".to_string()),

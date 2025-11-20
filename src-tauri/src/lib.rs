@@ -13,7 +13,6 @@ use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 use tauri::image::Image;
 use tauri::menu::{Menu, MenuItem};
-use tauri::path::BaseDirectory;
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 

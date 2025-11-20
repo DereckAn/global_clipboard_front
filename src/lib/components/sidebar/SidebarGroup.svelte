@@ -74,12 +74,12 @@
   const groupedItems = $derived(groupItemsByDate(items));
 </script>
 
-<div class="flex flex-col">
+<div class="flex flex-col relative">
   {#each groupedItems as [groupName, groupItems]}
     <div class="p-0">
       <!-- Group header -->
       <div
-        class="px-3 py-1 sticky top-0 bg-surface/95 backdrop-blur-sm z-10 flex items-center justify-between"
+        class="px-3 py-1 sticky top-0 bg-transparent backdrop-blur-sm z-10 flex rounded-2xl items-center justify-between"
       >
         <h3
           class="text-xs font-semibold text-text-muted uppercase tracking-wide"
@@ -98,7 +98,7 @@
       </div>
 
       <!-- Group items -->
-      <div class="">
+      <div class="">    
         {#each groupItems as item (item.id)}
           <SidebarItem {item} />
         {/each}
