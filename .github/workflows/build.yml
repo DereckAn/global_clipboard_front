@@ -284,29 +284,33 @@ jobs:
           VERSION=${{ steps.prepare.outputs.version }}
           TAG=${GITHUB_REF#refs/tags/}
           REPO=${{ github.repository }}
-          cat > body.md <<'EOF'
+
+          # Crear el cuerpo del release
+          BODY="## 📦 Downloads
 
           | Platform | Architecture | Download |
           |----------|-------------|----------|
-          | Windows | x64 | [GlobalClipboard_${VERSION}_x64-setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64.msi) |
-          | Windows | ARM64 | [GlobalClipboard_${VERSION}_arm64-setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64.msi) |
-          | macOS | Intel | [GlobalClipboard_${VERSION}_x64.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-Intel.dmg) |
-          | macOS | Apple Silicon | [GlobalClipboard_${VERSION}_arm64.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg) |
+          | Windows | x64 | [Setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64.msi) |
+          | Windows | ARM64 | [Setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64.msi) |
+          | macOS | Intel | [.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-Intel.dmg) |
+          | macOS | Apple Silicon | [.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg) |
           | Linux | x64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.rpm) |
           | Linux | ARM64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.rpm) |
 
-          > **macOS**: si aparece el mensaje "app is damaged", ejecutar:
-          > ```bash
-          > sudo xattr -d com.apple.quarantine "/Applications/Global Clipboard.app"
-          > ```
-          EOF
+          ## 🍎 macOS Installation Note
 
-          sed -i "s|\${VERSION}|${VERSION}|g" body.md
-          sed -i "s|\${TAG}|${TAG}|g" body.md
-          sed -i "s|\${REPO}|${REPO}|g" body.md
-          echo "body<<'EOF'" >> "$GITHUB_OUTPUT"
-          cat body.md >> "$GITHUB_OUTPUT"
-          echo "EOF" >> "$GITHUB_OUTPUT"
+          If you see a message saying the app is damaged, run this command in Terminal:
+
+          \`\`\`bash
+          sudo xattr -d com.apple.quarantine \"/Applications/Global Clipboard.app\"
+          \`\`\`"
+
+          # Guardar en GITHUB_OUTPUT usando el método recomendado
+          {
+            echo "body<<RELEASE_NOTES_DELIMITER"
+            echo "$BODY"
+            echo "RELEASE_NOTES_DELIMITER"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
