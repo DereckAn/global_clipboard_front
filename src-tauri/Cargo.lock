@@ -1836,7 +1836,7 @@ dependencies = [
 
 [[package]]
 name = "global_clipboard"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "arboard",
  "cairo-rs 0.20.12",

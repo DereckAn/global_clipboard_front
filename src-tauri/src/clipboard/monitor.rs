@@ -253,10 +253,8 @@ impl ClipboardMonitor {
                 let mut last_text = self.last_text_content.lock().await;
 
                 if !current_text.is_empty() && current_text != *last_text {
-                    println!(
-                        "New clipboard text detected: {}",
-                        &current_text[..std::cmp::min(50, current_text.len())]
-                    );
+                    let preview: String = current_text.chars().take(50).collect();
+                    println!("New clipboard text detected: {}", preview);
 
                     let content_type = detect_content_type(&current_text);
                     let source_app = get_source_app();
