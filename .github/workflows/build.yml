@@ -189,13 +189,13 @@ jobs:
             sudo dpkg --add-architecture arm64
             # Rewrite sources to avoid 404s for arm64 (use ports.ubuntu.com for arm and archive for amd64)
             sudo bash -c 'cat >/etc/apt/sources.list <<EOF
-deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
-deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
-deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
-deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
-EOF'
+            deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy main restricted universe multiverse
+            deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-updates main restricted universe multiverse
+            deb [arch=amd64] http://archive.ubuntu.com/ubuntu jammy-security main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse
+            deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse
+            EOF'
           fi
           sudo apt-get update
           if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
