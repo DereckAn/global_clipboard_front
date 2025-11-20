@@ -138,27 +138,27 @@ jobs:
     name: Build desktop (${{ matrix.name }})
     needs: [tests, build-frontend]
     strategy:
-        fail-fast: false
-        matrix:
-          include:
-            - name: linux-x64
-              os: ubuntu-22.04
-              target: x86_64-unknown-linux-gnu
-            - name: linux-arm64
-              os: ubuntu-22.04-arm
-              target: aarch64-unknown-linux-gnu
-            - name: macos-intel
-              os: macos-13
-              target: x86_64-apple-darwin
-            - name: macos-apple-silicon
-              os: macos-14
-              target: aarch64-apple-darwin
-            - name: windows-x64
-              os: windows-latest
-              target: x86_64-pc-windows-msvc
-            - name: windows-arm64
-              os: windows-latest
-              target: aarch64-pc-windows-msvc
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux-x64
+            os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+          - name: linux-arm64
+            os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+          - name: macos-intel
+            os: macos-13
+            target: x86_64-apple-darwin
+          - name: macos-apple-silicon
+            os: macos-14
+            target: aarch64-apple-darwin
+          - name: windows-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+          - name: windows-arm64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -255,8 +255,7 @@ jobs:
             src_pattern="$2"
             dest_name="$3"
             dir="artifacts/tauri-${target}"
-            file=$(find "$dir" -type f -name "$src_pattern" 2>/dev/null | head -1)
-            if [ -n "$file" ]; then
+            if file=$(find "$dir" -type f -name "$src_pattern" 2>/dev/null | head -1); then
               cp "$file" "release-assets/${dest_name}"
               echo "✅ copied $(basename "$file") -> ${dest_name}"
             else
@@ -273,11 +272,9 @@ jobs:
           copy_bundle "x86_64-unknown-linux-gnu" "*.AppImage" "GlobalClipboard-${VERSION}-Linux-x64.AppImage"
           copy_bundle "x86_64-unknown-linux-gnu" "*.deb" "GlobalClipboard-${VERSION}-Linux-x64.deb"
           copy_bundle "x86_64-unknown-linux-gnu" "*.rpm" "GlobalClipboard-${VERSION}-Linux-x64.rpm"
-          copy_bundle "x86_64-unknown-linux-gnu" "*.pkg.tar.zst" "GlobalClipboard-${VERSION}-Linux-x64.pkg.tar.zst"
           copy_bundle "aarch64-unknown-linux-gnu" "*.AppImage" "GlobalClipboard-${VERSION}-Linux-arm64.AppImage"
           copy_bundle "aarch64-unknown-linux-gnu" "*arm64.deb" "GlobalClipboard-${VERSION}-Linux-arm64.deb"
           copy_bundle "aarch64-unknown-linux-gnu" "*aarch64.rpm" "GlobalClipboard-${VERSION}-Linux-arm64.rpm"
-          copy_bundle "aarch64-unknown-linux-gnu" "*aarch64.pkg.tar.zst" "GlobalClipboard-${VERSION}-Linux-arm64.pkg.tar.zst"
 
           (cd release-assets && sha256sum * > SHA256SUMS 2>/dev/null || true)
 
