@@ -255,7 +255,8 @@ jobs:
             src_pattern="$2"
             dest_name="$3"
             dir="artifacts/tauri-${target}"
-            if file=$(find "$dir" -type f -name "$src_pattern" 2>/dev/null | head -1); then
+            file=$(find "$dir" -type f -name "$src_pattern" 2>/dev/null | head -1)
+            if [ -n "$file" ]; then
               cp "$file" "release-assets/${dest_name}"
               echo "✅ copied $(basename "$file") -> ${dest_name}"
             else

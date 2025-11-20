@@ -26,8 +26,8 @@ echo -e "${BLUE}🚀 Iniciando proceso de release v${VERSION}${NC}"
 
 # Verificar que estamos en main
 CURRENT_BRANCH=$(git branch --show-current)
-if [ "$CURRENT_BRANCH" != "main" ]; then
-  echo -e "${YELLOW}⚠️  No estás en la rama main (estás en: ${CURRENT_BRANCH})${NC}"
+if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "app" ]; then
+  echo -e "${YELLOW}⚠️  No estás en la rama main o app (estás en: ${CURRENT_BRANCH})${NC}"
   read -p "¿Continuar de todos modos? (y/n) " -n 1 -r
   echo
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
