@@ -8,6 +8,10 @@ import {
   tauriGetCleanupSettings,
   tauriIsAutoStartEnabled,
   tauriIsTrayVisible,
+  tauriGetLabFeatures,
+  tauriInstallFeature,
+  tauriUninstallFeature,
+  tauriEnableFeature,
   tauriOptimizeDatabase,
   tauriQuitApp,
   tauriSaveCleanupSettings,
@@ -15,6 +19,7 @@ import {
   tauriUpdateGlobalHotkey,
   type DatabaseStats,
 } from "$lib/tauri/commands";
+import type { LabFeatureId, LabFeatureWithMeta } from "$lib/types";
 import { DEFAULT_SETTINGS } from "$lib/types";
 
 interface Settings {
@@ -39,6 +44,7 @@ export class SettingsStore {
   trayIconVisible = $state(false);
 
   dbStats = $state<DatabaseStats | null>(null);
+  labFeatures = $state<LabFeatureWithMeta[]>([]);
 
   constructor() {
     // Load from localStorage
@@ -153,6 +159,12 @@ export class SettingsStore {
     } catch (err) {
       console.error("Failed to load cleanup settings:", err);
     }
+
+    try {
+      this.labFeatures = await tauriGetLabFeatures();
+    } catch (err) {
+      console.error("Failed to load lab features:", err);
+    }
   }
 
   async saveHotkey(newHotkey: string) {
@@ -216,6 +228,54 @@ export class SettingsStore {
       await this.loadDatabaseStats();
     } catch (err) {
       console.error("Failed to optimize database:", err);
+      throw err;
+    }
+  }
+
+  async refreshLabFeatures() {
+    try {
+      this.labFeatures = await tauriGetLabFeatures();
+    } catch (err) {
+      console.error("Failed to refresh lab features:", err);
+      throw err;
+    }
+  }
+
+  async installFeature(id: LabFeatureId) {
+    try {
+      const updated = await tauriInstallFeature(id);
+      this.labFeatures = this.labFeatures
+        .filter((f) => f.id !== id)
+        .concat(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to install feature:", err);
+      throw err;
+    }
+  }
+
+  async uninstallFeature(id: LabFeatureId) {
+    try {
+      const updated = await tauriUninstallFeature(id);
+      this.labFeatures = this.labFeatures
+        .filter((f) => f.id !== id)
+        .concat(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to uninstall feature:", err);
+      throw err;
+    }
+  }
+
+  async enableFeature(id: LabFeatureId, enabled: boolean) {
+    try {
+      const updated = await tauriEnableFeature(id, enabled);
+      this.labFeatures = this.labFeatures
+        .filter((f) => f.id !== id)
+        .concat(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to enable feature:", err);
       throw err;
     }
   }

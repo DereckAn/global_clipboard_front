@@ -1,6 +1,8 @@
 import type {
   ClipboardItem,
   CreateClipboardItemDto,
+  LabFeatureId,
+  LabFeatureWithMeta,
   UpdateClipboardItemDto,
 } from "$lib/types";
 import { invoke } from "@tauri-apps/api/core";
@@ -387,4 +389,36 @@ export async function tauriEnsureThumbnail(imagePath: string): Promise<string | 
 
 export async function tauriWriteFileToClipboard(filePath: string): Promise<void> {
     await invoke("write_file_to_clipboard", { path: filePath });
+}
+
+// Laboratory features
+export async function tauriGetLabFeatures(): Promise<LabFeatureWithMeta[]> {
+  return await invoke<LabFeatureWithMeta[]>("get_lab_features");
+}
+
+export async function tauriInstallFeature(
+  id: LabFeatureId
+): Promise<LabFeatureWithMeta> {
+  return await invoke<LabFeatureWithMeta>("install_feature", { id });
+}
+
+export async function tauriUninstallFeature(
+  id: LabFeatureId
+): Promise<LabFeatureWithMeta> {
+  return await invoke<LabFeatureWithMeta>("uninstall_feature", { id });
+}
+
+export async function tauriEnableFeature(
+  id: LabFeatureId,
+  enabled: boolean
+): Promise<LabFeatureWithMeta> {
+  return await invoke<LabFeatureWithMeta>("enable_feature", { id, enabled });
+}
+
+export async function tauriCaptureFullScreenshot(): Promise<void> {
+  await invoke("capture_full_screenshot");
+}
+
+export async function tauriCaptureRegionScreenshot(): Promise<void> {
+  await invoke("capture_region_screenshot");
 }

@@ -7,6 +7,8 @@ use tauri::State;
 
 pub struct AppState {
     pub db_path: String,
+    pub images_dir: String,
+    pub app_data_dir: String,
 }
 
 // Removed: Use get_clipboard_items_paginated() instead for better performance

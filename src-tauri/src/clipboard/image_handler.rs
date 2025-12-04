@@ -3,7 +3,7 @@ use arboard::ImageData;
 use image::image_dimensions;
 #[cfg(not(target_os = "macos"))]
 use image::GenericImageView;
-use image::{imageops, DynamicImage, ImageBuffer, ImageFormat, Rgba};
+use image::{imageops, DynamicImage, ImageBuffer, Rgba};
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
