@@ -4,7 +4,7 @@
   import TabAboutSettings from "./tabs/TabAboutSettings.svelte";
   import TabAccountSettings from "./tabs/TabAccountSettings.svelte";
   import TabApplicationSettings from "./tabs/TabApplicationSettings.svelte";
-  import TabAccountClipboard from "./tabs/TabClipboadSettings.svelte";
+  import TabHotkeysSettings from "./tabs/TabHotkeysSettings.svelte";
   import TacItemsSettings from "./tabs/TabItemsSettings.svelte";
   import TabLaboratorySettings from "./tabs/TabLaboratorySettings.svelte";
   import TabMemorySettings from "./tabs/TabMemorySettings.svelte";
@@ -18,6 +18,8 @@
   let { activeTab, onBack }: Props = $props();
   let enableAnalytics = $state(settingsStore.enableAnalytics);
   let globalHotkey = $state(settingsStore.hotkey);
+  let screenshotHotkeyFull = $state(settingsStore.screenshotHotkeyFull);
+  let screenshotHotkeyRegion = $state(settingsStore.screenshotHotkeyRegion);
   let hotkeyFeedback = $state<{
     type: "success" | "error";
     message: string;
@@ -27,6 +29,15 @@
   const handleSave = async () => {
     if (enableAnalytics !== settingsStore.enableAnalytics) {
       settingsStore.toggleAnalytics();
+    }
+    if (
+      screenshotHotkeyFull !== settingsStore.screenshotHotkeyFull ||
+      screenshotHotkeyRegion !== settingsStore.screenshotHotkeyRegion
+    ) {
+      settingsStore.updateScreenshotHotkeys(
+        screenshotHotkeyFull,
+        screenshotHotkeyRegion
+      );
     }
     if (globalHotkey !== settingsStore.hotkey) {
       const ok = await settingsStore.saveHotkey(globalHotkey);
@@ -42,11 +53,15 @@
     settingsStore.reset();
     enableAnalytics = settingsStore.enableAnalytics;
     globalHotkey = settingsStore.hotkey;
+    screenshotHotkeyFull = settingsStore.screenshotHotkeyFull;
+    screenshotHotkeyRegion = settingsStore.screenshotHotkeyRegion;
   };
 
   const handleCancel = () => {
     enableAnalytics = settingsStore.enableAnalytics;
     globalHotkey = settingsStore.hotkey;
+    screenshotHotkeyFull = settingsStore.screenshotHotkeyFull;
+    screenshotHotkeyRegion = settingsStore.screenshotHotkeyRegion;
     onBack?.();
   };
 </script>
@@ -56,9 +71,11 @@
     <TabAccountSettings />
   {/if}
 
-  {#if activeTab === "clipboard"}
-    <TabAccountClipboard
+  {#if activeTab === "hotkeys"}
+    <TabHotkeysSettings
       bind:globalHotkey
+      bind:screenshotHotkeyFull
+      bind:screenshotHotkeyRegion
       {hotkeyFeedback}
     />
   {/if}

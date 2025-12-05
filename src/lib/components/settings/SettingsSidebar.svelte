@@ -19,7 +19,7 @@
     activeTab,
     onTabChange,
     onBack,
-    version = "1.0.0",
+    version = "1.0.1",
     tauriVersion = "Tauri v2",
   }: Props = $props();
 </script>
@@ -41,7 +41,7 @@
   <nav class="flex-1 space-y-1 overflow-y-auto">
     {#each tabs as tab}
       <button
-        class={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors ${
+        class={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-colors focus:outline-none focus:underline focus:underline-offset-2 ${
           activeTab === tab.id
             ? "bg-primary/10 text-primary"
             : "text-text-muted hover:bg-surface-hover"

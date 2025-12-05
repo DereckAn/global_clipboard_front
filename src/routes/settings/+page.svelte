@@ -11,7 +11,7 @@
 
   const tabs: { id: TabId; label: string; icon: TabIcon }[] = [
     { id: "account", label: "Account", icon: "user" },
-    { id: "clipboard", label: "Clipboard", icon: "text" },
+    { id: "hotkeys", label: "Hotkeys", icon: "text" },
     { id: "items", label: "Item Management", icon: "trash" },
     { id: "memory", label: "Usage", icon: "database" },
     { id: "privacy", label: "Privacy", icon: "lock" },

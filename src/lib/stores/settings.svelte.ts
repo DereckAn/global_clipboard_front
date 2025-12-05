@@ -26,6 +26,24 @@ import { listen } from "@tauri-apps/api/event";
 interface Settings {
   hotkey: string;
 }
+
+const HOTKEY_MODIFIERS = ["Command", "Control", "Alt", "Option", "Shift"];
+const normalizeHotkey = (hotkey: string) => {
+  return hotkey
+    .split("+")
+    .map((p) => p.trim())
+    .filter(Boolean);
+};
+
+const isValidHotkey = (hotkey: string) => {
+  if (!hotkey) return false;
+  const parts = normalizeHotkey(hotkey);
+  if (parts.length < 2) return false;
+  const hasModifier = parts.some((p) => HOTKEY_MODIFIERS.includes(p));
+  const hasMain = parts.some((p) => !HOTKEY_MODIFIERS.includes(p));
+  return hasModifier && hasMain;
+};
+
 export class SettingsStore {
   maxLocalItems = $state(DEFAULT_SETTINGS.maxLocalItems);
   showHotkey = $state(DEFAULT_SETTINGS.showHotkey);
@@ -40,6 +58,8 @@ export class SettingsStore {
   clipboardMonitorInterval = $state(DEFAULT_SETTINGS.clipboardMonitorInterval);
   notificationsEnabled = $state(DEFAULT_SETTINGS.notificationsEnabled);
   notificationSound = $state(DEFAULT_SETTINGS.notificationSound);
+  screenshotHotkeyFull = $state("CommandOrControl+Shift+3");
+  screenshotHotkeyRegion = $state("CommandOrControl+Shift+4");
 
   autoStartEnabled = $state(false);
   trayIconVisible = $state(false);
@@ -85,6 +105,14 @@ export class SettingsStore {
             DEFAULT_SETTINGS.notificationsEnabled;
           this.notificationSound =
             parsed.notificationSound ?? DEFAULT_SETTINGS.notificationSound;
+          this.screenshotHotkeyFull =
+            parsed.screenshotHotkeyFull && isValidHotkey(parsed.screenshotHotkeyFull)
+              ? parsed.screenshotHotkeyFull
+              : "CommandOrControl+Shift+3";
+          this.screenshotHotkeyRegion =
+            parsed.screenshotHotkeyRegion && isValidHotkey(parsed.screenshotHotkeyRegion)
+              ? parsed.screenshotHotkeyRegion
+              : "CommandOrControl+Shift+4";
         } catch (err) {
           console.error("Failed to load settings store:", err);
         }
@@ -122,6 +150,16 @@ export class SettingsStore {
     this.save();
   }
 
+  updateScreenshotHotkeys(full: string, region: string) {
+    if (isValidHotkey(full)) {
+      this.screenshotHotkeyFull = full;
+    }
+    if (isValidHotkey(region)) {
+      this.screenshotHotkeyRegion = region;
+    }
+    this.save();
+  }
+
   reset() {
     this.maxLocalItems = DEFAULT_SETTINGS.maxLocalItems;
     this.showHotkey = DEFAULT_SETTINGS.showHotkey;
@@ -129,6 +167,8 @@ export class SettingsStore {
     this.maxItemsEnabled = DEFAULT_SETTINGS.maxItemsEnabled;
     this.retentionEnabled = DEFAULT_SETTINGS.retentionEnabled;
     this.retentionDays = DEFAULT_SETTINGS.retentionDays;
+    this.screenshotHotkeyFull = "CommandOrControl+Shift+3";
+    this.screenshotHotkeyRegion = "CommandOrControl+Shift+4";
     this.save();
   }
 
@@ -183,6 +223,11 @@ export class SettingsStore {
     this.error = null;
 
     try {
+      if (!isValidHotkey(newHotkey)) {
+        this.error = "Hotkey must include a modifier and a key";
+        return false;
+      }
+      console.debug("[hotkey] registering", newHotkey);
       await tauriUpdateGlobalHotkey(newHotkey);
       this.hotkey = newHotkey;
       return true;
@@ -364,6 +409,8 @@ export class SettingsStore {
             clipboardMonitorInterval: this.clipboardMonitorInterval,
             notificationsEnabled: this.notificationsEnabled,
             notificationSound: this.notificationSound,
+            screenshotHotkeyFull: this.screenshotHotkeyFull,
+            screenshotHotkeyRegion: this.screenshotHotkeyRegion,
           })
         );
 

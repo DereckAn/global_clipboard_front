@@ -1,127 +1,160 @@
- <script lang="ts">
-    interface Props {
-      value?: string;
-      id?: string;
-      onChange?: (hotkey: string) => void;
+<script lang="ts">
+  interface Props {
+    value?: string;
+    id?: string;
+    onChange?: (hotkey: string) => void;
+    disabled?: boolean;
+  }
+
+  let { value = "", onChange, disabled = false }: Props = $props();
+
+  let isRecording = $state(false);
+  let recordedKeys = $state<string[]>([]);
+
+  const SYMBOLS: Record<string, string> = {
+    Command: "⌘",
+    CommandOrControl: "⌘",
+    Control: "⌃",
+    Alt: "⌥",
+    Option: "⌥",
+    Shift: "⇧",
+  };
+
+  const MODIFIER_ORDER = ["Command", "Control", "Alt", "Option", "Shift"];
+
+  const formatHotkey = (hotkey: string, keys: string[]) => {
+    const parts = keys.length
+      ? keys
+      : hotkey
+          .split("+")
+          .map((k) => k.trim())
+          .filter(Boolean);
+
+    if (!parts.length) return "Click to record hotkey";
+
+    return parts.map((part) => SYMBOLS[part] ?? part.toUpperCase()).join(" ");
+  };
+
+  const isModifier = (key: string) =>
+    key === "Command" ||
+    key === "CommandOrControl" ||
+    key === "Control" ||
+    key === "Alt" ||
+    key === "Option" ||
+    key === "Shift";
+
+  const displayText = $derived.by(() =>
+    isRecording
+      ? recordedKeys.length > 0
+        ? formatHotkey("", recordedKeys)
+        : "Press keys…"
+      : formatHotkey(value, [])
+  );
+
+  const startRecording = () => {
+    if (disabled) return;
+    isRecording = true;
+    recordedKeys = [];
+  };
+
+  const cancelRecording = () => {
+    isRecording = false;
+    recordedKeys = [];
+  };
+
+  const finishRecording = () => {
+    isRecording = false;
+    const hasMain = recordedKeys.some((k) => !isModifier(k));
+    const hasModifierKey = recordedKeys.some(isModifier);
+    if (recordedKeys.length > 0 && hasMain && hasModifierKey && onChange) {
+      const hotkey = recordedKeys.join("+");
+      onChange(hotkey);
+    }
+  };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (!isRecording || disabled) return;
+    if (e.key === "Escape") {
+      cancelRecording();
+      return;
     }
 
-    let { value = "", onChange }: Props = $props();
+    e.preventDefault();
+    e.stopPropagation();
 
-    let isRecording = $state(false);
-    let recordedKeys = $state<string[]>([]);
+    const keys: string[] = [];
+    // collect modifiers distinctly to allow multi-mod combos
+    if (e.metaKey) keys.push("Command");
+    if (e.ctrlKey) keys.push("Control");
+    if (e.altKey) keys.push("Alt");
+    if (e.shiftKey) keys.push("Shift");
 
-    const displayText = $derived(
+    if (
+      e.key !== "Meta" &&
+      e.key !== "Control" &&
+      e.key !== "Alt" &&
+      e.key !== "Shift"
+    ) {
+      keys.push(e.key.toUpperCase());
+    }
+
+    // order modifiers consistently, then main key at the end
+    const mods = MODIFIER_ORDER.filter((m) => keys.includes(m));
+    const main = keys.filter((k) => !isModifier(k));
+    recordedKeys = [...mods, ...main];
+  };
+
+  const handleKeyUp = () => {
+    if (!isRecording || disabled) return;
+    const hasMain = recordedKeys.some((k) => !isModifier(k));
+    const hasModifierKey = recordedKeys.some(isModifier);
+    if (recordedKeys.length > 0 && hasMain && hasModifierKey) {
+      finishRecording();
+    }
+  };
+
+  const handleBlur = () => {
+    if (isRecording) {
+      finishRecording();
+    }
+  };
+</script>
+
+<svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} />
+
+<div class="flex items-center gap-2">
+  <span
+    class="px-3 py-1 rounded-md border border-border/60 text-sm text-no-wrap min-w-[100px] text-center"
+  >
+    {displayText}
+  </span>
+  <button
+    class={`px-3 py-1 rounded-md bg-white/10 text-sm ${
       isRecording
-        ? recordedKeys.length > 0
-          ? recordedKeys.join(" + ")
-          : "Press your keys..."
-        : value || "Click to record hotkey"
-    );
+        ? "border-primary text-primary bg-primary/10 animate-pulse"
+        : "border-border/60 text-text bg-surface-100/40 hover:bg-white/20"
+    }`}
+    onclick={startRecording}
+    onblur={handleBlur}
+    id="edit-hotkey-button"
+    {disabled}
+  >
+    {isRecording ? "Recording…" : "Edit"}
+  </button>
+</div>
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isRecording) return;
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      const keys: string[] = [];
-
-      // Add modifiers in order
-      if (e.metaKey || e.ctrlKey) keys.push("CommandOrControl");
-      if (e.altKey) keys.push("Alt");
-      if (e.shiftKey) keys.push("Shift");
-
-      // Add main key (not a modifier)
-      if (
-        e.key !== "Meta" &&
-        e.key !== "Control" &&
-        e.key !== "Alt" &&
-        e.key !== "Shift"
-      ) {
-        keys.push(e.key.toUpperCase());
-      }
-
-      recordedKeys = keys;
-    };
-
-    const handleKeyUp = (e: KeyboardEvent) => {
-      if (!isRecording) return;
-
-      // Only finish if we have at least a modifier + key
-      if (recordedKeys.length > 1) {
-        finishRecording();
-      }
-    };
-
-    const startRecording = () => {
-      isRecording = true;
-      recordedKeys = [];
-    };
-
-    const finishRecording = () => {
-      isRecording = false;
-      if (recordedKeys.length > 1 && onChange) {
-        const hotkey = recordedKeys.join("+");
-        onChange(hotkey);
-      }
-    };
-
-    const handleBlur = () => {
-      if (isRecording) {
-        finishRecording();
-      }
-    };
-  </script>
-
-  <svelte:window onkeydown={handleKeyDown} onkeyup={handleKeyUp} />
-
-  <div class="space-y-2">
-    <button
-      onclick={startRecording}
-      onblur={handleBlur}
-      class="w-full px-4 py-2.5 bg-surface border-2 rounded-lg text-left transition-all font-mono text-sm flex items-center justify-between"
-      class:border-primary={isRecording}
-      class:border-border={!isRecording}
-      class:bg-primary-5={isRecording}
-    >
-      <span class:text-text={!isRecording} class:text-primary={isRecording}>
-        {displayText}
-      </span>
-
-      {#if isRecording}
-        <span class="text-xs text-primary font-semibold animate-pulse">
-          Recording...
-        </span>
-      {:else}
-        <span class="text-xs text-text-muted">
-          Click to change
-        </span>
-      {/if}
-    </button>
-
-    {#if isRecording}
-      <p class="text-xs text-primary font-medium flex items-center gap-1">
-        <span class="inline-block w-2 h-2 rounded-full bg-primary animate-pulse"></span>
-        Press your key combination (e.g., Cmd + Shift + V)
-      </p>
-    {:else}
-      <p class="text-xs text-text-muted">
-        Click the box above and press your desired key combination
-      </p>
-    {/if}
-  </div>
-
-  <style>
-    @keyframes pulse {
-      0%, 100% {
-        opacity: 1;
-      }
-      50% {
-        opacity: 0.5;
-      }
+<style>
+  @keyframes pulse {
+    0%,
+    100% {
+      opacity: 1;
     }
-
-    .animate-pulse {
-      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    50% {
+      opacity: 0.5;
     }
-  </style>
+  }
+
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+</style>
