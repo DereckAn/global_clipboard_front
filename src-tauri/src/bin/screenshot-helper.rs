@@ -89,10 +89,99 @@ fn run_region(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
 
 #[cfg(target_os = "windows")]
 fn run_full(_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    Err("Full-screen capture not implemented on Windows helper".into())
+    use std::process::Stdio;
+
+    let path = _path.to_string_lossy();
+    let script = format!(
+        r#"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+$bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
+$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+$graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
+$bitmap.Save('{path}', [System.Drawing.Imaging.ImageFormat]::Png)
+"#,
+        path = path.replace("\\", "\\\\")
+    );
+
+    let status = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-NonInteractive")
+        .arg("-Command")
+        .arg(script)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+
+    if !status.success() {
+        return Err("Windows PowerShell capture failed".into());
+    }
+    Ok(())
 }
 
 #[cfg(target_os = "windows")]
 fn run_region(_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
-    Err("Region capture not implemented on Windows helper".into())
+    use std::process::Stdio;
+
+    let path = _path.to_string_lossy().replace("\\", "\\\\");
+    let script = format!(
+        r#"
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+
+function Save-ClipImage([string]$p, [int]$timeoutMs) {{
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
+  while ($sw.ElapsedMilliseconds -lt $timeoutMs) {{
+    Start-Sleep -Milliseconds 200
+    if ([Windows.Forms.Clipboard]::ContainsImage()) {{
+      $img = [Windows.Forms.Clipboard]::GetImage()
+      if ($img) {{
+        $img.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
+        return $true
+      }}
+    }}
+  }}
+  return $false
+}}
+
+$started = $false
+try {{
+  Start-Process -WindowStyle Hidden "explorer.exe" "ms-screenclip:"
+  $started = $true
+}} catch {{}}
+
+if (-not $started) {{
+  try {{
+    Start-Process -WindowStyle Hidden "snippingtool.exe" "/clip"
+    $started = $true
+  }} catch {{}}
+}}
+
+if (-not $started) {{ exit 2 }}
+
+if (-not (Save-ClipImage '{path}' 15000)) {{ exit 3 }}
+"#,
+        path = path
+    );
+
+    let status = Command::new("powershell")
+        .arg("-NoProfile")
+        .arg("-STA")
+        .arg("-NonInteractive")
+        .arg("-Command")
+        .arg(script)
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+
+    if !status.success() {
+        return match status.code() {
+            Some(2) => Err("No screen clipping tool found (ms-screenclip or snippingtool)".into()),
+            Some(3) => Err("Timed out waiting for region capture".into()),
+            _ => Err("Windows region capture failed".into()),
+        };
+    }
+
+    Ok(())
 }

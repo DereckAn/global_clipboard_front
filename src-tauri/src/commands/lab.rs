@@ -140,12 +140,16 @@ fn registry() -> Vec<LabFeatureMeta> {
                     version: "1.0.0".to_string(),
                     file_name: "screenshot-helper".to_string(),
                 }),
-                windows: Some(Artifact {
-                    url: win_url.to_string(),
-                    sha256: win_sha.to_string(),
-                    version: "1.0.0".to_string(),
-                    file_name: "screenshot-helper.exe".to_string(),
-                }),
+                windows: if !win_url.is_empty() {
+                    Some(Artifact {
+                        url: win_url.to_string(),
+                        sha256: win_sha.to_string(),
+                        version: "1.0.0".to_string(),
+                        file_name: "screenshot-helper.exe".to_string(),
+                    })
+                } else {
+                    None
+                },
                 linux: Some(Artifact {
                     url: linux_url.to_string(),
                     sha256: linux_sha.to_string(),
