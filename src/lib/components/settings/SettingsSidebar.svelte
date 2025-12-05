@@ -1,4 +1,5 @@
 <script lang="ts">
+  import type { TabIcon } from "$lib/types";
   import Icon from "../icons/Icon.svelte";
   import Button from "../ui/Button.svelte";
 
@@ -21,24 +22,19 @@
     version = "1.0.0",
     tauriVersion = "Tauri v2",
   }: Props = $props();
-
-  type TabIcon =
-    | "user"
-    | "text"
-    | "trash"
-    | "database"
-    | "lock"
-    | "settings"
-    | "flask"
-    | "info";
 </script>
 
 <aside
-  class="w-64 bg-surface backdrop-blur-xs border m-3 rounded-2xl border-border/60 p-4 flex flex-col gap-4"
+  class="w-64 bg-surface backdrop-blur-xs border rounded-2xl border-border/60 p-4 flex flex-col gap-4"
 >
   <div class="flex items-center gap-2 px-2 text-sm text-text-muted">
-    <Button variant="ghost" size="icon" onclick={() => onBack?.()}>
-      <Icon name="chevronRight" size={20} class="rotate-180" />
+    <Button
+      variant="ghost"
+      size="icon"
+      onclick={() => onBack?.()}
+      class="rounded-full"
+    >
+      <Icon name="chevronRight" size={20} class="rotate-180 " />
     </Button>
     <span class="font-semibold text-text">Navigation</span>
   </div>

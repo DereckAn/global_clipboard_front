@@ -2,7 +2,7 @@
   import Icon from "$lib/components/icons/Icon.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import { settingsStore } from "$lib/stores/settings.svelte";
-  import type { LabFeatureMeta, LabFeatureWithMeta } from "$lib/types";
+  import type { LabFeatureMeta, LabFeatureWithMeta, TabIcon } from "$lib/types";
 
   const featureMeta: LabFeatureMeta[] = [
     {
@@ -57,7 +57,8 @@
   });
 
   const actionLabel = (feature: LabFeatureWithMeta) => {
-    if (feature.progress !== undefined) return `Installing ${feature.progress}%`;
+    if (feature.progress !== undefined)
+      return `Installing ${feature.progress}%`;
     if (feature.status === "installed") return "Uninstall";
     return "Install";
   };
@@ -102,7 +103,9 @@
   };
 </script>
 
-<section class="relative bg-surface rounded-2xl border border-border/60 p-6 space-y-6">
+<section
+  class="relative bg-surface rounded-2xl border border-border/60 p-6 space-y-6"
+>
   <header class="flex items-center justify-between">
     <div class="flex items-center gap-2">
       <Icon name="flask" size={20} />
@@ -119,24 +122,30 @@
     {#each features as feature (feature.id)}
       <div class="py-4 flex items-start justify-between gap-4">
         <div class="flex items-start gap-3">
-          <div class="h-11 w-11 rounded-xl bg-surface-200/30 border border-border/60 flex items-center justify-center shrink-0">
-            <Icon name={feature.icon} size={20} />
+          <div
+            class="h-11 w-11 rounded-xl bg-surface-200/30 border border-border/60 flex items-center justify-center shrink-0"
+          >
+            <Icon name={feature.icon as TabIcon} size={20} />
           </div>
           <div>
             <div class="flex items-center gap-2">
               <p class="text-sm font-semibold text-text">{feature.title}</p>
               {#if feature.needsDownload}
-                <span class="text-[10px] px-2 py-0.5 rounded-full border border-border/60 text-text-muted uppercase tracking-wide">
+                <span
+                  class="text-[10px] px-2 py-0.5 rounded-full border border-border/60 text-text-muted uppercase tracking-wide"
+                >
                   Download
                 </span>
               {/if}
               {#if feature.status === "installed"}
-                <span class="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success uppercase tracking-wide">
+                <span
+                  class="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success uppercase tracking-wide"
+                >
                   Installed
                 </span>
               {/if}
             </div>
-            <p class="text-xs text-text-muted leading-relaxed">
+            <p class="text-[10px] text-text-muted leading-relaxed">
               {feature.description}
             </p>
             {#if feature.error}
@@ -177,6 +186,8 @@
             <Button
               onclick={() => handleInstall(feature.id)}
               disabled={isInstalling(feature)}
+              variant="other"
+              class="h-fit text-sm bg-white/5 hover:bg-blue-500/20 rounded-md z-10"
             >
               {actionLabel(feature)}
             </Button>

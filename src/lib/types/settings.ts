@@ -51,4 +51,8 @@ export type TabIcon =
   | "lock"
   | "settings"
   | "flask"
-  | "info";
+  | "info"
+  | "image"
+  | "search"
+  | "text"
+  | "color";

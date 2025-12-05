@@ -176,7 +176,7 @@
   />
 
   <!-- Main content area -->
-  <div class="flex-1 flex overflow-hidden  w-[750px]">
+  <div class="flex-1 flex overflow-hidden w-[750px]">
     <!-- Sidebar (40%) -->
     <Sidebar
       items={filteredItems}
@@ -185,7 +185,7 @@
     />
 
     <!-- Right panel (60%) -->
-    <div class="flex flex-col w-[65%]">
+    <div class="flex flex-col w-[65%]  relative ">
       <!-- Content viewer (top) -->
       <ContentViewer item={selectedItem} searchQuery={debouncedSearchQuery} />
 

@@ -4,10 +4,13 @@ use crate::clipboard::image_handler::{
 use crate::db::models::CreateClipboardItemDto;
 use crate::db::repository::ClipboardRepository;
 use crate::AppState;
+use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
+use sha2::Digest;
 use std::fs;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 use std::process::Command;
 use std::sync::Mutex;
 use tauri::{AppHandle, Emitter, Runtime, State};
@@ -30,6 +33,8 @@ pub struct LabFeatureMeta {
     pub description: String,
     pub icon: String,
     pub needs_download: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifacts: Option<ArtifactMap>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -62,17 +67,92 @@ pub struct LabFeatureWithState {
     pub error: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Artifact {
+    pub url: String,
+    pub sha256: String,
+    pub version: String,
+    pub file_name: String, // e.g., "ocr_helper_v1.0.0.zip"
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ArtifactMap {
+    pub macos: Option<Artifact>,
+    pub windows: Option<Artifact>,
+    pub linux: Option<Artifact>,
+}
+
 const LAB_STATE_FILE: &str = "lab_features.json";
 const FEATURE_ROOT_DIR: &str = "lab_features";
 
 fn registry() -> Vec<LabFeatureMeta> {
+    // URLs dependen de la arquitectura en tiempo de compilación
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    let (mac_url, mac_sha) = (
+        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-macos-arm64",
+        "<MACOS_ARM64_SHA256>",
+    );
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    let (mac_url, mac_sha) = (
+        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-macos-x64",
+        "<MACOS_X64_SHA256>",
+    );
+    #[cfg(not(target_os = "macos"))]
+    let (mac_url, mac_sha) = ("", "");
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    let (linux_url, linux_sha) = (
+        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-linux-arm64",
+        "<LINUX_ARM64_SHA256>",
+    );
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    let (linux_url, linux_sha) = (
+        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-linux-x64",
+        "<LINUX_X64_SHA256>",
+    );
+    #[cfg(not(target_os = "linux"))]
+    let (linux_url, linux_sha) = ("", "");
+    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+    let (win_url, win_sha) = (
+        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-windows-arm64.exe",
+        "<WINDOWS_ARM64_SHA256>",
+    );
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    let (win_url, win_sha) = (
+        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-windows-x64.exe",
+        "<WINDOWS_X64_SHA256>",
+    );
+    #[cfg(not(target_os = "windows"))]
+    let (win_url, win_sha) = ("", "");
+
     vec![
         LabFeatureMeta {
             id: LabFeatureId::Screenshot,
             title: "Screenshot capture".to_string(),
             description: "Take full or region screenshots and save to clipboard.".to_string(),
             icon: "image".to_string(),
-            needs_download: false,
+            needs_download: true,
+            artifacts: Some(ArtifactMap {
+                macos: Some(Artifact {
+                    url: mac_url.to_string(),
+                    sha256: mac_sha.to_string(),
+                    version: "1.0.0".to_string(),
+                    file_name: "screenshot-helper".to_string(),
+                }),
+                windows: Some(Artifact {
+                    url: win_url.to_string(),
+                    sha256: win_sha.to_string(),
+                    version: "1.0.0".to_string(),
+                    file_name: "screenshot-helper.exe".to_string(),
+                }),
+                linux: Some(Artifact {
+                    url: linux_url.to_string(),
+                    sha256: linux_sha.to_string(),
+                    version: "1.0.0".to_string(),
+                    file_name: "screenshot-helper".to_string(),
+                }),
+            }),
         },
         LabFeatureMeta {
             id: LabFeatureId::Ocr,
@@ -80,6 +160,7 @@ fn registry() -> Vec<LabFeatureMeta> {
             description: "Extract text from images (download helper).".to_string(),
             icon: "search".to_string(),
             needs_download: true,
+            artifacts: None,
         },
         LabFeatureMeta {
             id: LabFeatureId::Translator,
@@ -87,6 +168,7 @@ fn registry() -> Vec<LabFeatureMeta> {
             description: "Translate copied text to any language.".to_string(),
             icon: "text".to_string(),
             needs_download: true,
+            artifacts: None,
         },
         LabFeatureMeta {
             id: LabFeatureId::PickColor,
@@ -94,6 +176,7 @@ fn registry() -> Vec<LabFeatureMeta> {
             description: "Pick screen colors and copy HEX/RGB.".to_string(),
             icon: "color".to_string(),
             needs_download: true,
+            artifacts: None,
         },
     ]
 }
@@ -164,6 +247,7 @@ pub fn get_lab_features(state: State<Mutex<AppState>>) -> Result<Vec<LabFeatureW
 
 #[tauri::command]
 pub fn install_feature(
+    app: AppHandle,
     state: State<Mutex<AppState>>,
     id: LabFeatureId,
 ) -> Result<LabFeatureWithState, String> {
@@ -174,26 +258,21 @@ pub fn install_feature(
         .find(|m| m.id == id)
         .ok_or_else(|| "Feature not found".to_string())?;
 
-    match id {
-        LabFeatureId::Screenshot => {
-            // Built-in: no download required
-            update_state_entry(&mut states, &id, Some("builtin".to_string()), true, None);
-            save_states(&app_state, &states)?;
-            Ok(to_feature(&meta, &states))
-        }
-        _ => {
-            // Placeholder for future downloadable helpers
-            update_state_entry(
-                &mut states,
-                &id,
-                None,
-                false,
-                Some("Download flow not implemented yet".to_string()),
-            );
-            save_states(&app_state, &states)?;
-            Err("Download flow not implemented yet".to_string())
-        }
+    if meta.needs_download {
+        let artifacts = meta.artifacts.as_ref().ok_or("No artifacts defined")?;
+        let artifact = pick_artifact_for_os(artifacts)?;
+        let feature_dir = PathBuf::from(&app_state.app_data_dir)
+            .join(FEATURE_ROOT_DIR)
+            .join("screenshot")
+            .join(&artifact.version);
+        download_artifact(&app, artifact, &feature_dir)?;
+        update_state_entry(&mut states, &id, Some(artifact.version.clone()), true, None);
+    } else {
+        update_state_entry(&mut states, &id, Some("builtin".to_string()), true, None);
     }
+
+    save_states(&app_state, &states)?;
+    Ok(to_feature(&meta, &states))
 }
 
 #[tauri::command]
@@ -275,6 +354,32 @@ fn update_state_entry(
     }
 }
 
+fn pick_artifact_for_os(artifacts: &ArtifactMap) -> Result<&Artifact, String> {
+    #[cfg(target_os = "macos")]
+    {
+        artifacts
+            .macos
+            .as_ref()
+            .ok_or_else(|| "No macOS artifact available".to_string())
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        artifacts
+            .windows
+            .as_ref()
+            .ok_or_else(|| "No Windows artifact available".to_string())
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        artifacts
+            .linux
+            .as_ref()
+            .ok_or_else(|| "No Linux artifact available".to_string())
+    }
+}
+
 #[derive(Clone, Copy)]
 enum CaptureMode {
     Full,
@@ -304,15 +409,25 @@ fn capture_screenshot_internal<R: Runtime>(
 ) -> Result<(), String> {
     let app_state = state.lock().map_err(|e| e.to_string())?;
     let states = load_states(&app_state);
-    let screenshot_enabled = states
+    let screenshot_entry = states
         .iter()
         .find(|s| s.id == LabFeatureId::Screenshot)
+        .cloned();
+    let screenshot_enabled = screenshot_entry
+        .as_ref()
         .map(|s| s.enabled && s.installed_version.is_some())
         .unwrap_or(false);
 
     if !screenshot_enabled {
-        return Err("Screenshot feature is not installed or enabled".to_string());
+        return Err(
+            "Screenshot helper is not installed or enabled. Please install it from Laboratory."
+                .to_string(),
+        );
     }
+
+    let installed_version = screenshot_entry
+        .and_then(|s| s.installed_version)
+        .ok_or_else(|| "Screenshot helper not installed".to_string())?;
 
     let images_dir = PathBuf::from(&app_state.images_dir);
     fs::create_dir_all(&images_dir).map_err(|e| e.to_string())?;
@@ -324,8 +439,12 @@ fn capture_screenshot_internal<R: Runtime>(
     let file_path = temp_path.join(format!("capture-{}.png", Uuid::new_v4()));
 
     match mode {
-        CaptureMode::Full => run_full_capture(&file_path)?,
-        CaptureMode::Region => run_region_capture(&file_path)?,
+        CaptureMode::Full => {
+            run_full_capture_with_helper(&app_state, &installed_version, &file_path)?
+        }
+        CaptureMode::Region => {
+            run_region_capture_with_helper(&app_state, &installed_version, &file_path)?
+        }
     }
 
     ingest_captured_image(&app_state, &app, &file_path, &images_dir)?;
@@ -392,10 +511,7 @@ fn ingest_captured_image<R: Runtime>(
         ),
     );
     if let Some(name) = info.original_name.clone() {
-        metadata.insert(
-            "original_name".to_string(),
-            serde_json::Value::String(name),
-        );
+        metadata.insert("original_name".to_string(), serde_json::Value::String(name));
     }
 
     let repo =
@@ -431,99 +547,153 @@ fn ingest_captured_image<R: Runtime>(
     Ok(())
 }
 
-#[cfg(target_os = "macos")]
-fn run_full_capture(path: &Path) -> Result<(), String> {
-    let status = Command::new("screencapture")
-        .arg("-x")
-        .arg(path)
-        .status()
-        .map_err(|e| format!("Failed to run screencapture: {e}"))?;
+fn download_artifact<R: Runtime>(
+    app: &AppHandle<R>,
+    artifact: &Artifact,
+    feature_dir: &Path,
+) -> Result<PathBuf, String> {
+    fs::create_dir_all(feature_dir).map_err(|e| e.to_string())?;
+    let target_path = feature_dir.join(&artifact.file_name);
 
-    if !status.success() {
-        return Err("screencapture failed".to_string());
-    }
-    Ok(())
-}
+    let client = Client::builder()
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
 
-#[cfg(target_os = "macos")]
-fn run_region_capture(path: &Path) -> Result<(), String> {
-    let status = Command::new("screencapture")
-        .arg("-i")
-        .arg("-x")
-        .arg(path)
-        .status()
-        .map_err(|e| format!("Failed to run screencapture: {e}"))?;
+    let mut res = client
+        .get(&artifact.url)
+        .send()
+        .map_err(|e| format!("Failed to download artifact: {e}"))?;
 
-    if !status.success() {
-        return Err("screencapture failed".to_string());
-    }
-    Ok(())
-}
-
-#[cfg(target_os = "linux")]
-fn run_full_capture(path: &Path) -> Result<(), String> {
-    // Prefer grim if available, fallback to gnome-screenshot
-    let grim = Command::new("grim").arg(path).status();
-    match grim {
-        Ok(status) if status.success() => return Ok(()),
-        Ok(_) | Err(_) => {}
+    if !res.status().is_success() {
+        return Err(format!(
+            "Failed to download artifact: HTTP {}",
+            res.status()
+        ));
     }
 
-    let fallback = Command::new("gnome-screenshot")
-        .arg("-f")
-        .arg(path)
-        .status()
-        .map_err(|e| format!("Failed to run gnome-screenshot: {e}"))?;
+    let mut file =
+        fs::File::create(&target_path).map_err(|e| format!("Failed to create file: {e}"))?;
 
-    if fallback.success() {
-        Ok(())
-    } else {
-        Err("No supported screenshot tool found (install grim or gnome-screenshot)".to_string())
-    }
-}
+    let mut hasher = sha2::Sha256::new();
+    let mut downloaded: u64 = 0;
+    let total = res
+        .headers()
+        .get("content-length")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
 
-#[cfg(target_os = "linux")]
-fn run_region_capture(path: &Path) -> Result<(), String> {
-    // Try grim + slurp
-    if let Ok(selection) = Command::new("slurp").output() {
-        if selection.status.success() {
-            let geometry = String::from_utf8_lossy(&selection.stdout).trim().to_string();
-            if !geometry.is_empty() {
-                let status = Command::new("grim")
-                    .arg("-g")
-                    .arg(geometry)
-                    .arg(path)
-                    .status();
-                if let Ok(status) = status {
-                    if status.success() {
-                        return Ok(());
-                    }
-                }
-            }
+    let mut buffer = [0u8; 8192];
+    loop {
+        let n = res
+            .read(&mut buffer)
+            .map_err(|e| format!("Failed to read download: {e}"))?;
+        if n == 0 {
+            break;
+        }
+        file.write_all(&buffer[..n])
+            .map_err(|e| format!("Failed to write download: {e}"))?;
+        hasher.update(&buffer[..n]);
+        downloaded += n as u64;
+        if total > 0 {
+            let percent = ((downloaded as f64 / total as f64) * 100.0).round() as u8;
+            let _ = app.emit(
+                "lab-feature-download-progress",
+                serde_json::json!({
+                    "id": "screenshot",
+                    "progress": percent,
+                }),
+            );
         }
     }
+    let hash = format!("{:x}", hasher.finalize());
+    if hash != artifact.sha256 {
+        let _ = fs::remove_file(&target_path);
+        return Err("Integrity check failed (sha256 mismatch)".to_string());
+    }
 
-    // Fallback to gnome-screenshot area mode
-    let fallback = Command::new("gnome-screenshot")
-        .arg("-a")
-        .arg("-f")
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = fs::metadata(&target_path)
+            .map_err(|e| e.to_string())?
+            .permissions();
+        perms.set_mode(0o755);
+        fs::set_permissions(&target_path, perms).map_err(|e| e.to_string())?;
+    }
+
+    Ok(target_path)
+}
+
+fn helper_path(app_state: &AppState, feature: &str, version: &str) -> PathBuf {
+    PathBuf::from(&app_state.app_data_dir)
+        .join(FEATURE_ROOT_DIR)
+        .join(feature)
+        .join(version)
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+fn run_full_capture_with_helper(
+    app_state: &AppState,
+    version: &str,
+    path: &Path,
+) -> Result<(), String> {
+    let helper = helper_path(app_state, "screenshot", version).join(if cfg!(windows) {
+        "screenshot-helper.exe"
+    } else {
+        "screenshot-helper"
+    });
+    if !helper.exists() {
+        return Err(format!(
+            "Screenshot helper not found at {}. Reinstall from Laboratory.",
+            helper.display()
+        ));
+    }
+    let status = Command::new(&helper)
+        .arg("--mode")
+        .arg("full")
+        .arg("--out")
         .arg(path)
         .status()
-        .map_err(|e| format!("Failed to run gnome-screenshot: {e}"))?;
-
-    if fallback.success() {
-        Ok(())
-    } else {
-        Err("No supported region capture tool found (install grim+slurp or gnome-screenshot)".to_string())
+        .map_err(|e| format!("Failed to run helper: {e}"))?;
+    if !status.success() {
+        return Err(format!(
+            "Screenshot helper exited with code {:?}",
+            status.code()
+        ));
     }
+    Ok(())
 }
 
-#[cfg(target_os = "windows")]
-fn run_full_capture(_path: &Path) -> Result<(), String> {
-    Err("Full-screen capture not implemented on Windows yet".to_string())
-}
-
-#[cfg(target_os = "windows")]
-fn run_region_capture(_path: &Path) -> Result<(), String> {
-    Err("Region capture not implemented on Windows yet".to_string())
+// Similar para region:
+fn run_region_capture_with_helper(
+    app_state: &AppState,
+    version: &str,
+    path: &Path,
+) -> Result<(), String> {
+    let helper = helper_path(app_state, "screenshot", version).join(if cfg!(windows) {
+        "screenshot-helper.exe"
+    } else {
+        "screenshot-helper"
+    });
+    if !helper.exists() {
+        return Err(format!(
+            "Screenshot helper not found at {}. Reinstall from Laboratory.",
+            helper.display()
+        ));
+    }
+    let status = Command::new(&helper)
+        .arg("--mode")
+        .arg("region")
+        .arg("--out")
+        .arg(path)
+        .status()
+        .map_err(|e| format!("Failed to run helper: {e}"))?;
+    if !status.success() {
+        return Err(format!(
+            "Screenshot helper exited with code {:?}",
+            status.code()
+        ));
+    }
+    Ok(())
 }

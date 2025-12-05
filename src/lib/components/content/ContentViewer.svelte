@@ -280,6 +280,7 @@
           </div>
         {/each}
       </div>
+      <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
   {:else if isLink}
     <!-- Link content with metadata preview -->
@@ -370,7 +371,7 @@
       {/if}
 
       <!-- Copy button -->
-      <div class=" my-3 flex justify-center px-2">
+      <div class="my-3 flex justify-center px-3">
         <Button
           variant="default"
           onclick={() => handleCopy(item.contentText || "")}
@@ -386,6 +387,8 @@
           </span>
         </Button>
       </div>
+      <div class="h-44 mx-3 mb-3 bg-transparent"></div>
+
     </div>
   {:else if isImage}
     <!-- Image content -->
@@ -393,11 +396,11 @@
       <!-- Image Preview -->
       <div class="flex-1 flex items-center justify-center mb-4 overflow-auto">
         {#if imagePreviewUrl}
-          <div class="max-w-full relative flex items-center justify-center p-3 ">
+          <div class="max-w-full relative flex items-center justify-center p-3">
             <img
               src={imagePreviewUrl}
               alt={item.fileName || "Clipboard image"}
-              class="max-w-full object-scale-down shadow-2xl animate-in fade-in duration-300 rounded-2xl "
+              class="max-w-full object-scale-down shadow-2xl animate-in fade-in duration-300 rounded-2xl"
               decoding="async"
               draggable={false}
               onload={() =>
@@ -454,6 +457,7 @@
           <span>{copied ? "Copied!" : "Copy image to clipboard"}</span>
         </button>
       </div>
+      <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
   {:else if isFile}
     <div class="flex-1 flex flex-col max-w-full">
@@ -507,6 +511,7 @@
           </Button>
         </div>
       </div>
+      <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
   {:else if isSvg}
     <!-- SVG content -->
@@ -530,6 +535,7 @@
           <span>{copied ? "Copied!" : "Copy SVG"}</span>
         </button>
       </div>
+      <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
   {:else}
     <!-- Text/Code content -->
@@ -555,6 +561,7 @@
           <span>{copied ? "Copied!" : "Copy to clipboard"}</span>
         </button>
       </div>
+      <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
   {/if}
 </div>
@@ -602,4 +609,3 @@
     }
   }
 </style>
-

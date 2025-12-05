@@ -3,24 +3,25 @@ import {
   tauriCleanupOldItems,
   tauriDisableAutoStart,
   tauriEnableAutoStart,
-  tauriGetDatabaseStats,
-  tauriGetSetting,
+  tauriEnableFeature,
   tauriGetCleanupSettings,
+  tauriGetDatabaseStats,
+  tauriGetLabFeatures,
+  tauriGetSetting,
+  tauriInstallFeature,
   tauriIsAutoStartEnabled,
   tauriIsTrayVisible,
-  tauriGetLabFeatures,
-  tauriInstallFeature,
-  tauriUninstallFeature,
-  tauriEnableFeature,
   tauriOptimizeDatabase,
   tauriQuitApp,
   tauriSaveCleanupSettings,
   tauriSetTrayVisible,
+  tauriUninstallFeature,
   tauriUpdateGlobalHotkey,
   type DatabaseStats,
 } from "$lib/tauri/commands";
 import type { LabFeatureId, LabFeatureWithMeta } from "$lib/types";
 import { DEFAULT_SETTINGS } from "$lib/types";
+import { listen } from "@tauri-apps/api/event";
 
 interface Settings {
   hotkey: string;
@@ -49,6 +50,16 @@ export class SettingsStore {
   constructor() {
     // Load from localStorage
     if (typeof window !== "undefined") {
+      listen("lab://install-progress", (event) => {
+        const { id, progress } = event.payload as {
+          id: LabFeatureId;
+          progress: number;
+        };
+        this.labFeatures = this.labFeatures.map((feature) =>
+          feature.id === id ? { ...feature, progress } : feature
+        );
+      });
+
       const saved = localStorage.getItem("settings-store");
       if (saved) {
         try {

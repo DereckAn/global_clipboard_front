@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Icon from "$lib/components/icons/Icon.svelte";
   import { settingsStore } from "$lib/stores/settings.svelte";
   import {
     tauriCaptureFullScreenshot,
@@ -97,7 +96,7 @@
 
 <header
   data-tauri-drag-region
-  class="h-12  border-border flex items-center gap-4 px-3 z-50"
+  class="h-12 border-border flex items-center gap-4 px-3 z-50"
 >
   <!-- Profile dropdown -->
   <ProfileDropdown {isAuthenticated} />
@@ -106,43 +105,47 @@
   <SearchBar bind:value={searchQuery} {isSearching} {resultCount} />
 
   {#if showScreenshotButton}
-    <div class="relative">
-      <div class="flex items-center gap-1 bg-surface-200/30 border border-border/70 rounded-xl overflow-hidden">
+    <div class="relative bg-surface rounded-md">
+      <div
+        class="flex items-center bg-surface-200/30 border border-border/70 rounded-md overflow-hidden"
+      >
         <button
-          class="h-8 px-3 text-sm flex items-center gap-2 hover:bg-surface-100/60 transition-colors"
+          class="h-7 px-2 border-l border-border/60 hover:bg-surface-hover"
           onclick={() => runCapture("full")}
           disabled={isCapturing}
         >
-          <Icon name="image" size={16} />
-          {isCapturing ? "Capturing..." : "Screenshot"}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="1em"
+            height="1em"
+            viewBox="0 0 24 24"
+            ><path
+              fill="currentColor"
+              fill-rule="evenodd"
+              d="M11 17H4a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3h16a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-7v2h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3zM4 5h16a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1"
+              clip-rule="evenodd"
+            /></svg
+          >
+          <!-- {isCapturing ? "Capturing..." : "Screenshot"} -->
         </button>
         <button
-          class="h-8 px-2 border-l border-border/60 hover:bg-surface-100/60"
-          onclick={() => (screenshotMenuOpen = !screenshotMenuOpen)}
+          class="h-7 px-2 border-l border-border/60 hover:bg-surface-hover"
+          onclick={() => runCapture("region")}
           aria-label="Screenshot options"
           disabled={isCapturing}
         >
-          <Icon name="chevronDown" size={14} />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="1em"
+            height="1em"
+            viewBox="0 0 24 24"
+            ><path
+              fill="currentColor"
+              d="M5 3H3v2h2zm4 0H7v2h2zM7 19h2v2H7zM5 7H3v2h2zm14 0h2v2h-2zM5 11H3v2h2zm14 0h2v2h-2zM5 15H3v2h2zm14 0h2v2h-2zM5 19H3v2h2zm6-16h2v2h-2zm2 16h-2v2h2zm2-16h2v2h-2zm2 16h-2v2h2zm2-16h2v2h-2zm2 16h-2v2h2z"
+            /></svg
+          >
         </button>
       </div>
-      {#if screenshotMenuOpen}
-        <div class="absolute right-0 mt-2 w-56 bg-surface border border-border/70 rounded-lg shadow-lg z-50">
-          <button
-            class="w-full text-left px-3 py-2 text-sm hover:bg-surface-100/60 flex items-center gap-2"
-            onclick={() => runCapture("full")}
-          >
-            <Icon name="image" size={16} />
-            Full screen (⌘+⇧+3 / PrtSc)
-          </button>
-          <button
-            class="w-full text-left px-3 py-2 text-sm hover:bg-surface-100/60 flex items-center gap-2"
-            onclick={() => runCapture("region")}
-          >
-            <Icon name="color" size={16} />
-            Selection (⌘+⇧+4 / Snip)
-          </button>
-        </div>
-      {/if}
     </div>
   {/if}
 

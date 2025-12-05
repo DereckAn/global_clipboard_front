@@ -51,7 +51,7 @@
   };
 </script>
 
-<div class="flex-1 overflow-y-auto py-3 pr-3 space-y-10">
+<div class="flex-1 overflow-y-auto  space-y-10">
   {#if activeTab === "account"}
     <TabAccountSettings />
   {/if}

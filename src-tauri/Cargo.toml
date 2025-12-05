@@ -4,6 +4,7 @@ version = "1.0.0"
 description = "A Tauri App"
 authors = ["Dereck Angeles"]
 edition = "2021"
+default-run = "global_clipboard"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -43,6 +44,7 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 
 # Hashing for file deduplication
 sha2 = "0.10"
+pico-args = "0.5"
 
 # Async runtime (para el monitor del clipboard)
 tokio = { version = "1", features = ["full"] }
