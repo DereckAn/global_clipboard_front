@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { invoke } from "@tauri-apps/api/core";
+  import { onMount } from "svelte";
+
   interface Props {
     value?: string;
     id?: string;
@@ -7,20 +10,48 @@
   }
 
   let { value = "", onChange, disabled = false }: Props = $props();
-
   let isRecording = $state(false);
   let recordedKeys = $state<string[]>([]);
+  let currentOS = $state<string>("macos");
 
-  const SYMBOLS: Record<string, string> = {
-    Command: "⌘",
-    CommandOrControl: "⌘",
-    Control: "⌃",
-    Alt: "⌥",
-    Option: "⌥",
-    Shift: "⇧",
+  // Símbolos según el sistema operativo
+  const SYMBOLS_BY_OS: Record<string, Record<string, string>> = {
+    macos: {
+      Command: "⌘",
+      Control: "⌃",
+      Option: "⌥",
+      Shift: "⇧",
+    },
+    windows: {
+      Command: "Win",
+      Control: "Ctrl",
+      Alt: "Alt",
+      Shift: "⇧",
+    },
+    linux: {
+      Command: "Super",
+      Control: "Ctrl",
+      Alt: "Alt",
+      Shift: "⇧",
+    },
   };
 
   const MODIFIER_ORDER = ["Command", "Control", "Alt", "Option", "Shift"];
+
+  onMount(async () => {
+    try {
+      const platform = await invoke<string>("get_platform");
+      currentOS = platform;
+      console.log("Platform detected:", platform);
+    } catch (err) {
+      console.error("Failed to detect platform:", err);
+      currentOS = "macos"; // fallback
+    }
+  });
+
+  const getSymbols = () => {
+    return SYMBOLS_BY_OS[currentOS] || SYMBOLS_BY_OS.macos;
+  };
 
   const formatHotkey = (hotkey: string, keys: string[]) => {
     const parts = keys.length
@@ -32,12 +63,12 @@
 
     if (!parts.length) return "Click to record hotkey";
 
-    return parts.map((part) => SYMBOLS[part] ?? part.toUpperCase()).join(" ");
+    const symbols = getSymbols();
+    return parts.map((part) => symbols[part] ?? part.toUpperCase()).join(" ");
   };
 
   const isModifier = (key: string) =>
     key === "Command" ||
-    key === "CommandOrControl" ||
     key === "Control" ||
     key === "Alt" ||
     key === "Option" ||
@@ -66,6 +97,7 @@
     isRecording = false;
     const hasMain = recordedKeys.some((k) => !isModifier(k));
     const hasModifierKey = recordedKeys.some(isModifier);
+
     if (recordedKeys.length > 0 && hasMain && hasModifierKey && onChange) {
       const hotkey = recordedKeys.join("+");
       onChange(hotkey);
@@ -74,6 +106,7 @@
 
   const handleKeyDown = (e: KeyboardEvent) => {
     if (!isRecording || disabled) return;
+
     if (e.key === "Escape") {
       cancelRecording();
       return;
@@ -83,7 +116,8 @@
     e.stopPropagation();
 
     const keys: string[] = [];
-    // collect modifiers distinctly to allow multi-mod combos
+
+    // Recolectar modificadores
     if (e.metaKey) keys.push("Command");
     if (e.ctrlKey) keys.push("Control");
     if (e.altKey) keys.push("Alt");
@@ -98,7 +132,7 @@
       keys.push(e.key.toUpperCase());
     }
 
-    // order modifiers consistently, then main key at the end
+    // Ordenar modificadores consistentemente
     const mods = MODIFIER_ORDER.filter((m) => keys.includes(m));
     const main = keys.filter((k) => !isModifier(k));
     recordedKeys = [...mods, ...main];
@@ -108,6 +142,7 @@
     if (!isRecording || disabled) return;
     const hasMain = recordedKeys.some((k) => !isModifier(k));
     const hasModifierKey = recordedKeys.some(isModifier);
+
     if (recordedKeys.length > 0 && hasMain && hasModifierKey) {
       finishRecording();
     }
@@ -153,7 +188,6 @@
       opacity: 0.5;
     }
   }
-
   .animate-pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
   }

@@ -83,3 +83,8 @@ cairo-rs = { version = "0.20", features = ["png"] }
 pango = "0.20"
 pangocairo = "0.20"
 md5 = "0.7"
+
+# Binary para captura de screenshots (se compila por separado y se descarga como feature opcional)
+[[bin]]
+name = "screenshot-helper"
+path = "src/bin/screenshot-helper.rs"

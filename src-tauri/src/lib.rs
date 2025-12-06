@@ -359,6 +359,7 @@ pub fn run() {
             commands::enable_feature,
             commands::capture_full_screenshot,
             commands::capture_region_screenshot,
+            commands::get_platform,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -92,17 +92,33 @@ fn run_full(_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     use std::process::Stdio;
 
     let path = _path.to_string_lossy();
+    // Captura todos los monitores (virtual screen) en lugar de solo el primario
     let script = format!(
         r#"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
-$bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
-$bitmap = New-Object System.Drawing.Bitmap $bounds.Width, $bounds.Height
-$graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-$graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-$bitmap.Save('{path}', [System.Drawing.Imaging.ImageFormat]::Png)
+
+try {{
+    # Virtual screen bounds = todos los monitores combinados
+    $left = [System.Windows.Forms.SystemInformation]::VirtualScreen.Left
+    $top = [System.Windows.Forms.SystemInformation]::VirtualScreen.Top
+    $width = [System.Windows.Forms.SystemInformation]::VirtualScreen.Width
+    $height = [System.Windows.Forms.SystemInformation]::VirtualScreen.Height
+    
+    $bitmap = New-Object System.Drawing.Bitmap $width, $height
+    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+    $graphics.CopyFromScreen($left, $top, 0, 0, $bitmap.Size)
+    $bitmap.Save('{path}', [System.Drawing.Imaging.ImageFormat]::Png)
+    
+    # Liberar recursos
+    $graphics.Dispose()
+    $bitmap.Dispose()
+    exit 0
+}} catch {{
+    exit 1
+}}
 "#,
-        path = path.replace("\\", "\\\\")
+        path = path.replace("\\", "\\\\").replace("'", "''")
     );
 
     let status = Command::new("powershell")
@@ -124,21 +140,29 @@ $bitmap.Save('{path}', [System.Drawing.Imaging.ImageFormat]::Png)
 fn run_region(_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     use std::process::Stdio;
 
-    let path = _path.to_string_lossy().replace("\\", "\\\\");
+    let path = _path.to_string_lossy().replace("\\", "\\\\").replace("'", "''");
     let script = format!(
         r#"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Limpiar el clipboard antes de capturar para evitar guardar imagen anterior
+[System.Windows.Forms.Clipboard]::Clear()
+
 function Save-ClipImage([string]$p, [int]$timeoutMs) {{
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
   while ($sw.ElapsedMilliseconds -lt $timeoutMs) {{
     Start-Sleep -Milliseconds 200
-    if ([Windows.Forms.Clipboard]::ContainsImage()) {{
-      $img = [Windows.Forms.Clipboard]::GetImage()
+    if ([System.Windows.Forms.Clipboard]::ContainsImage()) {{
+      $img = [System.Windows.Forms.Clipboard]::GetImage()
       if ($img) {{
-        $img.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
-        return $true
+        try {{
+          $img.Save($p, [System.Drawing.Imaging.ImageFormat]::Png)
+          $img.Dispose()
+          return $true
+        }} catch {{
+          return $false
+        }}
       }}
     }}
   }}
@@ -146,21 +170,27 @@ function Save-ClipImage([string]$p, [int]$timeoutMs) {{
 }}
 
 $started = $false
+
+# Intentar ms-screenclip (Windows 10/11)
 try {{
-  Start-Process -WindowStyle Hidden "explorer.exe" "ms-screenclip:"
+  Start-Process "ms-screenclip:" -ErrorAction Stop
   $started = $true
 }} catch {{}}
 
+# Fallback a Snipping Tool
 if (-not $started) {{
   try {{
-    Start-Process -WindowStyle Hidden "snippingtool.exe" "/clip"
+    Start-Process "snippingtool.exe" "/clip" -ErrorAction Stop
     $started = $true
   }} catch {{}}
 }}
 
 if (-not $started) {{ exit 2 }}
 
-if (-not (Save-ClipImage '{path}' 15000)) {{ exit 3 }}
+# Esperar a que el usuario capture (timeout 30 segundos)
+if (-not (Save-ClipImage '{path}' 30000)) {{ exit 3 }}
+
+exit 0
 "#,
         path = path
     );
@@ -170,18 +200,15 @@ if (-not (Save-ClipImage '{path}' 15000)) {{ exit 3 }}
         .arg("-STA")
         .arg("-NonInteractive")
         .arg("-Command")
-        .arg(script)
+        .arg(&script)
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()?;
 
-    if !status.success() {
-        return match status.code() {
-            Some(2) => Err("No screen clipping tool found (ms-screenclip or snippingtool)".into()),
-            Some(3) => Err("Timed out waiting for region capture".into()),
-            _ => Err("Windows region capture failed".into()),
-        };
+    match status.code() {
+        Some(0) => Ok(()),
+        Some(2) => Err("No screen clipping tool found (ms-screenclip or snippingtool)".into()),
+        Some(3) => Err("Timed out waiting for region capture (user cancelled?)".into()),
+        _ => Err("Windows region capture failed".into()),
     }
-
-    Ok(())
 }

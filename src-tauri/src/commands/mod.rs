@@ -5,6 +5,7 @@ pub mod images;
 pub mod links;
 pub mod lab;
 pub mod settings;
+pub mod get_platform;
 
 pub use clipboard::*;
 pub use colors::*;
@@ -13,3 +14,4 @@ pub use images::*;
 pub use links::*;
 pub use lab::*;
 pub use settings::*;
+pub use get_platform::*;

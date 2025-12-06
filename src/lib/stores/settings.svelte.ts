@@ -48,7 +48,7 @@ export class SettingsStore {
   maxLocalItems = $state(DEFAULT_SETTINGS.maxLocalItems);
   showHotkey = $state(DEFAULT_SETTINGS.showHotkey);
   enableAnalytics = $state(DEFAULT_SETTINGS.enableAnalytics);
-  hotkey = $state<string>("CommandOrControl+Shift+V");
+  hotkey = $state<string>("Control+Shift+V");
   isLoading = $state(false);
   error = $state<string | null>(null);
 
@@ -58,8 +58,8 @@ export class SettingsStore {
   clipboardMonitorInterval = $state(DEFAULT_SETTINGS.clipboardMonitorInterval);
   notificationsEnabled = $state(DEFAULT_SETTINGS.notificationsEnabled);
   notificationSound = $state(DEFAULT_SETTINGS.notificationSound);
-  screenshotHotkeyFull = $state("CommandOrControl+Shift+3");
-  screenshotHotkeyRegion = $state("CommandOrControl+Shift+4");
+  screenshotHotkeyFull = $state("Command+Shift+3");
+  screenshotHotkeyRegion = $state("Command+Shift+4");
 
   autoStartEnabled = $state(false);
   trayIconVisible = $state(false);
@@ -70,9 +70,10 @@ export class SettingsStore {
   constructor() {
     // Load from localStorage
     if (typeof window !== "undefined") {
-      listen("lab://install-progress", (event) => {
+      // Escuchar progreso de descarga de features del laboratorio
+      listen("lab-feature-download-progress", (event) => {
         const { id, progress } = event.payload as {
-          id: LabFeatureId;
+          id: string;
           progress: number;
         };
         this.labFeatures = this.labFeatures.map((feature) =>
@@ -108,11 +109,11 @@ export class SettingsStore {
           this.screenshotHotkeyFull =
             parsed.screenshotHotkeyFull && isValidHotkey(parsed.screenshotHotkeyFull)
               ? parsed.screenshotHotkeyFull
-              : "CommandOrControl+Shift+3";
+              : "Command+Shift+3";
           this.screenshotHotkeyRegion =
             parsed.screenshotHotkeyRegion && isValidHotkey(parsed.screenshotHotkeyRegion)
               ? parsed.screenshotHotkeyRegion
-              : "CommandOrControl+Shift+4";
+              : "Command+Shift+4";
         } catch (err) {
           console.error("Failed to load settings store:", err);
         }
@@ -167,8 +168,8 @@ export class SettingsStore {
     this.maxItemsEnabled = DEFAULT_SETTINGS.maxItemsEnabled;
     this.retentionEnabled = DEFAULT_SETTINGS.retentionEnabled;
     this.retentionDays = DEFAULT_SETTINGS.retentionDays;
-    this.screenshotHotkeyFull = "CommandOrControl+Shift+3";
-    this.screenshotHotkeyRegion = "CommandOrControl+Shift+4";
+    this.screenshotHotkeyFull = "Command+Shift+3";
+    this.screenshotHotkeyRegion = "Command+Shift+4";
     this.save();
   }
 

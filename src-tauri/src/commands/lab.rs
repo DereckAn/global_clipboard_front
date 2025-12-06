@@ -71,9 +71,11 @@ pub struct LabFeatureWithState {
 #[serde(rename_all = "camelCase")]
 pub struct Artifact {
     pub url: String,
-    pub sha256: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sha256_url: Option<String>, // URL para descargar el SHA256 dinámicamente
+    pub sha256: String,             // Puede estar vacío si se descarga dinámicamente
     pub version: String,
-    pub file_name: String, // e.g., "ocr_helper_v1.0.0.zip"
+    pub file_name: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -86,46 +88,74 @@ pub struct ArtifactMap {
 
 const LAB_STATE_FILE: &str = "lab_features.json";
 const FEATURE_ROOT_DIR: &str = "lab_features";
+const HELPER_VERSION: &str = "1.0.0";
+const HELPER_RELEASE_TAG: &str = "helper-v1.0.0";
+const GITHUB_REPO: &str = "DereckAn/global_clipboard_front";
+
+/// Determina el sufijo del artifact según OS y arquitectura
+fn get_platform_suffix() -> Option<&'static str> {
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    { return Some("macos-arm64"); }
+    
+    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
+    { return Some("macos-x64"); }
+    
+    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
+    { return Some("linux-arm64"); }
+    
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    { return Some("linux-x64"); }
+    
+    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
+    { return Some("windows-arm64"); }
+    
+    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
+    { return Some("windows-x64"); }
+    
+    #[cfg(not(any(
+        all(target_os = "macos", target_arch = "aarch64"),
+        all(target_os = "macos", target_arch = "x86_64"),
+        all(target_os = "linux", target_arch = "aarch64"),
+        all(target_os = "linux", target_arch = "x86_64"),
+        all(target_os = "windows", target_arch = "aarch64"),
+        all(target_os = "windows", target_arch = "x86_64"),
+    )))]
+    { return None; }
+}
+
+/// Retorna la extensión del binario según el OS
+/// - Windows: ".exe"
+/// - macOS: "" (sin extensión)
+/// - Linux: "" (sin extensión)
+fn get_binary_extension() -> &'static str {
+    #[cfg(target_os = "windows")]
+    { ".exe" }
+    #[cfg(not(target_os = "windows"))]
+    { "" }  // macOS y Linux no tienen extensión
+}
+
+fn build_screenshot_artifact() -> Option<Artifact> {
+    let suffix = get_platform_suffix()?;
+    let ext = get_binary_extension();
+    
+    Some(Artifact {
+        url: format!(
+            "https://github.com/{}/releases/download/{}/screenshot-helper-{}{}",
+            GITHUB_REPO, HELPER_RELEASE_TAG, suffix, ext
+        ),
+        sha256_url: Some(format!(
+            "https://github.com/{}/releases/download/{}/SHA256-{}.txt",
+            GITHUB_REPO, HELPER_RELEASE_TAG, suffix
+        )),
+        sha256: String::new(), // Se descarga dinámicamente
+        version: HELPER_VERSION.to_string(),
+        file_name: format!("screenshot-helper{}", ext),
+    })
+}
 
 fn registry() -> Vec<LabFeatureMeta> {
-    // URLs dependen de la arquitectura en tiempo de compilación
-    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    let (mac_url, mac_sha) = (
-        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-macos-arm64",
-        "<MACOS_ARM64_SHA256>",
-    );
-    #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    let (mac_url, mac_sha) = (
-        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-macos-x64",
-        "<MACOS_X64_SHA256>",
-    );
-    #[cfg(not(target_os = "macos"))]
-    let (mac_url, mac_sha) = ("", "");
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    let (linux_url, linux_sha) = (
-        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-linux-arm64",
-        "<LINUX_ARM64_SHA256>",
-    );
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    let (linux_url, linux_sha) = (
-        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-linux-x64",
-        "<LINUX_X64_SHA256>",
-    );
-    #[cfg(not(target_os = "linux"))]
-    let (linux_url, linux_sha) = ("", "");
-    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
-    let (win_url, win_sha) = (
-        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-windows-arm64.exe",
-        "<WINDOWS_ARM64_SHA256>",
-    );
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    let (win_url, win_sha) = (
-        "https://github.com/DereckAn/global_clipboard_front/releases/download/helper-v1.0.0/screenshot-helper-windows-x64.exe",
-        "<WINDOWS_X64_SHA256>",
-    );
-    #[cfg(not(target_os = "windows"))]
-    let (win_url, win_sha) = ("", "");
-
+    let screenshot_artifact = build_screenshot_artifact();
+    
     vec![
         LabFeatureMeta {
             id: LabFeatureId::Screenshot,
@@ -133,29 +163,10 @@ fn registry() -> Vec<LabFeatureMeta> {
             description: "Take full or region screenshots and save to clipboard.".to_string(),
             icon: "image".to_string(),
             needs_download: true,
-            artifacts: Some(ArtifactMap {
-                macos: Some(Artifact {
-                    url: mac_url.to_string(),
-                    sha256: mac_sha.to_string(),
-                    version: "1.0.0".to_string(),
-                    file_name: "screenshot-helper".to_string(),
-                }),
-                windows: if !win_url.is_empty() {
-                    Some(Artifact {
-                        url: win_url.to_string(),
-                        sha256: win_sha.to_string(),
-                        version: "1.0.0".to_string(),
-                        file_name: "screenshot-helper.exe".to_string(),
-                    })
-                } else {
-                    None
-                },
-                linux: Some(Artifact {
-                    url: linux_url.to_string(),
-                    sha256: linux_sha.to_string(),
-                    version: "1.0.0".to_string(),
-                    file_name: "screenshot-helper".to_string(),
-                }),
+            artifacts: screenshot_artifact.map(|a| ArtifactMap {
+                macos: if cfg!(target_os = "macos") { Some(a.clone()) } else { None },
+                windows: if cfg!(target_os = "windows") { Some(a.clone()) } else { None },
+                linux: if cfg!(target_os = "linux") { Some(a) } else { None },
             }),
         },
         LabFeatureMeta {
@@ -563,6 +574,32 @@ fn download_artifact<R: Runtime>(
         .build()
         .map_err(|e| format!("Failed to build HTTP client: {e}"))?;
 
+    // Paso 1: Descargar el SHA256 desde GitHub si hay sha256_url
+    let expected_sha256 = if let Some(sha256_url) = &artifact.sha256_url {
+        let sha_res = client
+            .get(sha256_url)
+            .send()
+            .map_err(|e| format!("Failed to download SHA256: {e}"))?;
+        
+        if !sha_res.status().is_success() {
+            return Err(format!("Failed to download SHA256: HTTP {}", sha_res.status()));
+        }
+        
+        let sha_text = sha_res.text().map_err(|e| format!("Failed to read SHA256: {e}"))?;
+        // El formato es: "hash  filename" - tomamos solo el hash
+        sha_text
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .to_lowercase()
+    } else if !artifact.sha256.is_empty() {
+        artifact.sha256.to_lowercase()
+    } else {
+        // Sin verificación de integridad (no recomendado)
+        String::new()
+    };
+
+    // Paso 2: Descargar el binario
     let mut res = client
         .get(&artifact.url)
         .send()
@@ -610,12 +647,18 @@ fn download_artifact<R: Runtime>(
             );
         }
     }
-    let hash = format!("{:x}", hasher.finalize());
-    if hash != artifact.sha256 {
+    
+    // Paso 3: Verificar integridad
+    let computed_hash = format!("{:x}", hasher.finalize());
+    if !expected_sha256.is_empty() && computed_hash != expected_sha256 {
         let _ = fs::remove_file(&target_path);
-        return Err("Integrity check failed (sha256 mismatch)".to_string());
+        return Err(format!(
+            "Integrity check failed: expected {}, got {}",
+            expected_sha256, computed_hash
+        ));
     }
 
+    // Paso 4: Hacer ejecutable en Unix
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
