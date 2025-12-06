@@ -73,7 +73,7 @@ pub struct Artifact {
     pub url: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sha256_url: Option<String>, // URL para descargar el SHA256 dinámicamente
-    pub sha256: String,             // Puede estar vacío si se descarga dinámicamente
+    pub sha256: String, // Puede estar vacío si se descarga dinámicamente
     pub version: String,
     pub file_name: String,
 }
@@ -95,23 +95,35 @@ const GITHUB_REPO: &str = "DereckAn/global_clipboard_front";
 /// Determina el sufijo del artifact según OS y arquitectura
 fn get_platform_suffix() -> Option<&'static str> {
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    { return Some("macos-arm64"); }
-    
+    {
+        return Some("macos-arm64");
+    }
+
     #[cfg(all(target_os = "macos", target_arch = "x86_64"))]
-    { return Some("macos-x64"); }
-    
+    {
+        return Some("macos-x64");
+    }
+
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    { return Some("linux-arm64"); }
-    
+    {
+        return Some("linux-arm64");
+    }
+
     #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    { return Some("linux-x64"); }
-    
+    {
+        return Some("linux-x64");
+    }
+
     #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
-    { return Some("windows-arm64"); }
-    
+    {
+        return Some("windows-arm64");
+    }
+
     #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    { return Some("windows-x64"); }
-    
+    {
+        return Some("windows-x64");
+    }
+
     #[cfg(not(any(
         all(target_os = "macos", target_arch = "aarch64"),
         all(target_os = "macos", target_arch = "x86_64"),
@@ -120,7 +132,9 @@ fn get_platform_suffix() -> Option<&'static str> {
         all(target_os = "windows", target_arch = "aarch64"),
         all(target_os = "windows", target_arch = "x86_64"),
     )))]
-    { return None; }
+    {
+        return None;
+    }
 }
 
 /// Retorna la extensión del binario según el OS
@@ -129,15 +143,19 @@ fn get_platform_suffix() -> Option<&'static str> {
 /// - Linux: "" (sin extensión)
 fn get_binary_extension() -> &'static str {
     #[cfg(target_os = "windows")]
-    { ".exe" }
+    {
+        ".exe"
+    }
     #[cfg(not(target_os = "windows"))]
-    { "" }  // macOS y Linux no tienen extensión
+    {
+        ""
+    } // macOS y Linux no tienen extensión
 }
 
 fn build_screenshot_artifact() -> Option<Artifact> {
     let suffix = get_platform_suffix()?;
     let ext = get_binary_extension();
-    
+
     Some(Artifact {
         url: format!(
             "https://github.com/{}/releases/download/{}/screenshot-helper-{}{}",
@@ -155,7 +173,7 @@ fn build_screenshot_artifact() -> Option<Artifact> {
 
 fn registry() -> Vec<LabFeatureMeta> {
     let screenshot_artifact = build_screenshot_artifact();
-    
+
     vec![
         LabFeatureMeta {
             id: LabFeatureId::Screenshot,
@@ -164,9 +182,21 @@ fn registry() -> Vec<LabFeatureMeta> {
             icon: "image".to_string(),
             needs_download: true,
             artifacts: screenshot_artifact.map(|a| ArtifactMap {
-                macos: if cfg!(target_os = "macos") { Some(a.clone()) } else { None },
-                windows: if cfg!(target_os = "windows") { Some(a.clone()) } else { None },
-                linux: if cfg!(target_os = "linux") { Some(a) } else { None },
+                macos: if cfg!(target_os = "macos") {
+                    Some(a.clone())
+                } else {
+                    None
+                },
+                windows: if cfg!(target_os = "windows") {
+                    Some(a.clone())
+                } else {
+                    None
+                },
+                linux: if cfg!(target_os = "linux") {
+                    Some(a)
+                } else {
+                    None
+                },
             }),
         },
         LabFeatureMeta {
@@ -580,12 +610,17 @@ fn download_artifact<R: Runtime>(
             .get(sha256_url)
             .send()
             .map_err(|e| format!("Failed to download SHA256: {e}"))?;
-        
+
         if !sha_res.status().is_success() {
-            return Err(format!("Failed to download SHA256: HTTP {}", sha_res.status()));
+            return Err(format!(
+                "Failed to download SHA256: HTTP {}",
+                sha_res.status()
+            ));
         }
-        
-        let sha_text = sha_res.text().map_err(|e| format!("Failed to read SHA256: {e}"))?;
+
+        let sha_text = sha_res
+            .text()
+            .map_err(|e| format!("Failed to read SHA256: {e}"))?;
         // El formato es: "hash  filename" - tomamos solo el hash
         sha_text
             .split_whitespace()
@@ -647,7 +682,7 @@ fn download_artifact<R: Runtime>(
             );
         }
     }
-    
+
     // Paso 3: Verificar integridad
     let computed_hash = format!("{:x}", hasher.finalize());
     if !expected_sha256.is_empty() && computed_hash != expected_sha256 {

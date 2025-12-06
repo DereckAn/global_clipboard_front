@@ -41,7 +41,12 @@ fn run_region(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(target_os = "linux")]
 fn run_full(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     // Prefer grim; fallback to gnome-screenshot
-    if Command::new("grim").arg(path).status().map(|s| s.success()).unwrap_or(false) {
+    if Command::new("grim")
+        .arg(path)
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+    {
         return Ok(());
     }
     let status = Command::new("gnome-screenshot")
@@ -58,7 +63,9 @@ fn run_full(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
 fn run_region(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     if let Ok(selection) = Command::new("slurp").output() {
         if selection.status.success() {
-            let geometry = String::from_utf8_lossy(&selection.stdout).trim().to_string();
+            let geometry = String::from_utf8_lossy(&selection.stdout)
+                .trim()
+                .to_string();
             if !geometry.is_empty() {
                 if Command::new("grim")
                     .arg("-g")
@@ -81,7 +88,8 @@ fn run_region(path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
         .status()?;
     if !status.success() {
         return Err(
-            "No supported region capture tool found (install grim+slurp or gnome-screenshot)".into(),
+            "No supported region capture tool found (install grim+slurp or gnome-screenshot)"
+                .into(),
         );
     }
     Ok(())
@@ -140,7 +148,10 @@ try {{
 fn run_region(_path: &PathBuf) -> Result<(), Box<dyn std::error::Error>> {
     use std::process::Stdio;
 
-    let path = _path.to_string_lossy().replace("\\", "\\\\").replace("'", "''");
+    let path = _path
+        .to_string_lossy()
+        .replace("\\", "\\\\")
+        .replace("'", "''");
     let script = format!(
         r#"
 Add-Type -AssemblyName System.Windows.Forms

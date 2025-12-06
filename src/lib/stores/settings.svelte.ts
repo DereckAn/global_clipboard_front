@@ -107,11 +107,13 @@ export class SettingsStore {
           this.notificationSound =
             parsed.notificationSound ?? DEFAULT_SETTINGS.notificationSound;
           this.screenshotHotkeyFull =
-            parsed.screenshotHotkeyFull && isValidHotkey(parsed.screenshotHotkeyFull)
+            parsed.screenshotHotkeyFull &&
+            isValidHotkey(parsed.screenshotHotkeyFull)
               ? parsed.screenshotHotkeyFull
               : "Command+Shift+3";
           this.screenshotHotkeyRegion =
-            parsed.screenshotHotkeyRegion && isValidHotkey(parsed.screenshotHotkeyRegion)
+            parsed.screenshotHotkeyRegion &&
+            isValidHotkey(parsed.screenshotHotkeyRegion)
               ? parsed.screenshotHotkeyRegion
               : "Command+Shift+4";
         } catch (err) {
