@@ -6,6 +6,9 @@ on:
       - "helper-v*"
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   helper:
     runs-on: ${{ matrix.os }}
@@ -50,6 +53,26 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
+      # Install Linux dependencies for screenshot-helper
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxdo-dev \
+            liblcms2-dev \
+            libjpeg-dev \
+            libgdk-pixbuf2.0-dev \
+            pkg-config \
+            build-essential
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:
@@ -64,12 +87,22 @@ jobs:
           cd src-tauri
           cargo build --release --bin screenshot-helper --target=${{ matrix.target }}
 
-      - name: Prepare artifact
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
         shell: bash
         run: |
           cd src-tauri/target/${{ matrix.target }}/release
           cp screenshot-helper${{ matrix.ext }} screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}
           shasum -a 256 screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }} > SHA256-${{ matrix.suffix }}.txt
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd src-tauri/target/${{ matrix.target }}/release
+          Copy-Item screenshot-helper${{ matrix.ext }} screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}
+          $hash = (Get-FileHash -Algorithm SHA256 screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}).Hash.ToLower()
+          "$hash  screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}" | Out-File -Encoding ASCII SHA256-${{ matrix.suffix }}.txt
 
       - name: Upload to release
         if: startsWith(github.ref, 'refs/tags/')
