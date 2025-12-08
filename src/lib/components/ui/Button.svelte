@@ -9,6 +9,8 @@
     disabled?: boolean;
     type?: "button" | "submit" | "reset";
     children?: import("svelte").Snippet;
+    onblur?: (event: FocusEvent) => void;
+    id?: string;
   }
 
   let {
@@ -19,6 +21,8 @@
     disabled = false,
     type = "button",
     children,
+    onblur,
+    id,
   }: Props = $props();
 
   // Base estilo “píldora de vidrio”
@@ -35,7 +39,7 @@
 
   const variants: Record<NonNullable<Props["variant"]>, string> = {
     // Botón principal (tinte azul, líquido)
-    default: ["bg-white/10 text-white rounded-xl hover:bg-white/20"].join(" "),
+    default: ["bg-white/10 text-white rounded-md hover:bg-white/20"].join(" "),
 
     // Botón “vidrio neutro”, ideal para secundarios
     outline: [
@@ -47,13 +51,7 @@
     ].join(" "),
 
     // Botón casi invisible, solo sugerido
-    ghost: [
-      "bg-white/5 dark:bg-slate-900/10",
-      "text-slate-900 dark:text-slate-100",
-      "border-transparent",
-      "hover:bg-white/15 dark:hover:bg-slate-800/40",
-      "active:bg-white/25 dark:active:bg-slate-800/55",
-    ].join(" "),
+    ghost: ["h-fit text-sm rounded-md z-10 hover:bg-white/5"].join(" "),
 
     // Botón de peligro con tinte rojo líquido
     destructive: [
@@ -64,7 +62,7 @@
   };
 
   const sizes: Record<NonNullable<Props["size"]>, string> = {
-    default: "p-1 px-4",
+    default: "p-1 px-4 text-[14px]",
     sm: "px-3 text-[12px]",
     lg: "h-10 px-5 text-[14px]",
     icon: "h-8 w-8",
@@ -73,10 +71,12 @@
 </script>
 
 <button
+  {id}
   {type}
   {disabled}
   {onclick}
   class={cn(variants[variant], sizes[size], className)}
+  {onblur}
 >
   {@render children?.()}
 </button>

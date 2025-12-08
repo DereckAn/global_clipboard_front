@@ -12,15 +12,17 @@ use commands::AppState;
 use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem};
 #[cfg(target_os = "macos")]
 use tauri::path::BaseDirectory;
-use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
@@ -125,11 +127,15 @@ pub fn run() {
 
             let db_path = app_data_dir.join("clipboard.db");
             let db_path_str = db_path.to_str().unwrap().to_string();
+            let images_dir_str = images_dir.to_string_lossy().to_string();
+            let app_data_dir_str = app_data_dir.to_string_lossy().to_string();
 
             println!("Database path: {db_path_str}");
 
             app.manage(Mutex::new(AppState {
                 db_path: db_path_str.clone(),
+                images_dir: images_dir_str,
+                app_data_dir: app_data_dir_str,
             }));
 
             let app_handle = app.handle().clone();
@@ -349,6 +355,15 @@ pub fn run() {
             commands::write_image_to_clipboard,
             commands::ensure_thumbnail,
             commands::write_file_to_clipboard,
+            commands::get_lab_features,
+            commands::install_feature,
+            commands::uninstall_feature,
+            commands::enable_feature,
+            commands::capture_full_screenshot,
+            commands::capture_region_screenshot,
+            commands::get_platform,
+            commands::update_screenshot_hotkeys,
+            commands::unregister_screenshot_hotkeys,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

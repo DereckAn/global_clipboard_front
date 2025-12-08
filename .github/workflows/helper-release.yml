@@ -1,0 +1,115 @@
+name: Build screenshot helper
+
+on:
+  push:
+    tags:
+      - "helper-v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  helper:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # macOS Intel
+          - os: macos-13
+            target: x86_64-apple-darwin
+            suffix: macos-x64
+            ext: ""
+          # macOS Apple Silicon
+          - os: macos-14
+            target: aarch64-apple-darwin
+            suffix: macos-arm64
+            ext: ""
+          # Linux x64
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            suffix: linux-x64
+            ext: ""
+          # Linux ARM64
+          - os: ubuntu-22.04-arm
+            target: aarch64-unknown-linux-gnu
+            suffix: linux-arm64
+            ext: ""
+          # Windows x64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            suffix: windows-x64
+            ext: ".exe"
+          # Windows ARM64 (cross-compile)
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            suffix: windows-arm64
+            ext: ".exe"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Install Linux dependencies for screenshot-helper
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxdo-dev \
+            liblcms2-dev \
+            libjpeg-dev \
+            libgdk-pixbuf2.0-dev \
+            pkg-config \
+            build-essential
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: helper-${{ runner.os }}-${{ matrix.target }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+
+      - name: Build helper
+        run: |
+          cd src-tauri
+          cargo build --release --bin screenshot-helper --target=${{ matrix.target }}
+
+      - name: Prepare artifact (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          cd src-tauri/target/${{ matrix.target }}/release
+          cp screenshot-helper${{ matrix.ext }} screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}
+          shasum -a 256 screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }} > SHA256-${{ matrix.suffix }}.txt
+
+      - name: Prepare artifact (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd src-tauri/target/${{ matrix.target }}/release
+          Copy-Item screenshot-helper${{ matrix.ext }} screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}
+          $hash = (Get-FileHash -Algorithm SHA256 screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}).Hash.ToLower()
+          "$hash  screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}" | Out-File -Encoding ASCII SHA256-${{ matrix.suffix }}.txt
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            src-tauri/target/${{ matrix.target }}/release/screenshot-helper-${{ matrix.suffix }}${{ matrix.ext }}
+            src-tauri/target/${{ matrix.target }}/release/SHA256-${{ matrix.suffix }}.txt
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -57,7 +57,7 @@
   });
 </script>
 
-<div class="relative bg-surface" data-filter-dropdown>
+<div class="relative bg-surface rounded-md" data-filter-dropdown>
   <!-- Trigger button -->
   <button
     onclick={toggleDropdown}

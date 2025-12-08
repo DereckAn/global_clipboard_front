@@ -1,5 +1,10 @@
+use std::sync::Mutex;
+
 use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+
+use crate::commands::lab::{capture_screenshot_core, CaptureMode};
+use crate::AppState;
 
 /// Register a shortcut with a handler for toggling window visibility
 /// This is used for dynamically changing the shortcut at runtime
@@ -72,5 +77,148 @@ pub fn unregister_all_shortcuts(app: &AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     println!("Unregistered all shortcuts");
+    Ok(())
+}
+
+/// Register screenshot shortcuts
+pub fn register_screenshot_shortcuts(
+    app: &AppHandle,
+    full_hotkey: &str,
+    region_hotkey: &str,
+) -> Result<(), String> {
+    let manager = app.global_shortcut();
+
+    println!("=== Registering Screenshot Hotkeys ===");
+    println!("Full hotkey: '{}'", full_hotkey);
+    println!("Region hotkey: '{}'", region_hotkey);
+
+    let mut errors: Vec<String> = Vec::new();
+
+    // Parse and register full screenshot hotkey
+    if !full_hotkey.is_empty() {
+        if let Err(e) = register_single_screenshot_shortcut(
+            app,
+            manager,
+            full_hotkey,
+            CaptureMode::Full,
+            "full",
+        ) {
+            println!("WARNING: Failed to register full screenshot hotkey: {}", e);
+            errors.push(format!("Full: {}", e));
+        }
+    }
+
+    // Parse and register region screenshot hotkey
+    if !region_hotkey.is_empty() {
+        if let Err(e) = register_single_screenshot_shortcut(
+            app,
+            manager,
+            region_hotkey,
+            CaptureMode::Region,
+            "region",
+        ) {
+            println!(
+                "WARNING: Failed to register region screenshot hotkey: {}",
+                e
+            );
+            errors.push(format!("Region: {}", e));
+        }
+    }
+
+    println!("=== Screenshot Hotkeys Registration Complete ===");
+
+    // Only fail if both failed
+    if errors.len() == 2 {
+        return Err(errors.join("; "));
+    }
+
+    Ok(())
+}
+
+fn register_single_screenshot_shortcut(
+    app: &AppHandle,
+    manager: &tauri_plugin_global_shortcut::GlobalShortcut<tauri::Wry>,
+    hotkey: &str,
+    mode: CaptureMode,
+    label: &str,
+) -> Result<(), String> {
+    let shortcut: Shortcut = hotkey
+        .parse()
+        .map_err(|e| format!("Invalid {} screenshot hotkey '{}': {}", label, hotkey, e))?;
+
+    println!("Parsed {} shortcut: {:?}", label, shortcut);
+
+    // Unregister if already registered
+    if manager.is_registered(shortcut.clone()) {
+        println!(
+            "{} shortcut already registered, unregistering first...",
+            label
+        );
+        manager
+            .unregister(shortcut.clone())
+            .map_err(|e| format!("Failed to unregister {} shortcut: {}", label, e))?;
+    }
+
+    // Set up the handler
+    let app_handle = app.clone();
+    let mode_clone = mode;
+    let label_owned = label.to_string();
+
+    manager
+        .on_shortcut(shortcut.clone(), move |_app, shortcut, event| {
+            if event.state() == ShortcutState::Pressed {
+                println!(">>> {} screenshot hotkey PRESSED!", label_owned);
+
+                if let Some(state) = app_handle.try_state::<Mutex<AppState>>() {
+                    if let Ok(app_state) = state.lock() {
+                        if let Err(e) = capture_screenshot_core(&app_handle, &app_state, mode_clone)
+                        {
+                            eprintln!(">>> Failed to capture {} screenshot: {}", label_owned, e);
+                        } else {
+                            println!(">>> {} screenshot captured successfully!", label_owned);
+                        }
+                    } else {
+                        eprintln!(">>> Failed to lock AppState");
+                    }
+                } else {
+                    eprintln!(">>> Could not access AppState");
+                }
+            }
+        })
+        .map_err(|e| format!("Failed to set handler for {} shortcut: {}", label, e))?;
+
+    // Register the shortcut
+    manager
+        .register(shortcut)
+        .map_err(|e| format!("Failed to register {} shortcut '{}': {}", label, hotkey, e))?;
+
+    println!("✓ {} screenshot hotkey registered: {}", label, hotkey);
+    Ok(())
+}
+
+/// Unregister all screenshot shortcuts
+pub fn unregister_screenshot_shortcuts(app: &AppHandle) -> Result<(), String> {
+    let manager = app.global_shortcut();
+
+    // We need to try common screenshot hotkeys since we don't track them
+    // This is a simplified approach - ideally you'd store the registered shortcuts
+    let common_shortcuts = [
+        "Command+Shift+3",
+        "Command+Shift+4",
+        "Control+Shift+3",
+        "Control+Shift+4",
+        "Alt+Shift+3",
+        "Alt+Shift+4",
+    ];
+
+    for shortcut_str in common_shortcuts {
+        if let Ok(shortcut) = shortcut_str.parse::<Shortcut>() {
+            if manager.is_registered(shortcut) {
+                let _ = manager.unregister(shortcut);
+            }
+        }
+    }
+
+    println!("Unregistered screenshot hotkeys");
     Ok(())
 }

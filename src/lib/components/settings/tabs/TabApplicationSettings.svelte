@@ -69,14 +69,14 @@
     </button>
   </div>
 
-  {#if settingsStore.error}
+  <!-- {#if settingsStore.error}
     <div
       class="px-3 py-2 rounded-lg text-sm bg-danger-20 text-danger flex items-center gap-2"
     >
       <Icon name="x" size={16} />
       <span>{settingsStore.error}</span>
     </div>
-  {/if}
+  {/if} -->
 
   <div class="border-t border-border pt-4">
     <div class="flex items-center justify-between">

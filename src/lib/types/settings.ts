@@ -35,7 +35,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 export type TabId =
   | "account"
-  | "clipboard"
+  | "hotkeys"
   | "items"
   | "memory"
   | "privacy"
@@ -51,4 +51,8 @@ export type TabIcon =
   | "lock"
   | "settings"
   | "flask"
-  | "info";
+  | "info"
+  | "image"
+  | "search"
+  | "text"
+  | "color";

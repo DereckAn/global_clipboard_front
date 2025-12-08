@@ -2,9 +2,6 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
-// @ts-expect-error process is a nodejs global
-const host = process.env.TAURI_DEV_HOST;
-
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [tailwindcss(), sveltekit()],
@@ -17,17 +14,33 @@ export default defineConfig(async () => ({
   server: {
     port: 1420,
     strictPort: true,
-    host: host || false,
-    hmr: host
-      ? {
-          protocol: "ws",
-          host,
-          port: 1421,
-        }
-      : undefined,
     watch: {
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
   },
+
+  // ============================================
+  // MOBILE DEVELOPMENT (uncomment when needed)
+  // ============================================
+  // To develop for iOS/Android or access dev server from other devices:
+  // 1. Set TAURI_DEV_HOST env variable to your local IP (e.g., 192.168.1.100)
+  // 2. Uncomment the code below and comment out the server config above
+  //
+  // const host = process.env.TAURI_DEV_HOST;
+  // server: {
+  //   port: 1420,
+  //   strictPort: true,
+  //   host: host || false,
+  //   hmr: host
+  //     ? {
+  //         protocol: "ws",
+  //         host,
+  //         port: 1421,
+  //       }
+  //     : undefined,
+  //   watch: {
+  //     ignored: ["**/src-tauri/**"],
+  //   },
+  // },
 }));

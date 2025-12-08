@@ -3,28 +3,50 @@ import {
   tauriCleanupOldItems,
   tauriDisableAutoStart,
   tauriEnableAutoStart,
-  tauriGetDatabaseStats,
-  tauriGetSetting,
+  tauriEnableFeature,
   tauriGetCleanupSettings,
+  tauriGetDatabaseStats,
+  tauriGetLabFeatures,
+  tauriGetSetting,
+  tauriInstallFeature,
   tauriIsAutoStartEnabled,
   tauriIsTrayVisible,
   tauriOptimizeDatabase,
   tauriQuitApp,
   tauriSaveCleanupSettings,
   tauriSetTrayVisible,
+  tauriUninstallFeature,
+  tauriUnregisterScreenshotHotkeys,
   tauriUpdateGlobalHotkey,
+  tauriUpdateScreenshotHotkeys,
   type DatabaseStats,
 } from "$lib/tauri/commands";
+import type { LabFeatureId, LabFeatureWithMeta } from "$lib/types";
 import { DEFAULT_SETTINGS } from "$lib/types";
+import { listen } from "@tauri-apps/api/event";
 
-interface Settings {
-  hotkey: string;
-}
+const HOTKEY_MODIFIERS = ["Command", "Control", "Alt", "Option", "Shift"];
+const normalizeHotkey = (hotkey: string) => {
+  return hotkey
+    .split("+")
+    .map((p) => p.trim())
+    .filter(Boolean);
+};
+
+const isValidHotkey = (hotkey: string) => {
+  if (!hotkey) return false;
+  const parts = normalizeHotkey(hotkey);
+  if (parts.length < 2) return false;
+  const hasModifier = parts.some((p) => HOTKEY_MODIFIERS.includes(p));
+  const hasMain = parts.some((p) => !HOTKEY_MODIFIERS.includes(p));
+  return hasModifier && hasMain;
+};
+
 export class SettingsStore {
   maxLocalItems = $state(DEFAULT_SETTINGS.maxLocalItems);
   showHotkey = $state(DEFAULT_SETTINGS.showHotkey);
   enableAnalytics = $state(DEFAULT_SETTINGS.enableAnalytics);
-  hotkey = $state<string>("CommandOrControl+Shift+V");
+  hotkey = $state<string>("Control+Shift+V");
   isLoading = $state(false);
   error = $state<string | null>(null);
 
@@ -34,15 +56,29 @@ export class SettingsStore {
   clipboardMonitorInterval = $state(DEFAULT_SETTINGS.clipboardMonitorInterval);
   notificationsEnabled = $state(DEFAULT_SETTINGS.notificationsEnabled);
   notificationSound = $state(DEFAULT_SETTINGS.notificationSound);
+  screenshotHotkeyFull = $state("Command+Shift+3");
+  screenshotHotkeyRegion = $state("Command+Shift+4");
 
   autoStartEnabled = $state(false);
   trayIconVisible = $state(false);
 
   dbStats = $state<DatabaseStats | null>(null);
+  labFeatures = $state<LabFeatureWithMeta[]>([]);
 
   constructor() {
     // Load from localStorage
     if (typeof window !== "undefined") {
+      // Escuchar progreso de descarga de features del laboratorio
+      listen("lab-feature-download-progress", (event) => {
+        const { id, progress } = event.payload as {
+          id: string;
+          progress: number;
+        };
+        this.labFeatures = this.labFeatures.map((feature) =>
+          feature.id === id ? { ...feature, progress } : feature
+        );
+      });
+
       const saved = localStorage.getItem("settings-store");
       if (saved) {
         try {
@@ -68,6 +104,16 @@ export class SettingsStore {
             DEFAULT_SETTINGS.notificationsEnabled;
           this.notificationSound =
             parsed.notificationSound ?? DEFAULT_SETTINGS.notificationSound;
+          this.screenshotHotkeyFull =
+            parsed.screenshotHotkeyFull &&
+            isValidHotkey(parsed.screenshotHotkeyFull)
+              ? parsed.screenshotHotkeyFull
+              : "Command+Shift+3";
+          this.screenshotHotkeyRegion =
+            parsed.screenshotHotkeyRegion &&
+            isValidHotkey(parsed.screenshotHotkeyRegion)
+              ? parsed.screenshotHotkeyRegion
+              : "Command+Shift+4";
         } catch (err) {
           console.error("Failed to load settings store:", err);
         }
@@ -112,6 +158,8 @@ export class SettingsStore {
     this.maxItemsEnabled = DEFAULT_SETTINGS.maxItemsEnabled;
     this.retentionEnabled = DEFAULT_SETTINGS.retentionEnabled;
     this.retentionDays = DEFAULT_SETTINGS.retentionDays;
+    this.screenshotHotkeyFull = "Command+Shift+3";
+    this.screenshotHotkeyRegion = "Command+Shift+4";
     this.save();
   }
 
@@ -153,6 +201,44 @@ export class SettingsStore {
     } catch (err) {
       console.error("Failed to load cleanup settings:", err);
     }
+
+    try {
+      this.labFeatures = await tauriGetLabFeatures();
+
+      // Si screenshot esat instalado y habilidato, registra sus hotkes
+      const screenshotFeature = this.labFeatures.find(
+        (f) => f.id === "screenshot"
+      );
+      if (
+        screenshotFeature?.status === "installed" &&
+        screenshotFeature.enabled
+      ) {
+        await this.registerScreenshotHotkeys();
+      }
+    } catch (err) {
+      console.error("Failed to load lab features:", err);
+    }
+
+    this.isLoading = false;
+  }
+
+  async registerScreenshotHotkeys() {
+    try {
+      await tauriUpdateScreenshotHotkeys(
+        this.screenshotHotkeyFull,
+        this.screenshotHotkeyRegion
+      );
+    } catch (err) {
+      console.error("Failed to register screenshot hotkeys:", err);
+    }
+  }
+
+  async unregisterScreenshotHotkeys() {
+    try {
+      await tauriUnregisterScreenshotHotkeys();
+    } catch (err) {
+      console.error("Failed to unregister screenshot hotkeys:", err);
+    }
   }
 
   async saveHotkey(newHotkey: string) {
@@ -160,6 +246,11 @@ export class SettingsStore {
     this.error = null;
 
     try {
+      if (!isValidHotkey(newHotkey)) {
+        this.error = "Hotkey must include a modifier and a key";
+        return false;
+      }
+      console.debug("[hotkey] registering", newHotkey);
       await tauriUpdateGlobalHotkey(newHotkey);
       this.hotkey = newHotkey;
       return true;
@@ -216,6 +307,63 @@ export class SettingsStore {
       await this.loadDatabaseStats();
     } catch (err) {
       console.error("Failed to optimize database:", err);
+      throw err;
+    }
+  }
+
+  async refreshLabFeatures() {
+    try {
+      this.labFeatures = await tauriGetLabFeatures();
+    } catch (err) {
+      console.error("Failed to refresh lab features:", err);
+      throw err;
+    }
+  }
+
+  async installFeature(id: LabFeatureId) {
+    try {
+      const updated = await tauriInstallFeature(id);
+      this.labFeatures = this.labFeatures
+        .filter((f) => f.id !== id)
+        .concat(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to install feature:", err);
+      throw err;
+    }
+  }
+
+  async uninstallFeature(id: LabFeatureId) {
+    try {
+      const updated = await tauriUninstallFeature(id);
+      this.labFeatures = this.labFeatures
+        .filter((f) => f.id !== id)
+        .concat(updated);
+      return updated;
+    } catch (err) {
+      console.error("Failed to uninstall feature:", err);
+      throw err;
+    }
+  }
+
+  async enableFeature(id: LabFeatureId, enabled: boolean) {
+    try {
+      const updated = await tauriEnableFeature(id, enabled);
+      this.labFeatures = this.labFeatures
+        .filter((f) => f.id !== id)
+        .concat(updated);
+
+      // Registrar o desregistrar hotkeys de screenshot segun el estado
+      if (id === "screenshot") {
+        if (!enabled) {
+          await this.unregisterScreenshotHotkeys();
+        }
+        await this.registerScreenshotHotkeys();
+      }
+
+      return updated;
+    } catch (err) {
+      console.error("Failed to enable feature:", err);
       throw err;
     }
   }
@@ -277,6 +425,45 @@ export class SettingsStore {
     }
   }
 
+  async updateScreenshotHotkeys(full: string, region: string) {
+    console.log("=== updateScreenshotHotkeys called ===");
+    console.log("Full hotkey:", full);
+    console.log("Region hotkey:", region);
+
+    const fullValid = isValidHotkey(full);
+    const regionValid = isValidHotkey(region);
+
+    console.log("Full valid:", fullValid);
+    console.log("Region valid:", regionValid);
+
+    if (fullValid) {
+      this.screenshotHotkeyFull = full;
+    }
+    if (regionValid) {
+      this.screenshotHotkeyRegion = region;
+    }
+
+    // Registrar los hotkeys en el backend
+    try {
+      console.log("Calling invoke('update_screenshot_hotkeys')...");
+      console.log("Sending:", {
+        fullHotkey: fullValid ? full : this.screenshotHotkeyFull,
+        regionHotkey: regionValid ? region : this.screenshotHotkeyRegion,
+      });
+
+      await tauriUpdateScreenshotHotkeys(
+        fullValid ? full : this.screenshotHotkeyFull,
+        regionValid ? region : this.screenshotHotkeyRegion
+      );
+      
+      console.log("Screenshot hotkeys registered successfully!");
+    } catch (err) {
+      console.error("Failed to register screenshot hotkeys:", err);
+    }
+
+    this.save();
+  }
+
   private save() {
     if (typeof window !== "undefined") {
       try {
@@ -293,6 +480,8 @@ export class SettingsStore {
             clipboardMonitorInterval: this.clipboardMonitorInterval,
             notificationsEnabled: this.notificationsEnabled,
             notificationSound: this.notificationSound,
+            screenshotHotkeyFull: this.screenshotHotkeyFull,
+            screenshotHotkeyRegion: this.screenshotHotkeyRegion,
           })
         );
 

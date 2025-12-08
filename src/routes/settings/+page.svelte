@@ -11,7 +11,7 @@
 
   const tabs: { id: TabId; label: string; icon: TabIcon }[] = [
     { id: "account", label: "Account", icon: "user" },
-    { id: "clipboard", label: "Clipboard", icon: "text" },
+    { id: "hotkeys", label: "Hotkeys", icon: "text" },
     { id: "items", label: "Item Management", icon: "trash" },
     { id: "memory", label: "Usage", icon: "database" },
     { id: "privacy", label: "Privacy", icon: "lock" },
@@ -32,13 +32,14 @@
 </script>
 
 <div
-  class="h-screen w-screen overflow-hidden flex flex-col bg-surface rounded-3xl relative"
+  class="h-screen w-screen overflow-hidden flex flex-col bg-surface rounded-3xl relative p-3"
 >
   <div
-    class="absolute  w-full h-full"
+    class="absolute top-0 left-0 right-0 bottom-0"
     data-tauri-drag-region
   ></div>
-  <div class="flex-1 flex overflow-hidden">
+
+  <div class="flex-1 flex overflow-hidden gap-3">
     <!-- Sidebar -->
     <SettingsSidebar
       {tabs}

@@ -43,7 +43,7 @@
   const isFile = $derived(item?.contentType === "file");
 </script>
 
-<div class="h-44 mx-3 mb-3 border border-border bg-surface rounded-2xl flex flex-col max-w-full">
+<div class="absolute bottom-0 left-0 right-0 h-44 mx-3 mb-3 border border-border bg-surface rounded-2xl flex flex-col ">
   {#if !item}
     <!-- Empty state -->
     <div class="flex-1 flex items-center justify-center px-6 text-center">
