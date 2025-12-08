@@ -218,6 +218,8 @@ jobs:
       - name: Build Tauri app
         env:
           TAURI_SKIP_BUILD_FRONTEND: "true"
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run tauri build --target ${{ matrix.target }}
 
       - name: Upload bundle artifacts
@@ -263,20 +265,116 @@ jobs:
             fi
           }
 
+          # También copiar los archivos .sig si existen (generados por Tauri updater)
+          copy_sig() {
+            target="$1"
+            src_pattern="$2"
+            dest_name="$3"
+            dir="artifacts/tauri-${target}"
+            if file=$(find "$dir" -type f -name "$src_pattern" 2>/dev/null | head -1); then
+              cp "$file" "release-assets/${dest_name}"
+              echo "✅ copied sig $(basename "$file") -> ${dest_name}"
+            fi
+          }
+
+          # macOS
           copy_bundle "x86_64-apple-darwin" "*.dmg" "GlobalClipboard-${VERSION}-macOS-Intel.dmg"
+          copy_bundle "x86_64-apple-darwin" "*.app.tar.gz" "GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz"
+          copy_sig "x86_64-apple-darwin" "*.app.tar.gz.sig" "GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz.sig"
+
           copy_bundle "aarch64-apple-darwin" "*.dmg" "GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg"
+          copy_bundle "aarch64-apple-darwin" "*.app.tar.gz" "GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz"
+          copy_sig "aarch64-apple-darwin" "*.app.tar.gz.sig" "GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz.sig"
+
+          # Windows
           copy_bundle "x86_64-pc-windows-msvc" "*x64_en-US.msi" "GlobalClipboard-${VERSION}-Windows-x64.msi"
           copy_bundle "x86_64-pc-windows-msvc" "*x64-setup.exe" "GlobalClipboard-${VERSION}-Windows-x64-Setup.exe"
+          copy_bundle "x86_64-pc-windows-msvc" "*x64-setup.nsis.zip" "GlobalClipboard-${VERSION}-Windows-x64-Setup.nsis.zip"
+          copy_sig "x86_64-pc-windows-msvc" "*x64-setup.nsis.zip.sig" "GlobalClipboard-${VERSION}-Windows-x64-Setup.nsis.zip.sig"
+
           copy_bundle "aarch64-pc-windows-msvc" "*arm64_en-US.msi" "GlobalClipboard-${VERSION}-Windows-arm64.msi"
           copy_bundle "aarch64-pc-windows-msvc" "*arm64-setup.exe" "GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe"
+          copy_bundle "aarch64-pc-windows-msvc" "*arm64-setup.nsis.zip" "GlobalClipboard-${VERSION}-Windows-arm64-Setup.nsis.zip"
+          copy_sig "aarch64-pc-windows-msvc" "*arm64-setup.nsis.zip.sig" "GlobalClipboard-${VERSION}-Windows-arm64-Setup.nsis.zip.sig"
+
+          # Linux
           copy_bundle "x86_64-unknown-linux-gnu" "*.AppImage" "GlobalClipboard-${VERSION}-Linux-x64.AppImage"
+          copy_bundle "x86_64-unknown-linux-gnu" "*.AppImage.tar.gz" "GlobalClipboard-${VERSION}-Linux-x64.AppImage.tar.gz"
+          copy_sig "x86_64-unknown-linux-gnu" "*.AppImage.tar.gz.sig" "GlobalClipboard-${VERSION}-Linux-x64.AppImage.tar.gz.sig"
           copy_bundle "x86_64-unknown-linux-gnu" "*.deb" "GlobalClipboard-${VERSION}-Linux-x64.deb"
           copy_bundle "x86_64-unknown-linux-gnu" "*.rpm" "GlobalClipboard-${VERSION}-Linux-x64.rpm"
+
           copy_bundle "aarch64-unknown-linux-gnu" "*.AppImage" "GlobalClipboard-${VERSION}-Linux-arm64.AppImage"
+          copy_bundle "aarch64-unknown-linux-gnu" "*.AppImage.tar.gz" "GlobalClipboard-${VERSION}-Linux-arm64.AppImage.tar.gz"
+          copy_sig "aarch64-unknown-linux-gnu" "*.AppImage.tar.gz.sig" "GlobalClipboard-${VERSION}-Linux-arm64.AppImage.tar.gz.sig"
           copy_bundle "aarch64-unknown-linux-gnu" "*arm64.deb" "GlobalClipboard-${VERSION}-Linux-arm64.deb"
           copy_bundle "aarch64-unknown-linux-gnu" "*aarch64.rpm" "GlobalClipboard-${VERSION}-Linux-arm64.rpm"
 
           (cd release-assets && sha256sum * > SHA256SUMS 2>/dev/null || true)
+
+      - name: Generate latest.json for updater
+        id: updater
+        run: |
+          VERSION=${{ steps.prepare.outputs.version }}
+          TAG=${GITHUB_REF#refs/tags/}
+          REPO=${{ github.repository }}
+          BASE_URL="https://github.com/${REPO}/releases/download/${TAG}"
+          PUB_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          # Read signatures if they exist
+          read_sig() {
+            local file="release-assets/$1"
+            if [ -f "$file" ]; then
+              cat "$file"
+            else
+              echo ""
+            fi
+          }
+
+          MACOS_INTEL_SIG=$(read_sig "GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz.sig")
+          MACOS_ARM_SIG=$(read_sig "GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz.sig")
+          WINDOWS_X64_SIG=$(read_sig "GlobalClipboard-${VERSION}-Windows-x64-Setup.nsis.zip.sig")
+          WINDOWS_ARM_SIG=$(read_sig "GlobalClipboard-${VERSION}-Windows-arm64-Setup.nsis.zip.sig")
+          LINUX_X64_SIG=$(read_sig "GlobalClipboard-${VERSION}-Linux-x64.AppImage.tar.gz.sig")
+          LINUX_ARM_SIG=$(read_sig "GlobalClipboard-${VERSION}-Linux-arm64.AppImage.tar.gz.sig")
+
+          # Create latest.json
+          cat > release-assets/latest.json << EOF
+          {
+            "version": "${VERSION}",
+            "notes": "See the release notes on GitHub for full details.",
+            "pub_date": "${PUB_DATE}",
+            "platforms": {
+              "darwin-x86_64": {
+                "signature": "${MACOS_INTEL_SIG}",
+                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz"
+              },
+              "darwin-aarch64": {
+                "signature": "${MACOS_ARM_SIG}",
+                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz"
+              },
+              "linux-x86_64": {
+                "signature": "${LINUX_X64_SIG}",
+                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-Linux-x64.AppImage.tar.gz"
+              },
+              "linux-aarch64": {
+                "signature": "${LINUX_ARM_SIG}",
+                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-Linux-arm64.AppImage.tar.gz"
+              },
+              "windows-x86_64": {
+                "signature": "${WINDOWS_X64_SIG}",
+                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-Windows-x64-Setup.nsis.zip"
+              },
+              "windows-aarch64": {
+                "signature": "${WINDOWS_ARM_SIG}",
+                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.nsis.zip"
+              }
+            }
+          }
+          EOF
+
+          echo "✅ Generated latest.json"
+          cat release-assets/latest.json
 
       - name: Generate release notes
         id: notes
@@ -285,7 +383,6 @@ jobs:
           TAG=${GITHUB_REF#refs/tags/}
           REPO=${{ github.repository }}
 
-          # Crear el cuerpo del release
           BODY="## 📦 Downloads
 
           | Platform | Architecture | Download |
@@ -297,6 +394,10 @@ jobs:
           | Linux | x64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.rpm) |
           | Linux | ARM64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.rpm) |
 
+          ## 🔄 Auto-Update
+
+          If you already have the app installed, you can update directly from the app menu!
+
           ## 🍎 macOS Installation Note
 
           If you see a message saying the app is damaged, run this command in Terminal:
@@ -305,7 +406,6 @@ jobs:
           sudo xattr -d com.apple.quarantine \"/Applications/Global Clipboard.app\"
           \`\`\`"
 
-          # Guardar en GITHUB_OUTPUT usando el método recomendado
           {
             echo "body<<RELEASE_NOTES_DELIMITER"
             echo "$BODY"

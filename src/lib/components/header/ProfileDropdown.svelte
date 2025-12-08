@@ -1,6 +1,7 @@
 <script lang="ts">
   import { goto } from "$app/navigation";
   import Icon from "$lib/components/icons/Icon.svelte";
+  import { updaterStore } from "$lib/stores/updater.svelte";
 
   interface Props {
     isAuthenticated?: boolean;
@@ -35,6 +36,21 @@
     console.log("Logout");
     // TODO: Implement logout
     isOpen = false;
+  };
+
+  const handleCheckUpdates = async () => {
+    await updaterStore.checkForUpdates();
+  };
+
+  const handleConfirmUpdate = async () => {
+    await updaterStore.downloadAndInstall();
+    if (updaterStore.status === "ready") {
+      await updaterStore.relaunchApp();
+    }
+  };
+
+  const handleCancelUpdate = () => {
+    updaterStore.cancelUpdate();
   };
 
   // Close on click outside
@@ -150,10 +166,97 @@
         <div class="h-px bg-border my-2"></div>
       {/if}
 
+      <!-- Update Section -->
+      <div class="mb-2">
+        {#if updaterStore.status === "idle" || updaterStore.status === "error"}
+          <button
+            onclick={handleCheckUpdates}
+            class="flex w-full items-center gap-3 px-2 py-1.5 rounded-md text-sm bg-white/10 hover:bg-surface-hover transition-colors text-left"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="1.5em"
+              height="1.5em"
+              viewBox="0 0 24 24"
+              ><path
+                fill="currentColor"
+                d="M12 21q-1.875 0-3.512-.712t-2.85-1.925t-1.925-2.85T3 12t.713-3.512t1.924-2.85t2.85-1.925T12 3q2.05 0 3.888.875T19 6.35V4h2v6h-6V8h2.75q-1.025-1.4-2.525-2.2T12 5Q9.075 5 7.038 7.038T5 12t2.038 4.963T12 19q2.625 0 4.588-1.7T18.9 13h2.05q-.375 3.425-2.937 5.713T12 21m2.8-4.8L11 12.4V7h2v4.6l3.2 3.2z"
+              /></svg
+            >
+            <span>Update</span>
+          </button>
+          {#if updaterStore.status === "error" && updaterStore.error}
+            <div class="flex items-start gap-1 px-2 mt-1">
+              <p class="text-xs text-danger flex-1">{updaterStore.error}</p>
+              <button
+                onclick={() => updaterStore.clearError()}
+                class="size-4 flex items-center justify-center rounded hover:bg-surface-hover transition-colors text-text-muted hover:text-danger"
+              >
+                <Icon name="x" size={10} />
+              </button>
+            </div>
+          {/if}
+        {:else if updaterStore.status === "checking"}
+          <div
+            class="flex items-center gap-3 px-2 py-1.5 text-sm text-text-muted"
+          >
+            <div
+              class="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin"
+            ></div>
+            <span>Checking...</span>
+          </div>
+        {:else if updaterStore.status === "available"}
+          <div class="space-y-2">
+            <p class="text-xs text-text-muted px-2">
+              v{updaterStore.newVersion} available
+            </p>
+            <div class="flex gap-2 px-2">
+              <button
+                onclick={handleConfirmUpdate}
+                class="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-md bg-primary/20 text-green-400/60 text-sm hover:bg-primary/30 transition-colors"
+              >
+                <Icon name="check" size={14} />
+              </button>
+              <button
+                onclick={handleCancelUpdate}
+                class="flex items-center justify-center px-2 py-1.5 rounded-md bg-white/10 text-text-muted text-sm hover:bg-surface-hover transition-colors"
+              >
+                <Icon name="x" size={14} />
+              </button>
+            </div>
+          </div>
+        {:else if updaterStore.status === "downloading"}
+          <div class="px-2 py-1.5 space-y-2">
+            <div class="flex items-center gap-2 text-sm text-text-muted">
+              <div
+                class="size-4 border-2 border-primary border-t-transparent rounded-full animate-spin"
+              ></div>
+              <span>Downloading...</span>
+            </div>
+            <div class="h-1 bg-surface-hover rounded-full overflow-hidden">
+              <div
+                class="h-full bg-primary transition-all duration-300"
+                style="width: {Math.min(updaterStore.downloadProgress, 100)}%"
+              ></div>
+            </div>
+          </div>
+        {:else if updaterStore.status === "ready"}
+          <button
+            onclick={() => updaterStore.relaunchApp()}
+            class="flex w-full items-center gap-3 px-2 py-1.5 rounded-md text-sm bg-primary/20 text-primary hover:bg-primary/30 transition-colors text-left"
+          >
+            <Icon name="file" size={16} />
+            <span>Restart to Update</span>
+          </button>
+        {/if}
+      </div>
+
+      <div class="h-px bg-border my-2"></div>
+
       <!-- Settings -->
       <button
         onclick={handleSettings}
-        class=" flex w-full items-center gap-3 px-2  bg-white/10 rounded-md text-sm hover:bg-surface-hover transition-colors text-left"
+        class=" flex w-full items-center gap-3 px-2 py-1.5 bg-white/10 rounded-md text-sm hover:bg-surface-hover transition-colors text-left"
       >
         <Icon name="settings" size={16} />
         <span>Settings</span>

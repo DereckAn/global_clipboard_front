@@ -96,7 +96,7 @@
 
 <header
   data-tauri-drag-region
-  class="h-12 border-border flex items-center gap-4 px-3 z-50"
+  class="h-12 border-border flex items-center gap-2 px-3 z-50"
 >
   <!-- Profile dropdown -->
   <ProfileDropdown {isAuthenticated} />
