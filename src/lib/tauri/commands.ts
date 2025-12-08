@@ -422,3 +422,14 @@ export async function tauriCaptureFullScreenshot(): Promise<void> {
 export async function tauriCaptureRegionScreenshot(): Promise<void> {
   await invoke("capture_region_screenshot");
 }
+
+export async function tauriUpdateScreenshotHotkeys(
+  fullHotkey: string,
+  regionHotkey: string
+): Promise<void> {
+  await invoke("update_screenshot_hotkeys", { fullHotkey, regionHotkey });
+}
+
+export async function tauriUnregisterScreenshotHotkeys(): Promise<void> {
+  await invoke("unregister_screenshot_hotkeys");
+}

@@ -416,35 +416,13 @@ fn pick_artifact_for_os(artifacts: &ArtifactMap) -> Result<&Artifact, String> {
     }
 }
 
-#[derive(Clone, Copy)]
-enum CaptureMode {
-    Full,
-    Region,
-}
-
-#[tauri::command]
-pub fn capture_full_screenshot<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<Mutex<AppState>>,
-) -> Result<(), String> {
-    capture_screenshot_internal(app, state, CaptureMode::Full)
-}
-
-#[tauri::command]
-pub fn capture_region_screenshot<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<Mutex<AppState>>,
-) -> Result<(), String> {
-    capture_screenshot_internal(app, state, CaptureMode::Region)
-}
-
-fn capture_screenshot_internal<R: Runtime>(
-    app: AppHandle<R>,
-    state: State<Mutex<AppState>>,
+/// Internal function that can be called from shortcuts or commands
+pub fn capture_screenshot_core<R: Runtime>(
+    app: &AppHandle<R>,
+    app_state: &AppState,
     mode: CaptureMode,
 ) -> Result<(), String> {
-    let app_state = state.lock().map_err(|e| e.to_string())?;
-    let states = load_states(&app_state);
+    let states = load_states(app_state);
     let screenshot_entry = states
         .iter()
         .find(|s| s.id == LabFeatureId::Screenshot)
@@ -476,15 +454,41 @@ fn capture_screenshot_internal<R: Runtime>(
 
     match mode {
         CaptureMode::Full => {
-            run_full_capture_with_helper(&app_state, &installed_version, &file_path)?
+            run_full_capture_with_helper(app_state, &installed_version, &file_path)?
         }
         CaptureMode::Region => {
-            run_region_capture_with_helper(&app_state, &installed_version, &file_path)?
+            run_region_capture_with_helper(app_state, &installed_version, &file_path)?
         }
     }
 
-    ingest_captured_image(&app_state, &app, &file_path, &images_dir)?;
+    ingest_captured_image(app_state, app, &file_path, &images_dir)?;
     Ok(())
+}
+
+// Make CaptureMode public so shortcuts.rs can use it
+#[derive(Clone, Copy, Debug)]
+pub enum CaptureMode {
+    Full,
+    Region,
+}
+
+// Simplify the Tauri commands to use the core function
+#[tauri::command]
+pub fn capture_full_screenshot<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<Mutex<AppState>>,
+) -> Result<(), String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    capture_screenshot_core(&app, &app_state, CaptureMode::Full)
+}
+
+#[tauri::command]
+pub fn capture_region_screenshot<R: Runtime>(
+    app: AppHandle<R>,
+    state: State<Mutex<AppState>>,
+) -> Result<(), String> {
+    let app_state = state.lock().map_err(|e| e.to_string())?;
+    capture_screenshot_core(&app, &app_state, CaptureMode::Region)
 }
 
 fn ingest_captured_image<R: Runtime>(

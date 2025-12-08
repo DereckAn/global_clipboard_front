@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "$lib/components/icons/Icon.svelte";
   import { settingsStore } from "$lib/stores/settings.svelte";
-  import HotkeyRecorder from "../HotkeyRecorder.svelte";
+  import HotkeyRow from "../HotkeyRow.svelte";
 
   interface Props {
     globalHotkey: string;
@@ -48,7 +48,6 @@
     screenshotHotkeyRegion = newHotkey;
     settingsStore.updateScreenshotHotkeys(screenshotHotkeyFull, newHotkey);
   };
-
 </script>
 
 <section
@@ -65,73 +64,33 @@
   </div>
 
   <div class="space-y-6 mt-6">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <div class="size-10 rounded-xl bg-white/5 flex items-center justify-center">
-          <Icon name="text" size={18} />
-        </div>
-        <div>
-          <p class="text-sm font-semibold text-text">Show/Hide Window</p>
-          <p class="text-xs text-text-muted">Global hotkey to toggle the app.</p>
-        </div>
-      </div>
-      <HotkeyRecorder
-        id="global-hotkey"
-        value={globalHotkey}
-        onChange={handleGlobalChange}
-      />
-    </div>
+    <HotkeyRow
+      id="global-hotkey"
+      icon="text"
+      title="Show/Hide Window"
+      description="Global hotkey to toggle the app."
+      value={globalHotkey}
+      onChange={handleGlobalChange}
+    />
 
     {#if screenshotAvailable}
-      <div
-        class="flex items-center justify-between bg-surface-200/40 border border-border/60 rounded-2xl px-4 py-3"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="h-10 w-10 rounded-xl bg-surface-100/50 border border-border/60 flex items-center justify-center"
-          >
-            <Icon name="image" size={18} />
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-text">
-              Screenshot (full screen)
-            </p>
-            <p class="text-xs text-text-muted">
-              Runs the helper for full-screen capture.
-            </p>
-          </div>
-        </div>
-        <HotkeyRecorder
-          id="screenshot-full"
-          value={screenshotHotkeyFull}
-          onChange={handleFullChange}
-          disabled={!screenshotAvailable}
-        />
-      </div>
+      <HotkeyRow
+        id="screenshot-full"
+        icon="image"
+        title="Screenshot (full screen)"
+        description="Runs the helper for full-screen capture."
+        value={screenshotHotkeyFull}
+        onChange={handleFullChange}
+      />
 
-      <div
-        class="flex items-center justify-between bg-surface-200/40 border border-border/60 rounded-2xl px-4 py-3"
-      >
-        <div class="flex items-center gap-3">
-          <div
-            class="h-10 w-10 rounded-xl bg-surface-100/50 border border-border/60 flex items-center justify-center"
-          >
-            <Icon name="image" size={18} />
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-text">Screenshot (region)</p>
-            <p class="text-xs text-text-muted">
-              Runs the helper for region capture.
-            </p>
-          </div>
-        </div>
-        <HotkeyRecorder
-          id="screenshot-region"
-          value={screenshotHotkeyRegion}
-          onChange={handleRegionChange}
-          disabled={!screenshotAvailable}
-        />
-      </div>
+      <HotkeyRow
+        id="screenshot-region"
+        icon="image"
+        title="Screenshot (region)"
+        description="Runs the helper for region capture."
+        value={screenshotHotkeyRegion}
+        onChange={handleRegionChange}
+      />
     {/if}
 
     {#if !screenshotAvailable}

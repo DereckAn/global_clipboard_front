@@ -12,9 +12,9 @@ use commands::AppState;
 use std::sync::Mutex;
 #[cfg(target_os = "macos")]
 use tauri::image::Image;
+use tauri::menu::{Menu, MenuItem};
 #[cfg(target_os = "macos")]
 use tauri::path::BaseDirectory;
-use tauri::menu::{Menu, MenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{Emitter, Manager};
 
@@ -360,6 +360,8 @@ pub fn run() {
             commands::capture_full_screenshot,
             commands::capture_region_screenshot,
             commands::get_platform,
+            commands::update_screenshot_hotkeys,
+            commands::unregister_screenshot_hotkeys,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

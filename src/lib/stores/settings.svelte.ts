@@ -16,16 +16,14 @@ import {
   tauriSaveCleanupSettings,
   tauriSetTrayVisible,
   tauriUninstallFeature,
+  tauriUnregisterScreenshotHotkeys,
   tauriUpdateGlobalHotkey,
+  tauriUpdateScreenshotHotkeys,
   type DatabaseStats,
 } from "$lib/tauri/commands";
 import type { LabFeatureId, LabFeatureWithMeta } from "$lib/types";
 import { DEFAULT_SETTINGS } from "$lib/types";
 import { listen } from "@tauri-apps/api/event";
-
-interface Settings {
-  hotkey: string;
-}
 
 const HOTKEY_MODIFIERS = ["Command", "Control", "Alt", "Option", "Shift"];
 const normalizeHotkey = (hotkey: string) => {
@@ -153,16 +151,6 @@ export class SettingsStore {
     this.save();
   }
 
-  updateScreenshotHotkeys(full: string, region: string) {
-    if (isValidHotkey(full)) {
-      this.screenshotHotkeyFull = full;
-    }
-    if (isValidHotkey(region)) {
-      this.screenshotHotkeyRegion = region;
-    }
-    this.save();
-  }
-
   reset() {
     this.maxLocalItems = DEFAULT_SETTINGS.maxLocalItems;
     this.showHotkey = DEFAULT_SETTINGS.showHotkey;
@@ -216,8 +204,40 @@ export class SettingsStore {
 
     try {
       this.labFeatures = await tauriGetLabFeatures();
+
+      // Si screenshot esat instalado y habilidato, registra sus hotkes
+      const screenshotFeature = this.labFeatures.find(
+        (f) => f.id === "screenshot"
+      );
+      if (
+        screenshotFeature?.status === "installed" &&
+        screenshotFeature.enabled
+      ) {
+        await this.registerScreenshotHotkeys();
+      }
     } catch (err) {
       console.error("Failed to load lab features:", err);
+    }
+
+    this.isLoading = false;
+  }
+
+  async registerScreenshotHotkeys() {
+    try {
+      await tauriUpdateScreenshotHotkeys(
+        this.screenshotHotkeyFull,
+        this.screenshotHotkeyRegion
+      );
+    } catch (err) {
+      console.error("Failed to register screenshot hotkeys:", err);
+    }
+  }
+
+  async unregisterScreenshotHotkeys() {
+    try {
+      await tauriUnregisterScreenshotHotkeys();
+    } catch (err) {
+      console.error("Failed to unregister screenshot hotkeys:", err);
     }
   }
 
@@ -332,6 +352,15 @@ export class SettingsStore {
       this.labFeatures = this.labFeatures
         .filter((f) => f.id !== id)
         .concat(updated);
+
+      // Registrar o desregistrar hotkeys de screenshot segun el estado
+      if (id === "screenshot") {
+        if (!enabled) {
+          await this.unregisterScreenshotHotkeys();
+        }
+        await this.registerScreenshotHotkeys();
+      }
+
       return updated;
     } catch (err) {
       console.error("Failed to enable feature:", err);
@@ -394,6 +423,45 @@ export class SettingsStore {
       console.error("❌ Failed to quit app:", err);
       throw err; // Re-throw para que el error suba
     }
+  }
+
+  async updateScreenshotHotkeys(full: string, region: string) {
+    console.log("=== updateScreenshotHotkeys called ===");
+    console.log("Full hotkey:", full);
+    console.log("Region hotkey:", region);
+
+    const fullValid = isValidHotkey(full);
+    const regionValid = isValidHotkey(region);
+
+    console.log("Full valid:", fullValid);
+    console.log("Region valid:", regionValid);
+
+    if (fullValid) {
+      this.screenshotHotkeyFull = full;
+    }
+    if (regionValid) {
+      this.screenshotHotkeyRegion = region;
+    }
+
+    // Registrar los hotkeys en el backend
+    try {
+      console.log("Calling invoke('update_screenshot_hotkeys')...");
+      console.log("Sending:", {
+        fullHotkey: fullValid ? full : this.screenshotHotkeyFull,
+        regionHotkey: regionValid ? region : this.screenshotHotkeyRegion,
+      });
+
+      await tauriUpdateScreenshotHotkeys(
+        fullValid ? full : this.screenshotHotkeyFull,
+        regionValid ? region : this.screenshotHotkeyRegion
+      );
+      
+      console.log("Screenshot hotkeys registered successfully!");
+    } catch (err) {
+      console.error("Failed to register screenshot hotkeys:", err);
+    }
+
+    this.save();
   }
 
   private save() {
