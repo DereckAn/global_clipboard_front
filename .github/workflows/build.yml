@@ -206,6 +206,11 @@ jobs:
         if: matrix.target == 'aarch64-pc-windows-msvc'
         run: rustup target add aarch64-pc-windows-msvc
 
+      # Agregar target x86_64 en macOS ARM64 runner para cross-compilation
+      - name: Add Rust target for macOS Intel (cross-compile)
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: rustup target add x86_64-apple-darwin
+
       - name: Cache cargo builds
         uses: swatinem/rust-cache@v2
         with:
