@@ -7,7 +7,7 @@ use crate::AppState;
 use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use sha2::Digest;
-use std::fs;
+use std::fs::{self};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
@@ -88,8 +88,8 @@ pub struct ArtifactMap {
 
 const LAB_STATE_FILE: &str = "lab_features.json";
 const FEATURE_ROOT_DIR: &str = "lab_features";
-const HELPER_VERSION: &str = "1.0.0";
-const HELPER_RELEASE_TAG: &str = "helper-v1.0.0";
+const HELPER_VERSION: &str = "1.0.1";
+const HELPER_RELEASE_TAG: &str = "helper-v1.0.1";
 const GITHUB_REPO: &str = "DereckAn/global_clipboard_front";
 
 /// Determina el sufijo del artifact según OS y arquitectura
@@ -137,37 +137,28 @@ fn get_platform_suffix() -> Option<&'static str> {
     }
 }
 
-/// Retorna la extensión del binario según el OS
-/// - Windows: ".exe"
-/// - macOS: "" (sin extensión)
-/// - Linux: "" (sin extensión)
-fn get_binary_extension() -> &'static str {
-    #[cfg(target_os = "windows")]
-    {
-        ".exe"
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        ""
-    } // macOS y Linux no tienen extensión
-}
-
 fn build_screenshot_artifact() -> Option<Artifact> {
     let suffix = get_platform_suffix()?;
-    let ext = get_binary_extension();
+
+    // Agregar .exe solo en windows
+    let file_name = if cfg!(target_os = "windows") {
+        format!("screenshot-helper-{}.exe", suffix)
+    } else {
+        format!("screenshot-helper-{}", suffix)
+    };
 
     Some(Artifact {
         url: format!(
-            "https://github.com/{}/releases/download/{}/screenshot-helper-{}{}",
-            GITHUB_REPO, HELPER_RELEASE_TAG, suffix, ext
+            "https://github.com/{}/releases/download/{}/{}",
+            GITHUB_REPO, HELPER_RELEASE_TAG, file_name
         ),
         sha256_url: Some(format!(
             "https://github.com/{}/releases/download/{}/SHA256-{}.txt",
             GITHUB_REPO, HELPER_RELEASE_TAG, suffix
         )),
-        sha256: String::new(), // Se descarga dinámicamente
+        sha256: String::new(),
         version: HELPER_VERSION.to_string(),
-        file_name: format!("screenshot-helper{}", ext),
+        file_name,
     })
 }
 
@@ -597,8 +588,14 @@ fn download_artifact<R: Runtime>(
     artifact: &Artifact,
     feature_dir: &Path,
 ) -> Result<PathBuf, String> {
+    // println!("=== Download Artifact Debug ===");
+    // println!("Artifact URL: {}", artifact.url);
+    // println!("Artifact filename: {}", artifact.file_name);
+    // println!("Feature directory: {}", feature_dir.display());
+
     fs::create_dir_all(feature_dir).map_err(|e| e.to_string())?;
     let target_path = feature_dir.join(&artifact.file_name);
+    // println!("Target path: {}", target_path.display());
 
     let client = Client::builder()
         .build()
@@ -702,9 +699,40 @@ fn download_artifact<R: Runtime>(
             .permissions();
         perms.set_mode(0o755);
         fs::set_permissions(&target_path, perms).map_err(|e| e.to_string())?;
+        println!("Set executable permissions: 0o755");
     }
 
-    Ok(target_path)
+    // Paso 5: Renombrar el file a nombre generico
+    let final_name = if cfg!(target_os = "windows") {
+        "screenshot-helper.exe"
+    } else {
+        "screenshot-helper"
+    };
+    let final_path = feature_dir.join(final_name);
+
+    // Si ya existe un archivo final, eliminarlo antes de renombrar
+    if final_path.exists() {
+        fs::remove_file(&final_path).map_err(|e| format!("Failed to remove existing file: {e}"))?;
+    }
+
+    // Renombrar el arcchivo descargado al nombre final
+    fs::rename(&target_path, &final_path).map_err(|e| format!("Failed to rename file: {e}"))?;
+
+    // println!("Renamed to: {}", final_path.display());
+
+    // println!("Download completed successfully!");
+    // println!("File exists: {}", final_path.exists());
+    if let Ok(metadata) = fs::metadata(&final_path) {
+        println!("File size: {} bytes", metadata.len());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            println!("Permissions: {:o}", metadata.permissions().mode());
+        }
+    }
+    // println!("==============================");
+
+    Ok(final_path)
 }
 
 fn helper_path(app_state: &AppState, feature: &str, version: &str) -> PathBuf {
@@ -720,17 +748,49 @@ fn run_full_capture_with_helper(
     version: &str,
     path: &Path,
 ) -> Result<(), String> {
-    let helper = helper_path(app_state, "screenshot", version).join(if cfg!(windows) {
+    let helper_dir = helper_path(app_state, "screenshot", version);
+    let helper_name = if cfg!(target_os = "windows") {
         "screenshot-helper.exe"
     } else {
         "screenshot-helper"
-    });
+    };
+    let helper = helper_dir.join(helper_name);
+
+    // Debug logging detallado
+    // println!("=== Screenshot Helper Debug ===");
+    // println!("Helper directory: {}", helper_dir.display());
+    // println!("Helper filename: {}", helper_name);
+    // println!("Full helper path: {}", helper.display());
+    // println!("Helper exists: {}", helper.exists());
+
+    // Listar contenido del directorio para ver que hay realmente
+    if let Ok(entries) = std::fs::read_dir(&helper_dir) {
+        println!("Contents of helper directory:");
+        for entry in entries.flatten() {
+            println!("  - {}", entry.path().display());
+            if let Ok(metadata) = entry.metadata() {
+                println!(" Size: {} bytes", metadata.len());
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    println!("    Permissions: {:o}", metadata.permissions().mode());
+                }
+            }
+        }
+    } else {
+        print!("Failed to read helper directory contents. Or the directory does not exist.");
+    }
+
+    // print!("Running helper command...\n");
+    // print!("=========================\n");
+
     if !helper.exists() {
         return Err(format!(
             "Screenshot helper not found at {}. Reinstall from Laboratory.",
             helper.display()
         ));
     }
+
     let status = Command::new(&helper)
         .arg("--mode")
         .arg("full")
@@ -738,6 +798,7 @@ fn run_full_capture_with_helper(
         .arg(path)
         .status()
         .map_err(|e| format!("Failed to run helper: {e}"))?;
+
     if !status.success() {
         return Err(format!(
             "Screenshot helper exited with code {:?}",
@@ -753,17 +814,44 @@ fn run_region_capture_with_helper(
     version: &str,
     path: &Path,
 ) -> Result<(), String> {
-    let helper = helper_path(app_state, "screenshot", version).join(if cfg!(windows) {
+    let helper_dir = helper_path(app_state, "screenshot", version);
+    let helper_name = if cfg!(target_os = "windows") {
         "screenshot-helper.exe"
     } else {
         "screenshot-helper"
-    });
+    };
+    let helper = helper_dir.join(helper_name);
+
+    // Debug logging detallado
+    // println!("=== Screenshot Helper Debug (Region) ===");
+    // println!("Helper directory: {}", helper_dir.display());
+    // println!("Helper filename: {}", helper_name);
+    // println!("Full helper path: {}", helper.display());
+    // println!("Helper exists: {}", helper.exists());
+
+    if let Ok(entries) = std::fs::read_dir(&helper_dir) {
+        println!("Directory contents:");
+        for entry in entries.flatten() {
+            println!("  - {}", entry.path().display());
+            if let Ok(metadata) = entry.metadata() {
+                println!("    Size: {} bytes", metadata.len());
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    // println!("    Permissions: {:o}", metadata.permissions().mode());
+                }
+            }
+        }
+    }
+    // println!("==============================");
+
     if !helper.exists() {
         return Err(format!(
             "Screenshot helper not found at {}. Reinstall from Laboratory.",
             helper.display()
         ));
     }
+
     let status = Command::new(&helper)
         .arg("--mode")
         .arg("region")
@@ -771,6 +859,7 @@ fn run_region_capture_with_helper(
         .arg(path)
         .status()
         .map_err(|e| format!("Failed to run helper: {e}"))?;
+
     if !status.success() {
         return Err(format!(
             "Screenshot helper exited with code {:?}",
