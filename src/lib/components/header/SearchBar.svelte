@@ -1,6 +1,8 @@
 <script lang="ts">
   import Icon from "$lib/components/icons/Icon.svelte";
   import { cn } from "$lib/utils/cn";
+  import { getCurrentWindow } from "@tauri-apps/api/window";
+  import { onDestroy, onMount } from "svelte";
 
   interface Props {
     value?: string;
@@ -8,6 +10,7 @@
     class?: string;
     isSearching?: boolean;
     resultCount?: number;
+    onPaste?: () => void;
   }
 
   let {
@@ -16,7 +19,12 @@
     class: className,
     isSearching = false,
     resultCount,
+    onPaste,
   }: Props = $props();
+
+  let inputElement: HTMLInputElement;
+
+  let unlisten: (() => void) | undefined;
 
   const handleClear = () => {
     value = "";
@@ -26,14 +34,34 @@
     if (e.key === "Escape") {
       value = "";
     }
+    if (e.key === "Enter") {
+      onPaste?.();  // Call on paste only if it's not undefined
+    }
   };
+
+  onMount(async () => {
+    const appWindow = await getCurrentWindow();
+
+    unlisten = await appWindow.onFocusChanged(({ payload: focused }) => {
+      if (focused) {
+        inputElement?.focus();
+      }
+    });
+  });
+
+  onDestroy(() => {
+    unlisten?.();
+  });
 </script>
 
-<div class={cn("relative flex flex-1 items-center pointer-events-none", className)}>
+<div
+  class={cn("relative flex flex-1 items-center pointer-events-none", className)}
+>
   <!-- Input -->
   <input
     type="text"
     bind:value
+    bind:this={inputElement}
     onkeydown={handleKeyDown}
     {placeholder}
     class={`w-fit h-7  pr-10 rounded-md text-md text-text placeholder:text-text-muted placeholder:text-sm focus:outline-none pointer-events-auto`}

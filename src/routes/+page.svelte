@@ -5,6 +5,7 @@
   import Sidebar from "$lib/components/sidebar/Sidebar.svelte";
   import { clipboardStore } from "$lib/stores/clipboard.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
+  import { tauriPastefromClipboard } from "$lib/tauri/commands";
   import type { ClipboardItem, ContentType } from "$lib/types";
   import { listen, type UnlistenFn } from "@tauri-apps/api/event";
   import { onDestroy, onMount } from "svelte";
@@ -38,7 +39,7 @@
         isSearching = false;
         console.log(
           "✅ Search complete. Results:",
-          clipboardStore.items.length
+          clipboardStore.items.length,
         );
       } else {
         // Si no hay query, volver a cargar items normales
@@ -71,7 +72,7 @@
   // Selected item
   const selectedItem = $derived(
     clipboardStore.items.find((item) => item.id === uiStore.selectedItemId) ||
-      null
+      null,
   );
 
   // Helper to deserialize clipboard item from event
@@ -100,6 +101,14 @@
     };
   }
 
+  async function handlePaste() {
+    // Use the first filtered item if seraching otherwise the selected item
+    const itemToPaste = filteredItems[0] ?? null;
+    if (!itemToPaste?.contentText) return;
+
+    await tauriPastefromClipboard(itemToPaste.contentText);
+  }
+
   // Load items on mount
   onMount(async () => {
     // Load initial clipboard items
@@ -112,7 +121,7 @@
 
       // Check if item already exists (prevent duplicates)
       const existingIndex = clipboardStore.items.findIndex(
-        (item) => item.id === newItem.id
+        (item) => item.id === newItem.id,
       );
 
       if (existingIndex !== -1) {
@@ -138,15 +147,15 @@
         console.log("🧹 Removing clipboard items:", removedIds);
         const toRemove = new Set(removedIds);
         clipboardStore.items = clipboardStore.items.filter(
-          (item) => !toRemove.has(item.id)
+          (item) => !toRemove.has(item.id),
         );
         clipboardStore.totalItems = Math.max(
           0,
-          clipboardStore.totalItems - removedIds.length
+          clipboardStore.totalItems - removedIds.length,
         );
         clipboardStore.hasMore =
           clipboardStore.items.length < clipboardStore.totalItems;
-      }
+      },
     );
   });
 
@@ -173,6 +182,7 @@
       ? clipboardStore.totalItems
       : undefined}
     isAuthenticated={false}
+    onPaste={handlePaste}
   />
 
   <!-- Main content area -->
@@ -185,7 +195,7 @@
     />
 
     <!-- Right panel (60%) -->
-    <div class="flex flex-col w-[65%]  relative ">
+    <div class="flex flex-col w-[65%] relative">
       <!-- Content viewer (top) -->
       <ContentViewer item={selectedItem} searchQuery={debouncedSearchQuery} />
 

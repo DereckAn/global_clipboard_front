@@ -322,6 +322,7 @@ pub fn run() {
             commands::clear_all_clipboard_items,
             commands::read_from_clipboard,
             commands::write_to_clipboard,
+            commands::paste_item,
             commands::convert_color_formats,
             commands::extract_domain_from_url,
             commands::fetch_link_metadata,

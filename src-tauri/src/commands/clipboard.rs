@@ -4,6 +4,7 @@ use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardIt
 use crate::db::repository::ClipboardRepository;
 use std::sync::Mutex;
 use tauri::State;
+use enigo::{Enigo, Key, Keyboard, Settings};
 
 pub struct AppState {
     pub db_path: String,
@@ -197,4 +198,35 @@ pub fn write_file_to_clipboard(path: String) -> Result<(), String> {
         let _ = path;
         Err("File clipboard operations are only supported on macOS.".to_string())
     }
+}
+
+#[tauri::command]
+pub fn paste_item(text: String, window: tauri::WebviewWindow) -> Result<(), String> {
+    // 1. Write the text to the clipboard
+    write_clipboard(&text)?;
+
+    // Hide the window so the previous app gets docus bacj
+    window.hide().map_err(|e| e.to_string())?;
+
+    // 3. Wait a moment for the OS to switch focus
+    std::thread::sleep(std::time::Duration::from_millis(150));
+
+    // 4. Simulate Cmd+V to paste
+    let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    enigo.key(Key::Meta, enigo::Direction::Press).map_err(|e| e.to_string())?;
+
+    #[cfg(not(target_os = "macos"))]
+    enigo.key(Key::Control, enigo::Direction::Press).map_err(|e| e.to_string())?;
+
+    enigo.key(Key::Unicode('v'), enigo::Direction::Click).map_err(|e| e.to_string())?;
+
+    #[cfg(target_os = "macos")]
+    enigo.key(Key::Meta, enigo::Direction::Release).map_err(|e| e.to_string())?;
+
+    #[cfg(not(target_os = "macos"))]
+    enigo.key(Key::Control, enigo::Direction::Release).map_err(|e| e.to_string())?;
+
+    Ok(())
 }

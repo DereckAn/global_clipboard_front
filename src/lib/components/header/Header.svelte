@@ -18,6 +18,7 @@
     resultCount?: number;
     onSearchChange?: (query: string) => void;
     onFilterChange?: (filter: "all" | "favorites" | ContentType) => void;
+    onPaste?: () => void;
   }
 
   let {
@@ -28,6 +29,7 @@
     resultCount,
     onSearchChange,
     onFilterChange,
+    onPaste,
   }: Props = $props();
 
   let isCleaningDuplicates = $state(false);
@@ -102,7 +104,7 @@
   <ProfileDropdown {isAuthenticated} />
 
   <!-- Search bar -->
-  <SearchBar bind:value={searchQuery} {isSearching} {resultCount} />
+  <SearchBar bind:value={searchQuery} {isSearching} {resultCount} {onPaste} />
 
   {#if showScreenshotButton}
     <div class="relative bg-surface rounded-md">

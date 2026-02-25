@@ -114,6 +114,10 @@ export async function tauriWriteToClipboard(text: string): Promise<void> {
   await invoke("write_to_clipboard", { text });
 }
 
+export async function tauriPastefromClipboard(text: string): Promise<void> {
+  await invoke("paste_item", { text });
+}
+
 export async function tauriReadFromClipboard(): Promise<string> {
   return await invoke<string>("read_from_clipboard");
 }

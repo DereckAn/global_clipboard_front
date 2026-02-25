@@ -6,6 +6,7 @@
     tauriBumpItem,
     tauriEnsureThumbnail,
     tauriExtractDomain,
+    tauriPastefromClipboard,
     tauriWriteImageToClipboard,
     tauriWriteToClipboard,
   } from "$lib/tauri/commands";
@@ -97,16 +98,14 @@
         // Copy image to clipboard
         await tauriWriteImageToClipboard(item.fileUrl);
         console.log("Image copied to clipboard");
+        await clipboardStore.loadItems();
       } else if (item.contentText) {
-        // Copy text to clipboard
-        await tauriWriteToClipboard(item.contentText);
-        console.log("Text copied to clipboard");
+        // Write to clipboard, hide window, and simulate Cmd+V in previous app
+        await tauriPastefromClipboard(item.contentText);
+        // Window is hidden by paste_item — skip loadItems(), monitor will handle the bump
       }
-
-      // Reload items to reflect new order
-      await clipboardStore.loadItems();
     } catch (err) {
-      console.error("Failed to copy:", err);
+      console.error("Failed to paste:", err);
     }
   };
 
