@@ -1,10 +1,11 @@
 use crate::clipboard::operations::write_clipboard_image;
+use crate::clipboard::state::take_previous_app_pid;
 use crate::clipboard::{asset_cleanup, read_clipboard, write_clipboard};
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use crate::db::repository::ClipboardRepository;
+use enigo::{Enigo, Key, Keyboard, Settings};
 use std::sync::Mutex;
 use tauri::State;
-use enigo::{Enigo, Key, Keyboard, Settings};
 
 pub struct AppState {
     pub db_path: String,
@@ -208,25 +209,55 @@ pub fn paste_item(text: String, window: tauri::WebviewWindow) -> Result<(), Stri
     // Hide the window so the previous app gets docus bacj
     window.hide().map_err(|e| e.to_string())?;
 
-    // 3. Wait a moment for the OS to switch focus
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::NSWorkspace;
+
+        let pid = take_previous_app_pid();
+
+        if pid != -1 {
+            let workspace = NSWorkspace::sharedWorkspace();
+            let apps = workspace.runningApplications();
+            for app in apps.iter() {
+                if app.processIdentifier() == pid {
+                    app.activateWithOptions(objc2_app_kit::NSApplicationActivationOptions::empty());
+                    break;
+                }
+            }
+        }
+        // 3. Wait a moment for the OS to switch focus
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+
+    #[cfg(not(target_os = "macos"))]
     std::thread::sleep(std::time::Duration::from_millis(150));
 
     // 4. Simulate Cmd+V to paste
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "macos")]
-    enigo.key(Key::Meta, enigo::Direction::Press).map_err(|e| e.to_string())?;
+    enigo
+        .key(Key::Meta, enigo::Direction::Press)
+        .map_err(|e| e.to_string())?;
 
     #[cfg(not(target_os = "macos"))]
-    enigo.key(Key::Control, enigo::Direction::Press).map_err(|e| e.to_string())?;
+    enigo
+        .key(Key::Control, enigo::Direction::Press)
+        .map_err(|e| e.to_string())?;
 
-    enigo.key(Key::Unicode('v'), enigo::Direction::Click).map_err(|e| e.to_string())?;
+    enigo
+        .key(Key::Unicode('v'), enigo::Direction::Click)
+        .map_err(|e| e.to_string())?;
 
     #[cfg(target_os = "macos")]
-    enigo.key(Key::Meta, enigo::Direction::Release).map_err(|e| e.to_string())?;
+    enigo
+        .key(Key::Meta, enigo::Direction::Release)
+        .map_err(|e| e.to_string())?;
 
     #[cfg(not(target_os = "macos"))]
-    enigo.key(Key::Control, enigo::Direction::Release).map_err(|e| e.to_string())?;
+    enigo
+        .key(Key::Control, enigo::Direction::Release)
+        .map_err(|e| e.to_string())?;
 
     Ok(())
 }

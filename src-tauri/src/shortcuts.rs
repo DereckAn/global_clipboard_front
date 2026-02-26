@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
+use crate::clipboard::state::store_previous_app_pid;
 use crate::commands::lab::{capture_screenshot_core, CaptureMode};
 use crate::AppState;
 
@@ -31,6 +32,18 @@ pub fn register_shortcut(app: &AppHandle, shortcut_str: &str) -> Result<(), Stri
                         }
                         Ok(false) => {
                             println!("Showing window...");
+
+                            #[cfg(target_os = "macos")]
+                            {
+                                use objc2_app_kit::NSWorkspace;
+
+                                let workspace = NSWorkspace::sharedWorkspace();
+                                if let Some(app) = workspace.frontmostApplication() {
+                                    let pid = app.processIdentifier();
+                                    store_previous_app_pid(pid);
+                                    println!("Stored previous app PID: {pid}");
+                                }
+                            }
                             let _ = window.show();
                             let _ = window.set_focus();
                         }
