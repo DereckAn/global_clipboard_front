@@ -43,3 +43,40 @@ pub fn take_skip_event() -> bool {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_store_previous_app_pid() {
+        store_previous_app_pid(12345);
+        assert_eq!(take_previous_app_pid(), 12345);
+    }
+
+    #[test]
+    fn test_take_previous_app_pid() {
+        store_previous_app_pid(12345);
+        assert_eq!(take_previous_app_pid(), 12345);
+        assert_eq!(take_previous_app_pid(), -1);
+    }
+
+    #[test]
+    fn test_request_skip_events() {
+        // Reset global state left over from other tests
+        while take_skip_event() {} // Clear any pending skip events
+        
+        request_skip_events(5);
+        assert_eq!(SKIP_EVENTS.load(Ordering::SeqCst), 5);
+    }
+
+    #[test]
+    fn test_take_skip_event() {
+        // Reset global state left over from other tests
+        while take_skip_event() {} // Clear any pending skip events
+
+        request_skip_events(1);
+        assert_eq!(take_skip_event(), true);
+        assert_eq!(take_skip_event(), false);
+    }
+}
