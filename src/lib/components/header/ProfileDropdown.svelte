@@ -168,7 +168,7 @@
 
       <!-- Update Section -->
       <div class="mb-2">
-        {#if updaterStore.status === "idle" || updaterStore.status === "error"}
+        {#if updaterStore.status === "idle" || updaterStore.status === "not-available" || updaterStore.status === "error"}
           <button
             onclick={handleCheckUpdates}
             class="flex w-full items-center gap-3 px-2 py-1.5 rounded-md text-sm bg-white/10 hover:bg-surface-hover transition-colors text-left"
@@ -185,6 +185,9 @@
             >
             <span>Update</span>
           </button>
+          {#if updaterStore.status === "not-available"}
+            <p class="text-xs text-text-muted px-2 mt-1">Already up to date</p>
+          {/if}
           {#if updaterStore.status === "error" && updaterStore.error}
             <div class="flex items-start gap-1 px-2 mt-1">
               <p class="text-xs text-danger flex-1">{updaterStore.error}</p>

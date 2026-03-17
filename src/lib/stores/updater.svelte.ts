@@ -17,6 +17,7 @@ class UpdaterStore {
   downloadProgress = $state<number>(0);
   currentVersion = $state<string>("");
   newVersion = $state<string>("");
+  private totalBytes = 0;
 
   async checkForUpdates(): Promise<boolean> {
     if (this.status === "checking" || this.status === "downloading")
@@ -39,7 +40,7 @@ class UpdaterStore {
         return true;
       } else {
         console.log("No updates available.");
-        this.status = "idle";
+        this.status = "not-available";
         return false;
       }
     } catch (err) {
@@ -57,24 +58,23 @@ class UpdaterStore {
     this.status = "downloading";
     this.error = null;
     this.downloadProgress = 0;
+    this.totalBytes = 0;
 
     try {
       console.log("Downloading update...");
 
+      let bytesReceived = 0;
       await this.update.downloadAndInstall((event) => {
         switch (event.event) {
           case "Started":
-            console.log(
-              "Download started, total size:",
-              event.data.contentLength
-            );
+            this.totalBytes = event.data.contentLength ?? 0;
+            console.log("Download started, total size:", this.totalBytes);
             break;
           case "Progress":
-            const progress = event.data.chunkLength;
-            this.downloadProgress = Math.min(
-              this.downloadProgress + progress,
-              100
-            );
+            bytesReceived += event.data.chunkLength;
+            this.downloadProgress = this.totalBytes > 0
+              ? Math.min(Math.round((bytesReceived / this.totalBytes) * 100), 100)
+              : 0;
             console.log(`Download progress: ${this.downloadProgress}%`);
             break;
           case "Finished":

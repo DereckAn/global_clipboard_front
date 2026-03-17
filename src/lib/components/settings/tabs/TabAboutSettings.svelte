@@ -1,6 +1,12 @@
 <script lang="ts">
+  import { getVersion } from "@tauri-apps/api/app";
   import Icon from "$lib/components/icons/Icon.svelte";
 
+  let version = $state("...");
+
+  $effect(() => {
+    getVersion().then((v) => (version = v));
+  });
 </script>
 
 <section class="relative bg-surface rounded-2xl border border-border/60 p-6 space-y-3">
@@ -10,7 +16,7 @@
   </h2>
   <div class="flex justify-between">
     <span class="text-sm text-text-muted">Version</span>
-    <span class="text-sm text-text">1.0.0</span>
+    <span class="text-sm text-text">{version}</span>
   </div>
   <div class="flex justify-between">
     <span class="text-sm text-text-muted">Platform</span>
