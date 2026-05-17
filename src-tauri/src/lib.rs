@@ -21,6 +21,28 @@ use tauri::{Emitter, Manager};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Debe registrarse PRIMERO. En Wayland (Hyprland) los hotkeys globales no
+        // funcionan, así que el atajo se define en el compositor y lanza el binario
+        // con `--toggle`; esa segunda instancia reenvía el argumento a la que ya
+        // está corriendo para mostrar/ocultar la ventana.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                if argv.iter().any(|arg| arg == "--toggle") {
+                    match window.is_visible() {
+                        Ok(true) => {
+                            let _ = window.hide();
+                        }
+                        _ => {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    }
+                } else {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
+        }))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
@@ -101,12 +123,21 @@ pub fn run() {
 
             app.manage(std::sync::Mutex::new(tray));
 
-            // Traer ventana principal al frente en arranque
+            // Arranque de la ventana principal.
+            // En Linux release la app se inicia con el sistema (Hyprland exec-once)
+            // y debe quedarse oculta en segundo plano hasta que se presione el hotkey.
+            // En dev se muestra para poder trabajar con ella.
             if let Some(main_window) = app.get_webview_window("main") {
-                let _ = main_window.show();
-                let _ = main_window.set_focus();
-                let _ = main_window.set_always_on_top(true);
-                let _ = main_window.set_always_on_top(false);
+                #[cfg(all(target_os = "linux", not(debug_assertions)))]
+                let _ = main_window.hide();
+
+                #[cfg(not(all(target_os = "linux", not(debug_assertions))))]
+                {
+                    let _ = main_window.show();
+                    let _ = main_window.set_focus();
+                    let _ = main_window.set_always_on_top(true);
+                    let _ = main_window.set_always_on_top(false);
+                }
             }
 
             // ================================================================
