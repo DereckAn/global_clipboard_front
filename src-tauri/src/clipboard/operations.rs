@@ -1,8 +1,9 @@
 use arboard::{Clipboard, ImageData};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+use std::process::Command;
 
-use crate::clipboard::state;
+use crate::clipboard::{ClipboardBackend, detect_backend, state};
 
 lazy_static::lazy_static! {
     static ref CLIPBOARD: Mutex<Clipboard> =Mutex::new(Clipboard::new().unwrap());
@@ -18,8 +19,46 @@ pub enum ClipboardContent {
     Empty,
 }
 
-// Read from OS clipboard (Text or Image)
+/// public entry point: Route to the conrrect backend at rentime.
 pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
+    match detect_backend() {
+        ClipboardBackend::Wayland => read_clipboard_content_wayland(),
+        ClipboardBackend::Native => read_clipboard_content_native(),
+    }
+}
+
+/// Read the clipbard on Wayland using the "wl-paste" command line tool.
+/// (Text only for now)
+fn read_clipboard_content_wayland() -> Result<ClipboardContent, String> {
+    match read_text_wayland()? {
+        Some(text) => Ok(ClipboardContent::Text(text)),
+        None => Ok(ClipboardContent::Empty),
+    }
+}
+
+/// Run 'wl-paste' and return the clipboard text, or 'None' if empty.
+fn read_text_wayland() -> Result<Option<String>, String> {
+    let output = Command::new("wl-paste")
+        .arg("--no-newline")
+        .output()
+        .map_err(|e| format!("Failed to execute wl-paste: {}", e))?;
+
+    // wl-paste exist non-zero when the clipboard is empty or holds no text.
+    // That's normal, not an error - report "no text".
+    if !output.status.success() {
+        return Ok(None);
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout).to_string();
+    if text.is_empty() {
+        Ok(None)
+    } else {
+        Ok(Some(text))
+    }
+}
+
+// Read from OS clipboard (Text or Image)
+fn read_clipboard_content_native() -> Result<ClipboardContent, String> {
     let mut clipboard = CLIPBOARD.lock().map_err(|e| e.to_string())?;
 
     // First check for file list (Finder copy)

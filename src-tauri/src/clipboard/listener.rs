@@ -1,6 +1,10 @@
 use clipboard_master::{CallbackResult, ClipboardHandler, Master};
+use std::io::{BufRead, BufReader};
+use std::process::{Command, Stdio};
 use std::thread;
 use tokio::sync::mpsc::UnboundedSender;
+
+use crate::clipboard::{detect_backend, ClipboardBackend};
 
 /// Events emitted by the clipboard listener.
 #[derive(Debug)]
@@ -33,11 +37,67 @@ impl ClipboardHandler for ClipboardEventHandler {
 }
 
 /// Spawn the platform clipboard listener in a dedicated thread.
-pub fn spawn_clipboard_listener(sender: UnboundedSender<ClipboardEvent>) {
+fn spawn_native_listener(sender: UnboundedSender<ClipboardEvent>) {
     thread::spawn(move || {
         let handler = ClipboardEventHandler::new(sender);
         if let Err(err) = Master::new(handler).run() {
             eprintln!("Clipboard listener stopped: {err}");
         }
     });
+}
+
+/// Watch the Wayland clipboard via 'wl-paste --watch echo'.
+/// Each clipboard change makes 'echo' print on linel; we turn each line
+/// into one 'change' event. The line's content is irrelecvant - the
+/// monitor re-reads the clipboard itself.
+fn spawn_wayland_listener(sender: UnboundedSender<ClipboardEvent>) {
+    thread::spawn(move || {
+        let mut child = match Command::new("wl-paste")
+            .arg("--watch")
+            .arg("echo")
+            .stdout(Stdio::piped())
+            .spawn()
+        {
+            Ok(child) => child,
+            Err(err) => {
+                let _ = sender.send(ClipboardEvent::Error(format!(
+                    "Failed to start `wl-paste --watch`: {err}"
+                )));
+                return;
+            }
+        };
+
+        // Take ownership of the child's stdout so we can read it.
+        let stdout = match child.stdout.take() {
+            Some(stdout) => stdout,
+            None => {
+                let _ = sender.send(ClipboardEvent::Error(
+                    "`wl-paste --watch` produced no stdout".to_string(),
+                ));
+                return;
+            }
+        };
+
+        // Each line that arrives = one clipboard change.
+        let reader = BufReader::new(stdout);
+        for line in reader.lines() {
+            match line {
+                Ok(_) => {
+                    let _ = sender.send(ClipboardEvent::Changed);
+                }
+                Err(err) => {
+                    let _ = sender.send(ClipboardEvent::Error(err.to_string()));
+                    break;
+                }
+            }
+        }
+    });
+}
+
+/// Spawn the clipboard listener, choosing the backend at runtime.
+pub fn spawn_clipboard_listener(sender: UnboundedSender<ClipboardEvent>) {
+    match detect_backend() {
+        ClipboardBackend::Wayland => spawn_wayland_listener(sender),
+        ClipboardBackend::Native => spawn_native_listener(sender),
+    }
 }
