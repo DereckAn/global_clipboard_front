@@ -1,9 +1,10 @@
 use arboard::{Clipboard, ImageData};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
 use std::sync::Mutex;
-use std::process::Command;
 
-use crate::clipboard::{ClipboardBackend, detect_backend, state};
+use crate::clipboard::{detect_backend, state, ClipboardBackend};
 
 lazy_static::lazy_static! {
     static ref CLIPBOARD: Mutex<Clipboard> =Mutex::new(Clipboard::new().unwrap());
@@ -176,9 +177,49 @@ pub fn read_clipboard() -> Result<String, String> {
 }
 
 /// Write text to OS clipboard
-pub fn write_clipboard(text: &str) -> Result<(), String> {
+fn write_text_native(text: &str) -> Result<(), String> {
     let mut clipboard = CLIPBOARD.lock().map_err(|e| e.to_string())?;
     clipboard.set_text(text).map_err(|e| e.to_string())
+}
+
+/// Write text to the Wayland clipboard via 'wl-copy'.
+/// Reads the text from stdin
+fn write_text_wayland(text: &str) -> Result<(), String> {
+    let mut child = Command::new("wl-copy")
+        .stdin(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Failed to run wl-copy: {e}"))?;
+
+    // Write the text into wl-copy's stdin, then close it so wl-copy sees EOF.
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or("wl-copy stdin was not available")?;
+        stdin
+            .write_all(text.as_bytes())
+            .map_err(|e| format!("Failed to write to wl-copy stdin: {e}"))?;
+    } // <- stdin is dropped here, sending EOF to wl-copy
+
+    // wl-copy reads stdin, then forks a tiny daemon to serve the selection and
+    // the parent exits. Waiting reaps the parent and confirms it succeeded.
+    let status = child
+        .wait()
+        .map_err(|e| format!("Failed to wait for wl-copy: {e}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(format!("wl-copy exited with status: {status}"))
+    }
+}
+
+/// Public entry point: route the write to the correct backend at runtime.
+pub fn write_clipboard(text: &str) -> Result<(), String> {
+    match detect_backend() {
+        ClipboardBackend::Wayland => write_text_wayland(text),
+        ClipboardBackend::Native => write_text_native(text),
+    }
 }
 
 // Write image to OS clipboard

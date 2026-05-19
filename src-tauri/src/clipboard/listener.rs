@@ -52,16 +52,27 @@ fn spawn_native_listener(sender: UnboundedSender<ClipboardEvent>) {
 /// monitor re-reads the clipboard itself.
 fn spawn_wayland_listener(sender: UnboundedSender<ClipboardEvent>) {
     thread::spawn(move || {
-        let mut child = match Command::new("wl-paste")
-            .arg("--watch")
-            .arg("echo")
-            .stdout(Stdio::piped())
-            .spawn()
+        let mut command = Command::new("wl-paste");
+        command.arg("--watch").arg("echo").stdout(Stdio::piped());
+
+        // Ask the kernel to send this child SIGTERM if the app (parent) dies,
+        // so `wl-paste --watch` never lingers as an orphan after a kill/crash.
+        #[cfg(target_os = "linux")]
         {
+            use std::os::unix::process::CommandExt;
+            unsafe {
+                command.pre_exec(|| {
+                    libc::prctl(libc::PR_SET_PDEATHSIG, libc::SIGTERM);
+                    Ok(())
+                });
+            }
+        }
+
+        let mut child = match command.spawn() {
             Ok(child) => child,
             Err(err) => {
                 let _ = sender.send(ClipboardEvent::Error(format!(
-                    "Failed to start `wl-paste --watch`: {err}"
+                    "Failed to start `wl-paste --watch`:{err}"
                 )));
                 return;
             }
