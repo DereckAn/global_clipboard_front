@@ -1,6 +1,8 @@
 use crate::clipboard::operations::write_clipboard_image;
 use crate::clipboard::state::take_previous_app_pid;
-use crate::clipboard::{asset_cleanup, read_clipboard, write_clipboard};
+use crate::clipboard::{
+    asset_cleanup, detect_backend, read_clipboard, write_clipboard, ClipboardBackend,
+};
 use crate::db::models::{ClipboardItem, CreateClipboardItemDto, UpdateClipboardItemDto};
 use crate::db::repository::ClipboardRepository;
 use enigo::{Enigo, Key, Keyboard, Settings};
@@ -201,8 +203,34 @@ pub fn write_file_to_clipboard(path: String) -> Result<(), String> {
     }
 }
 
+/// On Hyprland, find the window that was focused right before ours
+/// (focusHistoryID == 1) — i.e. the app the user wants to paste into.
+#[cfg(not(target_os = "macos"))]
+fn hypr_previous_window_address() -> Option<String> {
+    let output = std::process::Command::new("hyprctl")
+        .args(["clients", "-j"])
+        .output()
+        .ok()?;
+    let clients: serde_json::Value = serde_json::from_slice(&output.stdout).ok()?;
+    clients
+        .as_array()?
+        .iter()
+        .find(|c| c.get("focusHistoryID").and_then(|v| v.as_i64()) == Some(1))
+        .and_then(|c| c.get("address").and_then(|v| v.as_str()))
+        .map(|s| s.to_string())
+}
+
 #[tauri::command]
 pub fn paste_item(text: String, window: tauri::WebviewWindow) -> Result<(), String> {
+    // On Wayland, remember which window to paste into BEFORE we hide ours
+    // (right now our app is focused; the target is the previous window).
+    #[cfg(not(target_os = "macos"))]
+    let wayland_paste_target = if detect_backend() == ClipboardBackend::Wayland {
+        hypr_previous_window_address()
+    } else {
+        None
+    };
+
     // 1. Write the text to the clipboard
     write_clipboard(&text)?;
 
@@ -231,6 +259,33 @@ pub fn paste_item(text: String, window: tauri::WebviewWindow) -> Result<(), Stri
 
     #[cfg(not(target_os = "macos"))]
     std::thread::sleep(std::time::Duration::from_millis(150));
+
+    // On Wayland, enigo can't inject keystrokes (Wayland blocks synthetic input),
+    // so use `wtype` to send Ctrl+V, then return early before the enigo path.
+    #[cfg(not(target_os = "macos"))]
+    {
+        if detect_backend() == ClipboardBackend::Wayland {
+            // window.hide() doesn't reliably transfer focus here, so explicitly
+            // focus the target window before sending Ctrl+V.
+            if let Some(addr) = &wayland_paste_target {
+                let _ = std::process::Command::new("hyprctl")
+                    .args(["dispatch", "focuswindow", &format!("address:{addr}")])
+                    .status();
+                std::thread::sleep(std::time::Duration::from_millis(80));
+            }
+
+            let status = std::process::Command::new("wtype")
+                .args(["-s", "80", "-M", "ctrl", "-k", "v", "-m", "ctrl"])
+                .status()
+                .map_err(|e| format!("Failed to run wtype: {e}"))?;
+
+            return if status.success() {
+                Ok(())
+            } else {
+                Err(format!("wtype exited with status: {status}"))
+            };
+        }
+    }
 
     // 4. Simulate Cmd+V to paste
     let mut enigo = Enigo::new(&Settings::default()).map_err(|e| e.to_string())?;
