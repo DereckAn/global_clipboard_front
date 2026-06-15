@@ -1,15 +1,11 @@
 use arboard::ImageData;
-#[cfg(target_os = "macos")]
 use image::image_dimensions;
-#[cfg(not(target_os = "macos"))]
-use image::GenericImageView;
-use image::{imageops, DynamicImage, ImageBuffer, ImageFormat, Rgba};
+use image::{imageops, DynamicImage, ImageBuffer, Rgba};
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-#[cfg(target_os = "macos")]
-use std::process::Command;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -24,15 +20,6 @@ pub struct StoredImageInfo {
     pub original_extension: Option<String>,
     pub original_name: Option<String>,
     pub is_screenshot: bool,
-}
-
-#[cfg(target_os = "macos")]
-fn read_external_image_dimensions(path: &Path) -> Option<(u32, u32)> {
-    if let Ok((width, height)) = image_dimensions(path) {
-        return Some((width, height));
-    }
-
-    read_dimensions_with_sips(path)
 }
 
 #[cfg(target_os = "macos")]
@@ -123,135 +110,60 @@ pub fn copy_image_file_to_storage(
     source_path: &Path,
     images_dir: &Path,
 ) -> Result<StoredImageInfo, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = images_dir;
-        if !source_path.exists() {
-            return Err(format!(
-                "Source file does not exist: {}",
-                source_path.display()
-            ));
-        }
+    // Pointer mode (all platforms): store the ORIGINAL path, never copy.
+    let _ = images_dir;
 
-        let original_name = source_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("image")
-            .to_string();
-
-        let original_extension = source_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .map(|ext| ext.to_lowercase());
-
-        let (width, height) = read_external_image_dimensions(source_path).unwrap_or((0, 0));
-
-        Ok(StoredImageInfo {
-            full_path: source_path.to_path_buf(),
-            thumb_path: PathBuf::new(),
-            file_name: source_path
-                .file_name()
-                .and_then(|s| s.to_str())
-                .unwrap_or("image")
-                .to_string(),
-            width,
-            height,
-            file_size: fs::metadata(source_path).map(|m| m.len()).unwrap_or(0),
-            file_hash: compute_external_hash(source_path)?,
-            original_extension,
-            original_name: Some(original_name.clone()),
-            is_screenshot: looks_like_screenshot_name(&original_name),
-        })
+    if !source_path.exists() {
+        return Err(format!(
+            "Source file does not exist: {}",
+            source_path.display()
+        ));
     }
 
+    let original_name = source_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("image")
+        .to_string();
+
+    let original_extension = source_path
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|ext| ext.to_lowercase());
+
+    let (width, height) = read_external_image_dimensions(source_path).unwrap_or((0, 0));
+
+    Ok(StoredImageInfo {
+        full_path: source_path.to_path_buf(),
+        thumb_path: PathBuf::new(),
+        file_name: source_path
+            .file_name()
+            .and_then(|s| s.to_str())
+            .unwrap_or("image")
+            .to_string(),
+        width,
+        height,
+        file_size: fs::metadata(source_path).map(|m| m.len()).unwrap_or(0),
+        file_hash: compute_external_hash(source_path)?,
+        original_extension,
+        original_name: Some(original_name.clone()),
+        is_screenshot: looks_like_screenshot_name(&original_name),
+    })
+}
+
+fn read_external_image_dimensions(path: &Path) -> Option<(u32, u32)> {
+    if let Ok((width, height)) = image_dimensions(path) {
+        return Some((width, height));
+    }
+
+    // sips is a macOS-only tool; other platforms just give up here.
+    #[cfg(target_os = "macos")]
+    {
+        read_dimensions_with_sips(path)
+    }
     #[cfg(not(target_os = "macos"))]
     {
-        // existing implementation unchanged (copy into images_dir)
-        if !source_path.exists() {
-            return Err(format!(
-                "Source file does not exist: {}",
-                source_path.display()
-            ));
-        }
-
-        let original_name = source_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or("image");
-
-        let original_extension = source_path
-            .extension()
-            .and_then(|s| s.to_str())
-            .map(|ext| ext.to_lowercase());
-
-        let target_extension = match original_extension.as_deref() {
-            Some("heic") | Some("heif") | Some("tiff") | Some("tif") => "png",
-            Some(ext) => ext,
-            None => "png",
-        };
-
-        let image_id = Uuid::new_v4();
-        let file_name = format!("{}_{}.{}", original_name, image_id, target_extension);
-        let thumb_name = format!("{}_{}_thumb.png", original_name, image_id);
-
-        let full_path = images_dir.join(&file_name);
-        let thumb_path = images_dir.join(&thumb_name);
-
-        let mut dynamic_img: Option<DynamicImage> = None;
-
-        match original_extension.as_deref() {
-            Some("heic") | Some("heif") => {
-                convert_heic_to_png(source_path, &full_path)?;
-                dynamic_img = Some(
-                    image::open(&full_path)
-                        .map_err(|e| format!("Failed to load converted HEIC: {}", e))?,
-                );
-            }
-            Some("tiff") | Some("tif") => {
-                let img = image::open(source_path)
-                    .map_err(|e| format!("Failed to load TIFF image: {}", e))?;
-                img.save_with_format(&full_path, ImageFormat::Png)
-                    .map_err(|e| format!("Failed to convert TIFF to PNG: {}", e))?;
-                dynamic_img = Some(img);
-            }
-            _ => {
-                fs::copy(source_path, &full_path)
-                    .map_err(|e| format!("Failed to copy image file: {}", e))?;
-            }
-        }
-
-        let img = match dynamic_img {
-            Some(img) => img,
-            None => image::open(&full_path)
-                .map_err(|e| format!("Failed to load copied image: {}", e))?,
-        };
-
-        let (width, height) = img.dimensions();
-
-        let thumbnail = img.resize(256, 256, imageops::FilterType::Lanczos3);
-        thumbnail
-            .save(&thumb_path)
-            .map_err(|e| format!("Failed to save thumbnail: {}", e))?;
-
-        let file_size = fs::metadata(&full_path).map(|m| m.len()).unwrap_or(0);
-        let file_hash = calculate_file_hash(&full_path)?;
-
-        let mut info = StoredImageInfo {
-            full_path,
-            thumb_path,
-            file_name,
-            width,
-            height,
-            file_size,
-            file_hash,
-            original_extension,
-            original_name: Some(original_name.to_string()),
-            is_screenshot: looks_like_screenshot_name(original_name),
-        };
-
-        info.is_screenshot |= guess_screenshot_from_dimensions(info.width, info.height);
-
-        Ok(info)
+        None
     }
 }
 
@@ -272,6 +184,36 @@ pub fn delete_image_from_disk(file_path: &str) -> Result<(), String> {
         }
     }
 
+    Ok(())
+}
+
+/// Delete the on-disk assets for an image history item.
+/// - Screenshots we captured (`source == "clipboard"`): delete our file + thumbnail.
+/// - Image files the user copied (pointer): keep the original; delete only the thumbnail.
+pub fn delete_image_assets(file_path: &str, metadata_json: &str) -> Result<(), String> {
+    let meta = serde_json::from_str::<Value>(metadata_json).ok();
+    let source = meta
+        .as_ref()
+        .and_then(|v| v.get("source"))
+        .and_then(|s| s.as_str());
+
+    if source == Some("clipboard") {
+        // We captured this image — safe to delete our file and its sibling thumbnail.
+        return delete_image_from_disk(file_path);
+    }
+
+    // Pointer to the user's original — never delete it. Only the generated thumbnail.
+    if let Some(thumb) = meta
+        .as_ref()
+        .and_then(|v| v.get("thumbnail_path"))
+        .and_then(|t| t.as_str())
+    {
+        let thumb_path = Path::new(thumb);
+        if thumb_path.exists() {
+            fs::remove_file(thumb_path)
+                .map_err(|e| format!("Failed to delete thumbnail: {}", e))?;
+        }
+    }
     Ok(())
 }
 
@@ -356,11 +298,6 @@ fn guess_screenshot_from_dimensions(width: u32, height: u32) -> bool {
     aspect_ratio >= 1.2 && aspect_ratio <= 3.6
 }
 
-#[cfg(not(target_os = "macos"))]
-fn convert_heic_to_png(_source: &Path, _destination: &Path) -> Result<(), String> {
-    Err("HEIC conversion is not supported on this platform.".to_string())
-}
-
 pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
     if !file_path.exists() {
         return Err(format!(
@@ -394,7 +331,7 @@ pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
 
     Ok(thumb_path)
 }
-#[cfg(target_os = "macos")]
+
 fn compute_external_hash(path: &Path) -> Result<String, String> {
     calculate_file_hash(path)
 }
@@ -441,5 +378,46 @@ mod tests {
             hash,
             "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
         );
+    }
+
+    #[test]
+    fn delete_image_assets_removes_file_when_source_is_clipboard() {
+        // Arrange: a file we "own" (a captured screenshot).
+        let file = NamedTempFile::new().unwrap();
+        let path = file.path().to_path_buf();
+        let metadata = r#"{"source":"clipboard"}"#;
+
+        // Act
+        delete_image_assets(path.to_str().unwrap(), metadata).unwrap();
+
+        // Assert: ours → deleted.
+        assert!(!path.exists());
+    }
+
+    #[test]
+    fn delete_image_assets_keeps_original_when_source_is_file() {
+        // Arrange: a pointer to the user's own file.
+        let file = NamedTempFile::new().unwrap();
+        let path = file.path().to_path_buf();
+        let metadata = r#"{"source":"file"}"#;
+
+        // Act
+        delete_image_assets(path.to_str().unwrap(), metadata).unwrap();
+
+        // Assert: the user's original must survive.
+        assert!(path.exists());
+    }
+
+    #[test]
+    fn delete_image_assets_keeps_file_when_source_missing() {
+        // Arrange: unknown source (garbage/empty metadata).
+        let file = NamedTempFile::new().unwrap();
+        let path = file.path().to_path_buf();
+
+        // Act
+        delete_image_assets(path.to_str().unwrap(), "{}").unwrap();
+
+        // Assert: fail-safe → never delete when unsure.
+        assert!(path.exists());
     }
 }
