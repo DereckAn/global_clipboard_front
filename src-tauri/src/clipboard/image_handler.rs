@@ -8,6 +8,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+use crate::clipboard::file_handler::fingerprint_external_file;
+
 #[derive(Debug, Clone)]
 pub struct StoredImageInfo {
     pub full_path: PathBuf,
@@ -333,7 +335,7 @@ pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
 }
 
 fn compute_external_hash(path: &Path) -> Result<String, String> {
-    calculate_file_hash(path)
+    fingerprint_external_file(path)
 }
 
 #[cfg(test)]

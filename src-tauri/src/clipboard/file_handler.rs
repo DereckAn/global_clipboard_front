@@ -2,7 +2,7 @@ use crate::clipboard::document_thumbnail;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ pub fn prepare_file_metadata(source_path: &Path) -> Result<PreparedFile, String>
         .and_then(|s| s.to_str())
         .map(|ext| ext.to_lowercase());
 
-    let hash = calculate_file_hash(source_path)?;
+    let hash = fingerprint_external_file(source_path)?;
     let size = fs::metadata(source_path).map(|m| m.len()).unwrap_or(0);
     let mime_type = detect_mime_type(extension.as_deref());
     let base_name = source_path
@@ -96,23 +96,40 @@ pub fn delete_file_assets(_file_path: &str, metadata_json: &str) -> Result<(), S
     Ok(())
 }
 
-pub fn calculate_file_hash(file_path: &Path) -> Result<String, String> {
+/// Cheap content fingerprint for large external files (videos, big images).
+/// Instead of hashing the whole file, we hash its size plus up to 256 KB from
+/// the head and tail — O(1) in file size, so copying a multi-GB video no longer
+/// reads gigabytes just to build a dedup key.
+pub fn fingerprint_external_file(path: &Path) -> Result<String, String> {
+    const SAMPLE: u64 = 256 * 1024; // 256 KB
+
     let mut file =
-        fs::File::open(file_path).map_err(|e| format!("Failed to open file for hashing: {}", e))?;
+        fs::File::open(path).map_err(|e| format!("Failed to open file for fingerprint: {}", e))?;
+    let len = file
+        .metadata()
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?
+        .len();
+
     let mut hasher = Sha256::new();
-    let mut buffer = [0u8; 8192];
+    hasher.update(len.to_le_bytes());
 
-    loop {
-        let bytes_read = file
-            .read(&mut buffer)
-            .map_err(|e| format!("Failed to read file for hashing: {}", e))?;
+    // Sample from the start.
+    let head_len = SAMPLE.min(len) as usize;
+    let mut head = vec![0u8; head_len];
+    file.read_exact(&mut head)
+        .map_err(|e| format!("Failed to read file head: {}", e))?;
+    hasher.update(&head);
 
-        if bytes_read == 0 {
-            break;
-        }
-
-        hasher.update(&buffer[..bytes_read]);
+    // Sample from the end (only if the file is bigger than one sample).
+    if len > SAMPLE {
+        file.seek(SeekFrom::End(-(SAMPLE as i64)))
+            .map_err(|e| format!("Failed to seek file tail: {}", e))?;
+        let mut tail = vec![0u8; SAMPLE as usize];
+        file.read_exact(&mut tail)
+            .map_err(|e| format!("Failed to read file tail: {}", e))?;
+        hasher.update(&tail);
     }
+
     Ok(format!("{:x}", hasher.finalize()))
 }
 
