@@ -300,6 +300,24 @@ fn guess_screenshot_from_dimensions(width: u32, height: u32) -> bool {
     aspect_ratio >= 1.2 && aspect_ratio <= 3.6
 }
 
+/// Generate a 256px thumbnail of an external image into `target_dir` using the
+/// bundled `image` crate — so it works without system thumbnailers like
+/// `gdk-pixbuf-thumbnailer`. `key` makes the filename stable (we pass the file
+/// hash) so it's reused. Returns `None` if the image can't be decoded (e.g.
+/// HEIC), letting the caller fall back to the OS thumbnailer.
+pub fn generate_image_thumbnail(source: &Path, target_dir: &Path, key: &str) -> Option<PathBuf> {
+    let thumb_path = target_dir.join(format!("{key}_thumb.png"));
+    if thumb_path.exists() {
+        return Some(thumb_path);
+    }
+
+    let _ = fs::create_dir_all(target_dir);
+    let img = image::open(source).ok()?;
+    let thumbnail = img.resize(256, 256, imageops::FilterType::Lanczos3);
+    thumbnail.save(&thumb_path).ok()?;
+    Some(thumb_path)
+}
+
 pub fn ensure_thumbnail(file_path: &Path) -> Result<PathBuf, String> {
     if !file_path.exists() {
         return Err(format!(

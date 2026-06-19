@@ -1,7 +1,7 @@
 use crate::clipboard::document_thumbnail::generate_document_thumbnail;
 use crate::clipboard::file_handler::{prepare_file_metadata, store_prepared_file};
 use crate::clipboard::image_handler::{
-    copy_image_file_to_storage, detect_mime_type, save_image_to_disk,
+    copy_image_file_to_storage, detect_mime_type, generate_image_thumbnail, save_image_to_disk,
 };
 use crate::clipboard::listener::ClipboardEvent;
 use crate::clipboard::operations::{read_clipboard_content, ClipboardContent};
@@ -164,7 +164,14 @@ impl ClipboardMonitor {
                         } else {
                             None
                         };
-                        let chosen_thumbnail = quicklook_thumbnail.or(fallback_thumbnail);
+                        // Bundled-crate thumbnail (works without system thumbnailers).
+                        let image_thumbnail = generate_image_thumbnail(
+                            &info.full_path,
+                            &self.file_thumbs_dir,
+                            &info.file_hash,
+                        );
+                        let chosen_thumbnail =
+                            image_thumbnail.or(quicklook_thumbnail).or(fallback_thumbnail);
 
                         let mut metadata = serde_json::json!({
                             "width": info.width,
@@ -290,6 +297,12 @@ impl ClipboardMonitor {
                 }
             }
             Ok(ClipboardContent::Image(image_data, screenshot_hint)) => {
+                // When the capture-folder watcher is active it stores screenshots
+                // as pointers, so skip saving the raw bytes to avoid a duplicate.
+                if state::should_suppress_screenshot_bytes() {
+                    return;
+                }
+
                 use std::collections::hash_map::DefaultHasher;
                 use std::hash::{Hash, Hasher};
 

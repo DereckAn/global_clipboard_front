@@ -1,6 +1,7 @@
 pub mod asset_cleanup;
 pub mod document_thumbnail;
 pub mod file_handler;
+pub mod folder_watcher;
 pub mod image_handler;
 pub mod listener;
 pub mod monitor;

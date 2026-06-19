@@ -204,6 +204,10 @@ export async function tauriSaveSetting(
   await invoke("save_setting", { key, value });
 }
 
+export async function tauriSetFolderWatcher(enabled: boolean): Promise<void> {
+  await invoke("set_folder_watcher", { enabled });
+}
+
 export async function tauriUpdateGlobalHotkey(
   newHotkey: string
 ): Promise<void> {

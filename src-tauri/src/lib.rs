@@ -46,6 +46,7 @@ pub fn run() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_autostart::init(
@@ -178,6 +179,25 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 monitor.start().await;
             });
+
+            // Opt-in capture-folder watcher (Lab feature). Default OFF.
+            // Held in managed state so it can be toggled live via set_folder_watcher.
+            app.manage(Mutex::new(clipboard::folder_watcher::WatcherState::default()));
+            if clipboard::folder_watcher::is_enabled(&app_data_dir) {
+                let watcher_config =
+                    clipboard::folder_watcher::config_from_settings(&app_data_dir, &db_path_str);
+                match clipboard::folder_watcher::build(app.handle().clone(), watcher_config) {
+                    Ok(debouncer) => {
+                        app.state::<Mutex<clipboard::folder_watcher::WatcherState>>()
+                            .lock()
+                            .unwrap()
+                            .set(debouncer);
+                        clipboard::state::set_suppress_screenshot_bytes(true);
+                        println!("📂 Capture-folder watcher enabled");
+                    }
+                    Err(e) => eprintln!("📂 Failed to start capture-folder watcher: {e}"),
+                }
+            }
 
             // Tarea automática de limpieza (cada 24 horas)
             let cleanup_db_path = db_path_str.clone();
@@ -362,6 +382,7 @@ pub fn run() {
             commands::toggle_window_visibility,
             commands::get_setting,
             commands::save_setting,
+            commands::set_folder_watcher,
             commands::save_cleanup_settings,
             commands::get_cleanup_settings,
             commands::update_global_hotkey,
