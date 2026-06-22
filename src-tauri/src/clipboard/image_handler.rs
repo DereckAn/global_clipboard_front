@@ -24,39 +24,6 @@ pub struct StoredImageInfo {
     pub is_screenshot: bool,
 }
 
-#[cfg(target_os = "macos")]
-fn read_dimensions_with_sips(path: &Path) -> Option<(u32, u32)> {
-    let output = Command::new("sips")
-        .arg("-g")
-        .arg("pixelWidth")
-        .arg("-g")
-        .arg("pixelHeight")
-        .arg(path)
-        .output()
-        .ok()?;
-
-    if !output.status.success() {
-        return None;
-    }
-
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    let mut width: Option<u32> = None;
-    let mut height: Option<u32> = None;
-
-    for line in stdout.lines() {
-        if let Some(value) = line.strip_prefix("pixelWidth:") {
-            width = value.trim().parse().ok();
-        } else if let Some(value) = line.strip_prefix("pixelHeight:") {
-            height = value.trim().parse().ok();
-        }
-    }
-
-    match (width, height) {
-        (Some(w), Some(h)) => Some((w, h)),
-        _ => None,
-    }
-}
-
 pub fn save_image_to_disk(
     image_data: &ImageData,
     images_dir: &Path,
@@ -154,19 +121,9 @@ pub fn copy_image_file_to_storage(
 }
 
 fn read_external_image_dimensions(path: &Path) -> Option<(u32, u32)> {
-    if let Ok((width, height)) = image_dimensions(path) {
-        return Some((width, height));
-    }
-
-    // sips is a macOS-only tool; other platforms just give up here.
-    #[cfg(target_os = "macos")]
-    {
-        read_dimensions_with_sips(path)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        None
-    }
+    // Works for formats the `image` crate can decode (png/jpg/webp/…).
+    // Unsupported formats (e.g. HEIC) fall back to (0, 0) at the call site.
+    image_dimensions(path).ok()
 }
 
 pub fn delete_image_from_disk(file_path: &str) -> Result<(), String> {
