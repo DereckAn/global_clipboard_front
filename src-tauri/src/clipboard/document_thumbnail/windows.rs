@@ -1,6 +1,7 @@
 use image::imageops::FilterType;
 use image::{DynamicImage, ImageBuffer, Rgba};
 use std::fs;
+use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 use windows::Win32::Graphics::Gdi::{
     CreateCompatibleDC, DeleteDC, DeleteObject, GetDIBits, GetObjectW, SelectObject, BITMAP,
@@ -16,10 +17,9 @@ pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Strin
         return Err("Invalid thumbnail target path".to_string());
     };
 
-    fs::create_dir_all(parent)
-        .map_err(|e| format!("Failed to create thumbnail dir: {e}"))?;
+    fs::create_dir_all(parent).map_err(|e| format!("Failed to create thumbnail dir: {e}"))?;
 
-    // Basic fallback: if the file is an image, generate a 256px thumbnail
+    // Fast path: images via the bundled image crate.
     if let Ok(img) = image::open(path) {
         let thumb = img.resize(256, 256, FilterType::Lanczos3);
         thumb
@@ -28,11 +28,56 @@ pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Strin
         return Ok(true);
     }
 
-    Ok(false)
+    // Everything else (video, pdf, docx, …): ask the Windows Shell for the same
+    // thumbnail Explorer shows.
+    match shell_thumbnail(path, 256) {
+        Ok(Some(img)) => {
+            img.save(target_path)
+                .map_err(|e| format!("Failed to save shell thumbnail: {e}"))?;
+            Ok(true)
+        }
+        Ok(None) => Ok(false),
+        Err(e) => {
+            eprintln!("Shell thumbnail failed for {}: {e}", path.display());
+            Ok(false)
+        }
+    }
 }
 
-// Kept for future integration with Windows shell thumbnails; currently unused.
-#[allow(dead_code)]
+/// Ask the Windows Shell for a file's thumbnail via `IShellItemImageFactory`
+/// (the same provider Explorer uses — covers video, PDF, Office, etc.).
+fn shell_thumbnail(path: &Path, size: i32) -> Result<Option<DynamicImage>, String> {
+    use windows::core::PCWSTR;
+    use windows::Win32::Foundation::SIZE;
+    use windows::Win32::System::Com::{CoInitializeEx, COINIT_APARTMENTTHREADED};
+    use windows::Win32::UI::Shell::{
+        IShellItemImageFactory, SHCreateItemFromParsingName, SIIGBF_RESIZETOFIT,
+    };
+
+    // Null-terminated wide string for the path.
+    let wide: Vec<u16> = path
+        .as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect();
+
+    unsafe {
+        // COM must be initialized per-thread; ignore "already initialized".
+        let _ = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
+
+        let factory: IShellItemImageFactory =
+            SHCreateItemFromParsingName(PCWSTR(wide.as_ptr()), None)
+                .map_err(|e| format!("SHCreateItemFromParsingName failed: {e}"))?;
+
+        let hbitmap = factory
+            .GetImage(SIZE { cx: size, cy: size }, SIIGBF_RESIZETOFIT)
+            .map_err(|e| format!("GetImage failed: {e}"))?;
+
+        let img = hbitmap_to_image(hbitmap)?;
+        Ok(Some(img))
+    }
+}
+
 fn hbitmap_to_image(hbitmap: HBITMAP) -> Result<DynamicImage, String> {
     unsafe {
         let mut bitmap = BITMAP::default();
@@ -83,6 +128,11 @@ fn hbitmap_to_image(hbitmap: HBITMAP) -> Result<DynamicImage, String> {
 
         if result == 0 {
             return Err("GetDIBits failed".into());
+        }
+
+        // Windows gives BGRA; swap to RGBA for the image crate.
+        for px in pixels.chunks_exact_mut(4) {
+            px.swap(0, 2);
         }
 
         let image = ImageBuffer::<Rgba<u8>, _>::from_raw(width as u32, height as u32, pixels)

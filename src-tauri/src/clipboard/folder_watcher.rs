@@ -116,7 +116,10 @@ pub fn is_enabled(app_data_dir: &Path) -> bool {
 /// falling back to `~/Pictures` and `~/Videos`.
 pub fn config_from_settings(app_data_dir: &Path, repo_path: &str) -> WatcherConfig {
     let settings = read_settings(app_data_dir);
-    let home = std::env::var("HOME").unwrap_or_default();
+    // `HOME` on Linux/macOS, `USERPROFILE` on Windows.
+    let home = std::env::var("HOME")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_default();
 
     let expand = |raw: &str, default_sub: &str| -> PathBuf {
         let trimmed = raw.trim();
