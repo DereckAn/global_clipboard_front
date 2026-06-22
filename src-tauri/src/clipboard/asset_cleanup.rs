@@ -4,7 +4,7 @@ pub fn delete_file_url(content_type: &str, file_url: &str, metadata_json: &str) 
     let result = if content_type == "file" {
         file_handler::delete_file_assets(file_url, metadata_json)
     } else {
-        image_handler::delete_image_from_disk(file_url)
+        image_handler::delete_image_assets(file_url, metadata_json)
     };
 
     if let Err(err) = result {

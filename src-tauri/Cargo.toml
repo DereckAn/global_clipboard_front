@@ -46,6 +46,10 @@ uuid = { version = "1.10", features = ["v4", "serde"] }
 sha2 = "0.10"
 pico-args = "0.5"
 
+# Filesystem watching (opt-in capture-folder watcher) with debouncing so we
+# only act once a file has finished being written.
+notify-debouncer-mini = "0.4"
+
 # Async runtime (para el monitor del clipboard)
 tokio = { version = "1", features = ["full"] }
 tauri-plugin-notification = "2.3.3"
@@ -57,6 +61,7 @@ mime_guess = "2.0.5"
 widestring = "1.1"
 tauri-plugin-process = "2.3.1"
 tauri-plugin-single-instance = "2"
+tauri-plugin-dialog = "2"
 enigo = "0.6.1"
 libc = "0.2.186"
 

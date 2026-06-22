@@ -1,14 +1,18 @@
 use arboard::{Clipboard, ImageData};
+use std::io::Read;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 
+/// Maximum image size we'll pull off the clipboard (50 MB).
+/// Bigger than any real screenshot, small enough to never OOM the app.
 use crate::clipboard::{detect_backend, state, ClipboardBackend};
 
 lazy_static::lazy_static! {
     static ref CLIPBOARD: Mutex<Clipboard> =Mutex::new(Clipboard::new().unwrap());
 }
+const MAX_CLIPBOARD_IMAGE_BYTES: u64 = 50 * 1024 * 1024;
 
 // Enum para representar el contenido del clipboard
 #[derive(Debug, Clone)]
@@ -28,13 +32,31 @@ pub fn read_clipboard_content() -> Result<ClipboardContent, String> {
     }
 }
 
-/// Read the clipbard on Wayland using the "wl-paste" command line tool.
-/// (Text only for now)
+/// Read the clipboard on Wayland using the `wl-paste` command-line tool.
+/// Dispatches by available type: file list (pointer) → image (bytes) → text.
 fn read_clipboard_content_wayland() -> Result<ClipboardContent, String> {
-    match read_text_wayland()? {
-        Some(text) => Ok(ClipboardContent::Text(text)),
-        None => Ok(ClipboardContent::Empty),
+    let types = wayland_list_types();
+
+    // 1. File list first, so copied files/images stay POINTERS (not byte copies).
+    if types.iter().any(|t| t == "text/uri-list") {
+        if let Some(content) = read_files_wayland() {
+            return Ok(content);
+        }
     }
+
+    // 2. Raw image data (e.g. a screenshot) — there's no file to point to, so save bytes.
+    if types.iter().any(|t| t == "image/png") {
+        if let Some(image) = read_image_wayland() {
+            return Ok(ClipboardContent::Image(image, false));
+        }
+    }
+
+    // 3. Plain text.
+    if let Some(text) = read_text_wayland()? {
+        return Ok(ClipboardContent::Text(text));
+    }
+
+    Ok(ClipboardContent::Empty)
 }
 
 /// Run 'wl-paste' and return the clipboard text, or 'None' if empty.
@@ -281,4 +303,106 @@ fn looks_like_screenshot_text(text: &str) -> bool {
     }
 
     lowered.ends_with(".png") || lowered.ends_with(".tiff") || lowered.ends_with(".heic")
+}
+
+/// List the MIME types currently available on the Wayland clipboard.
+/// Runs 'wl-paste'  and return one type per line
+/// Returns an empty Vex if wl past fails of the clipboard is empty1
+fn wayland_list_types() -> Vec<String> {
+    let output = match Command::new("wl-paste").arg("--list-types").output() {
+        Ok(out) => out,
+        Err(_) => return Vec::new(),
+    };
+
+    if !output.status.success() {
+        return Vec::new();
+    }
+
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .map(|line| line.trim().to_string())
+        .filter(|line| !line.is_empty())
+        .collect()
+}
+
+/// Read an image from the Wayland clipboard as raw RGBA pixels.
+/// Streams at most MAX_CLIPBOARD_IMAGE_BYTES so a giant image can't OOM us.
+fn read_image_wayland() -> Option<ImageData<'static>> {
+    use image::GenericImageView;
+
+    let mut child = Command::new("wl-paste")
+        .arg("--type")
+        .arg("image/png")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+
+    let mut stdout = child.stdout.take()?;
+    let mut buf = Vec::new();
+
+    // Read one byte past the cap so we can tell "exactly at cap" from "too big".
+    stdout
+        .by_ref()
+        .take(MAX_CLIPBOARD_IMAGE_BYTES + 1)
+        .read_to_end(&mut buf)
+        .ok()?;
+
+    drop(stdout); // close the pipe; wl-paste stops writing
+    let _ = child.wait();
+
+    if buf.is_empty() || buf.len() as u64 > MAX_CLIPBOARD_IMAGE_BYTES {
+        return None; // empty, or too large to handle safely
+    }
+
+    let img = image::load_from_memory(&buf).ok()?;
+    let rgba = img.to_rgba8();
+    let (width, height) = img.dimensions();
+
+    Some(ImageData {
+        width: width as usize,
+        height: height as usize,
+        bytes: rgba.into_raw().into(),
+    })
+}
+
+/// Read a file list from the wayland clipboard via wl-paste --type text/uri--list
+/// Returns the first image file as imagefile otherwise the first regular file
+/// as file . returns none if the clipboard holds no usable file paths
+fn read_files_wayland() -> Option<ClipboardContent> {
+    let output = Command::new("wl-paste")
+        .arg("--type")
+        .arg("text/uri-list")
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let text = String::from_utf8_lossy(&output.stdout);
+
+    // A uri-list is one URI per line (CRLF); lines strating with # are comments
+    let paths: Vec<PathBuf> = text
+        .lines()
+        .map(|line| line.trim())
+        .filter(|line| !line.is_empty() && !line.starts_with("#"))
+        .filter_map(path_from_file_url)
+        .collect();
+
+    // Prefer an image file (mirrors the native backend's behavior)
+    for path in &paths {
+        if is_image_file_path(path) {
+            return Some(ClipboardContent::ImageFile(path.clone()));
+        }
+    }
+
+    // Otherwise the first regular file (skip directories and mission paths).
+    for path in &paths {
+        if path.is_file() && !is_image_file_path(path) {
+            return Some(ClipboardContent::File(path.clone()));
+        }
+    }
+
+    None
 }

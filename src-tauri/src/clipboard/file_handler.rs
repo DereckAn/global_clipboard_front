@@ -2,10 +2,8 @@ use crate::clipboard::document_thumbnail;
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-#[cfg(not(target_os = "macos"))]
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct StoredFileInfo {
@@ -39,7 +37,7 @@ pub fn prepare_file_metadata(source_path: &Path) -> Result<PreparedFile, String>
         .and_then(|s| s.to_str())
         .map(|ext| ext.to_lowercase());
 
-    let hash = calculate_file_hash(source_path)?;
+    let hash = fingerprint_external_file(source_path)?;
     let size = fs::metadata(source_path).map(|m| m.len()).unwrap_or(0);
     let mime_type = detect_mime_type(extension.as_deref());
     let base_name = source_path
@@ -62,79 +60,35 @@ pub fn store_prepared_file(
     source_path: &Path,
     files_dir: &Path,
 ) -> Result<StoredFileInfo, String> {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = files_dir;
-        let file_name = source_path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or_else(|| prepared.file_name.as_str())
-            .to_string();
+    // Pointer mode (all platforms): we store the ORIGINAL path, never copy.
+    let _ = files_dir; // kept for API stability; unused now that we don't copy
 
-        let original_name = file_name.clone();
+    let file_name = source_path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or_else(|| prepared.file_name.as_str())
+        .to_string();
 
-        return Ok(StoredFileInfo {
-            full_path: source_path.to_path_buf(),
-            original_path: Some(source_path.to_path_buf()),
-            file_name,
-            file_size: prepared.size,
-            file_mime_type: prepared.mime_type.clone(),
-            file_hash: prepared.hash.clone(),
-            original_extension: prepared.extension.clone(),
-            original_name,
-        });
-    }
+    let original_name = file_name.clone();
 
-    #[cfg(not(target_os = "macos"))]
-    {
-        let uuid = Uuid::new_v4();
-        let file_name = match prepared.extension.as_deref() {
-            Some(ext) => format!("{}_{}.{}", prepared.file_name, uuid, ext),
-            None => format!("{}_{}", prepared.file_name, uuid),
-        };
-
-        let destination = files_dir.join(&file_name);
-        fs::copy(source_path, &destination).map_err(|e| format!("Failed to copy file: {}", e))?;
-
-        let original_name = source_path
-            .file_name()
-            .and_then(|s| s.to_str())
-            .unwrap_or_else(|| prepared.file_name.as_str())
-            .to_string();
-
-        Ok(StoredFileInfo {
-            full_path: destination,
-            original_path: None,
-            file_name,
-            file_size: prepared.size,
-            file_mime_type: prepared.mime_type.clone(),
-            file_hash: prepared.hash.clone(),
-            original_extension: prepared.extension.clone(),
-            original_name,
-        })
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn delete_file_from_disk(file_path: &str) -> Result<(), String> {
-    let path = Path::new(file_path);
-    if path.exists() {
-        fs::remove_file(path).map_err(|e| format!("Failed to delete file: {}", e))?;
-    }
-    Ok(())
-}
-
-#[cfg(target_os = "macos")]
-#[allow(dead_code)]
-pub fn delete_file_from_disk(_file_path: &str) -> Result<(), String> {
-    Ok(())
+    Ok(StoredFileInfo {
+        full_path: source_path.to_path_buf(),
+        original_path: Some(source_path.to_path_buf()),
+        file_name,
+        file_size: prepared.size,
+        file_mime_type: prepared.mime_type.clone(),
+        file_hash: prepared.hash.clone(),
+        original_extension: prepared.extension.clone(),
+        original_name,
+    })
 }
 
 pub fn delete_file_thumbnail(thumbnail_path: &str) -> Result<(), String> {
     document_thumbnail::delete_thumbnail(Path::new(thumbnail_path))
 }
 
-#[cfg(target_os = "macos")]
+/// Files are always stored as pointers, so deleting a history item must NEVER
+/// remove the user's original file — only the generated thumbnail.
 pub fn delete_file_assets(_file_path: &str, metadata_json: &str) -> Result<(), String> {
     if let Some(thumb_path) = extract_thumbnail_path(metadata_json) {
         delete_file_thumbnail(&thumb_path)?;
@@ -142,32 +96,40 @@ pub fn delete_file_assets(_file_path: &str, metadata_json: &str) -> Result<(), S
     Ok(())
 }
 
-#[cfg(not(target_os = "macos"))]
-pub fn delete_file_assets(file_path: &str, metadata_json: &str) -> Result<(), String> {
-    delete_file_from_disk(file_path)?;
-    if let Some(thumb_path) = extract_thumbnail_path(metadata_json) {
-        delete_file_thumbnail(&thumb_path)?;
-    }
-    Ok(())
-}
+/// Cheap content fingerprint for large external files (videos, big images).
+/// Instead of hashing the whole file, we hash its size plus up to 256 KB from
+/// the head and tail — O(1) in file size, so copying a multi-GB video no longer
+/// reads gigabytes just to build a dedup key.
+pub fn fingerprint_external_file(path: &Path) -> Result<String, String> {
+    const SAMPLE: u64 = 256 * 1024; // 256 KB
 
-pub fn calculate_file_hash(file_path: &Path) -> Result<String, String> {
     let mut file =
-        fs::File::open(file_path).map_err(|e| format!("Failed to open file for hashing: {}", e))?;
+        fs::File::open(path).map_err(|e| format!("Failed to open file for fingerprint: {}", e))?;
+    let len = file
+        .metadata()
+        .map_err(|e| format!("Failed to read file metadata: {}", e))?
+        .len();
+
     let mut hasher = Sha256::new();
-    let mut buffer = [0u8; 8192];
+    hasher.update(len.to_le_bytes());
 
-    loop {
-        let bytes_read = file
-            .read(&mut buffer)
-            .map_err(|e| format!("Failed to read file for hashing: {}", e))?;
+    // Sample from the start.
+    let head_len = SAMPLE.min(len) as usize;
+    let mut head = vec![0u8; head_len];
+    file.read_exact(&mut head)
+        .map_err(|e| format!("Failed to read file head: {}", e))?;
+    hasher.update(&head);
 
-        if bytes_read == 0 {
-            break;
-        }
-
-        hasher.update(&buffer[..bytes_read]);
+    // Sample from the end (only if the file is bigger than one sample).
+    if len > SAMPLE {
+        file.seek(SeekFrom::End(-(SAMPLE as i64)))
+            .map_err(|e| format!("Failed to seek file tail: {}", e))?;
+        let mut tail = vec![0u8; SAMPLE as usize];
+        file.read_exact(&mut tail)
+            .map_err(|e| format!("Failed to read file tail: {}", e))?;
+        hasher.update(&tail);
     }
+
     Ok(format!("{:x}", hasher.finalize()))
 }
 

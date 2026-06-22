@@ -14,6 +14,8 @@ import {
   tauriOptimizeDatabase,
   tauriQuitApp,
   tauriSaveCleanupSettings,
+  tauriSaveSetting,
+  tauriSetFolderWatcher,
   tauriSetTrayVisible,
   tauriUninstallFeature,
   tauriUnregisterScreenshotHotkeys,
@@ -59,6 +61,10 @@ export class SettingsStore {
   screenshotHotkeyFull = $state("Command+Shift+3");
   screenshotHotkeyRegion = $state("Command+Shift+4");
 
+  screenshotsDir = $state("");
+  recordingsDir = $state("");
+  watchFoldersEnabled = $state(false);
+
   autoStartEnabled = $state(false);
   trayIconVisible = $state(false);
 
@@ -75,7 +81,7 @@ export class SettingsStore {
           progress: number;
         };
         this.labFeatures = this.labFeatures.map((feature) =>
-          feature.id === id ? { ...feature, progress } : feature
+          feature.id === id ? { ...feature, progress } : feature,
         );
       });
 
@@ -168,6 +174,25 @@ export class SettingsStore {
     this.error = null;
 
     try {
+      this.screenshotsDir = await tauriGetSetting("screenshotsDir");
+    } catch (err) {
+      // not set yet — leave empty, the watcher will fall back to a default
+    }
+
+    try {
+      this.recordingsDir = await tauriGetSetting("recordingsDir");
+    } catch (err) {
+      // not set yet
+    }
+
+    try {
+      this.watchFoldersEnabled =
+        (await tauriGetSetting("watchFoldersEnabled")) === "true";
+    } catch (err) {
+      // not set yet — stays false
+    }
+
+    try {
       const savedHotkey = await tauriGetSetting("hotkey");
       if (savedHotkey) {
         this.hotkey = savedHotkey;
@@ -207,7 +232,7 @@ export class SettingsStore {
 
       // Si screenshot esat instalado y habilidato, registra sus hotkes
       const screenshotFeature = this.labFeatures.find(
-        (f) => f.id === "screenshot"
+        (f) => f.id === "screenshot",
       );
       if (
         screenshotFeature?.status === "installed" &&
@@ -222,11 +247,50 @@ export class SettingsStore {
     this.isLoading = false;
   }
 
+  async updateScreenshotsDir(path: string) {
+    this.screenshotsDir = path;
+    try {
+      await tauriSaveSetting("screenshotsDir", path);
+    } catch (err) {
+      console.error("Failed to save screenshots dir:", err);
+    }
+  }
+
+  async updateRecordingsDir(path: string) {
+    this.recordingsDir = path;
+    try {
+      await tauriSaveSetting("recordingsDir", path);
+    } catch (err) {
+      console.error("Failed to save recordings dir:", err);
+    }
+  }
+
+  async toggleWatchFolders() {
+    const next = !this.watchFoldersEnabled;
+    try {
+      // Starts/stops the watcher live AND persists the setting (no restart).
+      await tauriSetFolderWatcher(next);
+      this.watchFoldersEnabled = next;
+    } catch (err) {
+      console.error("Failed to toggle folder watcher:", err);
+    }
+  }
+
+  /// Restart the watcher so a newly chosen folder path takes effect live.
+  async reapplyWatcherIfActive() {
+    if (!this.watchFoldersEnabled) return;
+    try {
+      await tauriSetFolderWatcher(true);
+    } catch (err) {
+      console.error("Failed to reapply folder watcher:", err);
+    }
+  }
+
   async registerScreenshotHotkeys() {
     try {
       await tauriUpdateScreenshotHotkeys(
         this.screenshotHotkeyFull,
-        this.screenshotHotkeyRegion
+        this.screenshotHotkeyRegion,
       );
     } catch (err) {
       console.error("Failed to register screenshot hotkeys:", err);
@@ -276,7 +340,7 @@ export class SettingsStore {
 
     try {
       const deleted = await tauriCleanupOldItems(
-        this.retentionDays > 0 ? this.retentionDays : null
+        this.retentionDays > 0 ? this.retentionDays : null,
       );
       await this.loadDatabaseStats();
       return deleted;
@@ -291,7 +355,7 @@ export class SettingsStore {
 
     try {
       const deleted = await tauriCleanupExcessItems(
-        this.maxLocalItems > 0 ? this.maxLocalItems : null
+        this.maxLocalItems > 0 ? this.maxLocalItems : null,
       );
       await this.loadDatabaseStats();
       return deleted;
@@ -453,9 +517,9 @@ export class SettingsStore {
 
       await tauriUpdateScreenshotHotkeys(
         fullValid ? full : this.screenshotHotkeyFull,
-        regionValid ? region : this.screenshotHotkeyRegion
+        regionValid ? region : this.screenshotHotkeyRegion,
       );
-      
+
       console.log("Screenshot hotkeys registered successfully!");
     } catch (err) {
       console.error("Failed to register screenshot hotkeys:", err);
@@ -482,7 +546,7 @@ export class SettingsStore {
             notificationSound: this.notificationSound,
             screenshotHotkeyFull: this.screenshotHotkeyFull,
             screenshotHotkeyRegion: this.screenshotHotkeyRegion,
-          })
+          }),
         );
 
         // Also save cleanup settings to file (for background task)
@@ -490,7 +554,7 @@ export class SettingsStore {
           this.maxItemsEnabled,
           this.maxLocalItems,
           this.retentionEnabled,
-          this.retentionDays
+          this.retentionDays,
         ).catch((err) => {
           console.error("Failed to save cleanup settings to file:", err);
         });

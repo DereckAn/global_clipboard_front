@@ -1,4 +1,4 @@
-use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI32, AtomicUsize, Ordering};
 
 // AtomicI32 - a thread-safe integer. We us i32 (signed) so we can use -1 as "not set" value.
 // AtomicUsize - a thread-safe unsigned integer. We use usize for counting events to skip.
@@ -7,6 +7,20 @@ use std::sync::atomic::{AtomicI32, AtomicUsize, Ordering};
 lazy_static::lazy_static! {
     static ref SKIP_EVENTS: AtomicUsize = AtomicUsize::new(0);
     static ref PREVIOUS_APP_PID: AtomicI32 = AtomicI32::new(-1);
+    // When the capture-folder watcher owns screenshots, the clipboard monitor
+    // skips saving raw screenshot bytes so we don't get a duplicate entry.
+    static ref SUPPRESS_SCREENSHOT_BYTES: AtomicBool = AtomicBool::new(false);
+}
+
+/// Enable/disable suppression of raw clipboard screenshot bytes.
+/// Set to `true` when the folder watcher is active (it stores pointers instead).
+pub fn set_suppress_screenshot_bytes(suppress: bool) {
+    SUPPRESS_SCREENSHOT_BYTES.store(suppress, Ordering::SeqCst);
+}
+
+/// True when the clipboard monitor should skip saving raw screenshot bytes.
+pub fn should_suppress_screenshot_bytes() -> bool {
+    SUPPRESS_SCREENSHOT_BYTES.load(Ordering::SeqCst)
 }
 
 pub fn store_previous_app_pid(pid: i32) {
@@ -65,7 +79,7 @@ mod tests {
     fn test_request_skip_events() {
         // Reset global state left over from other tests
         while take_skip_event() {} // Clear any pending skip events
-        
+
         request_skip_events(5);
         assert_eq!(SKIP_EVENTS.load(Ordering::SeqCst), 5);
     }

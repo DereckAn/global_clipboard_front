@@ -3,6 +3,19 @@
   import Button from "$lib/components/ui/Button.svelte";
   import { settingsStore } from "$lib/stores/settings.svelte";
   import type { LabFeatureMeta, LabFeatureWithMeta, TabIcon } from "$lib/types";
+  import { open } from "@tauri-apps/plugin-dialog";
+
+  const chooseFolder = async (which: "screenshots" | "recordings") => {
+    const selected = await open({ directory: true, multiple: false });
+    if (typeof selected !== "string") return;
+    if (which === "screenshots") {
+      await settingsStore.updateScreenshotsDir(selected);
+    } else {
+      await settingsStore.updateRecordingsDir(selected);
+    }
+    // If the watcher is running, restart it so the new path takes effect now.
+    await settingsStore.reapplyWatcherIfActive();
+  };
 
   const featureMeta: LabFeatureMeta[] = [
     {
@@ -117,6 +130,90 @@
       </div>
     </div>
   </header>
+
+  <div class="border-b border-border/70">
+    <div class="py-4 flex items-start justify-between gap-4">
+      <div class="flex items-start gap-3">
+        <div
+          class="h-11 w-11 rounded-xl bg-surface-200/30 border border-border/60 flex items-center justify-center shrink-0"
+        >
+          <Icon name="image" size={20} />
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <p class="text-sm font-semibold text-text">Capture folders</p>
+            {#if settingsStore.watchFoldersEnabled}
+              <span
+                class="text-[10px] px-2 py-0.5 rounded-full bg-success/10 text-success uppercase tracking-wide"
+              >
+                Active
+              </span>
+            {/if}
+          </div>
+          <p class="text-[10px] text-text-muted leading-relaxed">
+            Watch these folders and store new screenshots/recordings as pointers
+            (no byte copy). When on, raw clipboard screenshots aren't saved
+            separately. Takes effect immediately.
+          </p>
+
+          <div class="mt-3 space-y-2">
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-text-muted w-24 shrink-0">
+                Screenshots
+              </span>
+              <span
+                class="text-[11px] text-text truncate flex-1"
+                title={settingsStore.screenshotsDir || "~/Pictures"}
+              >
+                {settingsStore.screenshotsDir || "~/Pictures"}
+              </span>
+              <Button
+                variant="other"
+                class="h-fit text-xs bg-white/5 hover:bg-blue-500/20 rounded-md px-2 py-1"
+                onclick={() => chooseFolder("screenshots")}
+              >
+                <Icon name="image" size={14} />
+                Choose
+              </Button>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-text-muted w-24 shrink-0">
+                Recordings
+              </span>
+              <span
+                class="text-[11px] text-text truncate flex-1"
+                title={settingsStore.recordingsDir || "~/Videos"}
+              >
+                {settingsStore.recordingsDir || "~/Videos"}
+              </span>
+              <Button
+                variant="other"
+                class="h-fit text-xs bg-white/5 hover:bg-blue-500/20 rounded-md px-2 py-1"
+                onclick={() => chooseFolder("recordings")}
+              >
+                <Icon name="image" size={14} />
+                Choose
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button
+        class={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+          settingsStore.watchFoldersEnabled ? "bg-primary" : "bg-border"
+        }`}
+        onclick={() => settingsStore.toggleWatchFolders()}
+        aria-label="Toggle capture-folder watching"
+      >
+        <span
+          class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+            settingsStore.watchFoldersEnabled ? "translate-x-4" : "translate-x-1"
+          }`}
+        ></span>
+      </button>
+    </div>
+  </div>
 
   <div class="divide-y divide-border/70">
     {#each features as feature (feature.id)}

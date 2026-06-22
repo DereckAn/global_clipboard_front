@@ -34,6 +34,45 @@ pub fn get_setting<R: Runtime>(app: AppHandle<R>, key: String) -> Result<String,
         .ok_or_else(|| format!("Setting '{key}' not found"))
 }
 
+/// Start or stop the capture-folder watcher at runtime (like the global
+/// hotkeys — no restart needed). Persists the choice so it survives restarts.
+#[tauri::command]
+pub fn set_folder_watcher(
+    enabled: bool,
+    app: AppHandle,
+    state: State<'_, Mutex<crate::clipboard::folder_watcher::WatcherState>>,
+) -> Result<(), String> {
+    use crate::clipboard::{folder_watcher, state as clip_state};
+
+    // Persist so the choice survives a restart.
+    save_setting(
+        app.clone(),
+        "watchFoldersEnabled".to_string(),
+        if enabled { "true" } else { "false" }.to_string(),
+    )?;
+
+    let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let db_path = app_data_dir
+        .join("clipboard.db")
+        .to_string_lossy()
+        .to_string();
+
+    let mut guard = state.lock().map_err(|e| e.to_string())?;
+    if enabled {
+        // Stop any existing watcher first so a changed folder path takes effect.
+        guard.stop();
+        let config = folder_watcher::config_from_settings(&app_data_dir, &db_path);
+        let debouncer = folder_watcher::build(app.clone(), config)?;
+        guard.set(debouncer);
+        clip_state::set_suppress_screenshot_bytes(true);
+    } else {
+        guard.stop();
+        clip_state::set_suppress_screenshot_bytes(false);
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub fn save_setting<R: Runtime>(
     app: AppHandle<R>,

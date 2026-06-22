@@ -40,6 +40,10 @@ pub fn generate_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Strin
         if generate_text_thumbnail(path, target_path)? {
             return Ok(true);
         }
+    } else if is_video(path) {
+        if generate_video_thumbnail(path, target_path)? {
+            return Ok(true);
+        }
     }
 
     Ok(false)
@@ -63,6 +67,25 @@ fn is_pdf(path: &Path) -> bool {
         .and_then(|ext| ext.to_str())
         .map(|ext| ext.eq_ignore_ascii_case("pdf"))
         .unwrap_or(false)
+}
+
+fn is_video(path: &Path) -> bool {
+    matches!(
+        path.extension()
+            .and_then(|ext| ext.to_str())
+            .map(|s| s.to_ascii_lowercase())
+            .as_deref(),
+        Some("mp4")
+            | Some("mkv")
+            | Some("mov")
+            | Some("avi")
+            | Some("webm")
+            | Some("wmv")
+            | Some("m4v")
+            | Some("flv")
+            | Some("mpeg")
+            | Some("mpg")
+    )
 }
 
 fn is_text_like(path: &Path) -> bool {
@@ -121,6 +144,24 @@ fn generate_pdf_thumbnail(
     result
 }
 
+fn generate_video_thumbnail(path: &Path, target_path: &Path) -> Result<bool, String> {
+    // ffmpegthumbnailer extracts a representative frame (same tool Dolphin/Thunar use).
+    // -s 256 = longest side 256px. Returns Ok(false) if it can't decode — graceful fallback.
+    let status = Command::new("ffmpegthumbnailer")
+        .arg("-i")
+        .arg(path)
+        .arg("-o")
+        .arg(target_path)
+        .arg("-s")
+        .arg("256")
+        .status();
+
+    match status {
+        Ok(s) if s.success() && target_path.exists() => Ok(true),
+        _ => Ok(false),
+    }
+}
+
 fn generate_text_thumbnail(path: &Path, target_path: &Path) -> Result<bool, String> {
     let content = fs::read_to_string(path).unwrap_or_default();
     let preview: String = content.lines().take(20).collect::<Vec<_>>().join("\n");
@@ -153,6 +194,7 @@ fn generate_text_thumbnail(path: &Path, target_path: &Path) -> Result<bool, Stri
 
     Ok(true)
 }
+
 fn generate_with_gdk_pixbuf(path: &Path, target_path: &Path) -> Result<bool, String> {
     let status = Command::new("gdk-pixbuf-thumbnailer")
         .arg("-s")
