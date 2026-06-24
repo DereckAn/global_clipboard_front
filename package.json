@@ -1,6 +1,6 @@
 {
-  "name": "global_clipboard",
-  "version": "1.2.0",
+  "name": "quakboard",
+  "version": "1.2.1",
   "description": "",
   "type": "module",
   "scripts": {

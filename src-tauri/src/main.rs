@@ -2,5 +2,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
-    global_clipboard_lib::run()
+    quakboard_lib::run()
 }

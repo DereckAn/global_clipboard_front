@@ -90,7 +90,7 @@ const LAB_STATE_FILE: &str = "lab_features.json";
 const FEATURE_ROOT_DIR: &str = "lab_features";
 const HELPER_VERSION: &str = "1.0.1";
 const HELPER_RELEASE_TAG: &str = "helper-v1.0.1";
-const GITHUB_REPO: &str = "DereckAn/global_clipboard_front";
+const GITHUB_REPO: &str = "DereckAn/quakboard";
 
 /// Determina el sufijo del artifact según OS y arquitectura
 fn get_platform_suffix() -> Option<&'static str> {

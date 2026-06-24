@@ -20,6 +20,15 @@ use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WebKitGTK's DMABUF renderer blank-screens/crashes on many Wayland + Mesa
+    // setups (tauri-apps/tauri#8541). Disabling it keeps Wayland native instead
+    // of forcing GDK_BACKEND=x11. Applies to every Linux package format (.deb,
+    // .rpm, AUR, AppImage). Respect an explicit user override.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
+        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    }
+
     tauri::Builder::default()
         // Debe registrarse PRIMERO. En Wayland (Hyprland) los hotkeys globales no
         // funcionan, así que el atajo se define en el compositor y lanza el binario

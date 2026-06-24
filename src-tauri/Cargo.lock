@@ -2008,57 +2008,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "global_clipboard"
-version = "1.2.0"
-dependencies = [
- "arboard",
- "cairo-rs 0.20.12",
- "chrono",
- "clipboard-master",
- "core-foundation 0.9.4",
- "core-foundation-sys",
- "core-graphics 0.23.2",
- "enigo",
- "foreign-types 0.5.0",
- "image",
- "lazy_static",
- "libc",
- "md5",
- "mime_guess",
- "notify-debouncer-mini",
- "objc2",
- "objc2-app-kit",
- "objc2-foundation",
- "palette",
- "pango 0.20.12",
- "pangocairo",
- "percent-encoding",
- "pico-args",
- "reqwest 0.11.27",
- "rusqlite",
- "scraper",
- "serde",
- "serde_json",
- "sha2",
- "tauri",
- "tauri-build",
- "tauri-plugin-autostart",
- "tauri-plugin-dialog",
- "tauri-plugin-global-shortcut",
- "tauri-plugin-notification",
- "tauri-plugin-opener",
- "tauri-plugin-process",
- "tauri-plugin-shell",
- "tauri-plugin-single-instance",
- "tauri-plugin-updater",
- "tempfile",
- "tokio",
- "uuid",
- "widestring",
- "windows 0.58.0",
-]
-
-[[package]]
 name = "gobject-sys"
 version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4327,6 +4276,57 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f6d64c71eb498fe9eae14ce4ec935c555749aef511cca85b5568910d6e48001"
 dependencies = [
  "bytemuck",
+]
+
+[[package]]
+name = "quakboard"
+version = "1.2.1"
+dependencies = [
+ "arboard",
+ "cairo-rs 0.20.12",
+ "chrono",
+ "clipboard-master",
+ "core-foundation 0.9.4",
+ "core-foundation-sys",
+ "core-graphics 0.23.2",
+ "enigo",
+ "foreign-types 0.5.0",
+ "image",
+ "lazy_static",
+ "libc",
+ "md5",
+ "mime_guess",
+ "notify-debouncer-mini",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-foundation",
+ "palette",
+ "pango 0.20.12",
+ "pangocairo",
+ "percent-encoding",
+ "pico-args",
+ "reqwest 0.11.27",
+ "rusqlite",
+ "scraper",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-autostart",
+ "tauri-plugin-dialog",
+ "tauri-plugin-global-shortcut",
+ "tauri-plugin-notification",
+ "tauri-plugin-opener",
+ "tauri-plugin-process",
+ "tauri-plugin-shell",
+ "tauri-plugin-single-instance",
+ "tauri-plugin-updater",
+ "tempfile",
+ "tokio",
+ "uuid",
+ "widestring",
+ "windows 0.58.0",
 ]
 
 [[package]]
