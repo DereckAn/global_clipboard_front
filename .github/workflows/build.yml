@@ -27,7 +27,7 @@ jobs:
     name: Verify (check + tests)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install system dependencies (Linux)
         run: |
@@ -90,7 +90,7 @@ jobs:
     outputs:
       cache-hit: ${{ steps.cache-frontend.outputs.cache-hit }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Compute frontend hash
         id: frontend-hash
@@ -161,7 +161,7 @@ jobs:
             target: aarch64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download frontend bundle
         uses: actions/download-artifact@v4
@@ -227,6 +227,72 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: bun run tauri build --target ${{ matrix.target }}
 
+      # linuxdeploy-plugin-gtk bundles WebKitGTK together with the build host's
+      # GL/EGL/Wayland/Mesa stack. Those libs can't initialize EGL against a
+      # newer host driver (Mesa/amdgpu), so the window never appears
+      # ("Could not create default EGL display: EGL_BAD_PARAMETER"). It also
+      # forces GDK_BACKEND=x11 in the AppRun hook. We repack the AppImage to
+      # drop both: the bundled graphics stack (so the host's is used) and the
+      # X11 forcing (so Wayland runs natively; the DMABUF renderer is disabled
+      # in-app instead). .deb/.rpm/AUR are unaffected — they use system WebKit.
+      - name: Harden AppImage (use host GL/EGL/Wayland stack)
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          APPIMAGE_EXTRACT_AND_RUN: "1"
+        run: |
+          set -euo pipefail
+
+          BUNDLE_DIR="src-tauri/target/${{ matrix.target }}/release/bundle/appimage"
+          APPIMAGE=$(find "$BUNDLE_DIR" -maxdepth 1 -name '*.AppImage' 2>/dev/null | head -1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "::warning::No AppImage found in $BUNDLE_DIR; skipping hardening"
+            exit 0
+          fi
+          echo "Hardening: $APPIMAGE"
+
+          case "${{ matrix.target }}" in
+            x86_64-*)  TOOL_ARCH=x86_64 ;;
+            aarch64-*) TOOL_ARCH=aarch64 ;;
+            *) echo "::error::Unsupported target ${{ matrix.target }}"; exit 1 ;;
+          esac
+          export ARCH="$TOOL_ARCH"
+
+          wget -q "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${TOOL_ARCH}.AppImage" -O appimagetool
+          chmod +x appimagetool
+
+          workdir=$(mktemp -d)
+          cp "$APPIMAGE" "$workdir/app.AppImage"
+          ( cd "$workdir" && ./app.AppImage --appimage-extract >/dev/null )
+          APPDIR="$workdir/squashfs-root"
+
+          # 1) Remove host-coupled graphics libraries. These must never ship in
+          #    an AppImage — the app must use the user's real driver stack.
+          graphics_libs=(
+            'libEGL.so*' 'libGL.so*' 'libGLX.so*' 'libGLdispatch.so*'
+            'libOpenGL.so*' 'libGLESv2.so*' 'libgbm.so*' 'libdrm.so*'
+            'libdrm_*.so*' 'libgallium*.so*' 'libvulkan.so*' 'libvulkan_*.so*'
+            'libwayland-client.so*' 'libwayland-server.so*'
+            'libwayland-egl.so*' 'libwayland-cursor.so*'
+          )
+          for pat in "${graphics_libs[@]}"; do
+            find "$APPDIR" -type f -name "$pat" -print -delete || true
+          done
+          # Mesa DRI/Gallium driver directories
+          find "$APPDIR" -type d -name dri -exec rm -rf {} + 2>/dev/null || true
+
+          # 2) Drop the forced GDK_BACKEND=x11 from the linuxdeploy-gtk hook.
+          HOOK="$APPDIR/apprun-hooks/linuxdeploy-plugin-gtk.sh"
+          if [ -f "$HOOK" ]; then
+            sed -i '/GDK_BACKEND/d' "$HOOK"
+          fi
+
+          # 3) Repack in place.
+          ./appimagetool "$APPDIR" "$workdir/out.AppImage"
+          mv -f "$workdir/out.AppImage" "$APPIMAGE"
+          chmod +x "$APPIMAGE"
+          echo "Hardened AppImage written: $APPIMAGE"
+
       - name: Upload bundle artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -243,7 +309,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -285,31 +351,31 @@ jobs:
           }
 
           # macOS
-          copy_bundle "x86_64-apple-darwin" "*.dmg" "GlobalClipboard-${VERSION}-macOS-Intel.dmg"
-          copy_bundle "x86_64-apple-darwin" "*.app.tar.gz" "GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz"
-          copy_sig "x86_64-apple-darwin" "*.app.tar.gz.sig" "GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz.sig"
+          copy_bundle "x86_64-apple-darwin" "*.dmg" "Quakboard-${VERSION}-macOS-Intel.dmg"
+          copy_bundle "x86_64-apple-darwin" "*.app.tar.gz" "Quakboard-${VERSION}-macOS-Intel.app.tar.gz"
+          copy_sig "x86_64-apple-darwin" "*.app.tar.gz.sig" "Quakboard-${VERSION}-macOS-Intel.app.tar.gz.sig"
 
-          copy_bundle "aarch64-apple-darwin" "*.dmg" "GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg"
-          copy_bundle "aarch64-apple-darwin" "*.app.tar.gz" "GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz"
-          copy_sig "aarch64-apple-darwin" "*.app.tar.gz.sig" "GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz.sig"
+          copy_bundle "aarch64-apple-darwin" "*.dmg" "Quakboard-${VERSION}-macOS-AppleSilicon.dmg"
+          copy_bundle "aarch64-apple-darwin" "*.app.tar.gz" "Quakboard-${VERSION}-macOS-AppleSilicon.app.tar.gz"
+          copy_sig "aarch64-apple-darwin" "*.app.tar.gz.sig" "Quakboard-${VERSION}-macOS-AppleSilicon.app.tar.gz.sig"
 
           # Windows
-          copy_bundle "x86_64-pc-windows-msvc" "*x64_en-US.msi" "GlobalClipboard-${VERSION}-Windows-x64.msi"
-          copy_bundle "x86_64-pc-windows-msvc" "*x64-setup.exe" "GlobalClipboard-${VERSION}-Windows-x64-Setup.exe"
-          copy_sig "x86_64-pc-windows-msvc" "*x64-setup.exe.sig" "GlobalClipboard-${VERSION}-Windows-x64-Setup.exe.sig"
+          copy_bundle "x86_64-pc-windows-msvc" "*x64_en-US.msi" "Quakboard-${VERSION}-Windows-x64.msi"
+          copy_bundle "x86_64-pc-windows-msvc" "*x64-setup.exe" "Quakboard-${VERSION}-Windows-x64-Setup.exe"
+          copy_sig "x86_64-pc-windows-msvc" "*x64-setup.exe.sig" "Quakboard-${VERSION}-Windows-x64-Setup.exe.sig"
 
-          copy_bundle "aarch64-pc-windows-msvc" "*arm64_en-US.msi" "GlobalClipboard-${VERSION}-Windows-arm64.msi"
-          copy_bundle "aarch64-pc-windows-msvc" "*arm64-setup.exe" "GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe"
-          copy_sig "aarch64-pc-windows-msvc" "*arm64-setup.exe.sig" "GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe.sig"
+          copy_bundle "aarch64-pc-windows-msvc" "*arm64_en-US.msi" "Quakboard-${VERSION}-Windows-arm64.msi"
+          copy_bundle "aarch64-pc-windows-msvc" "*arm64-setup.exe" "Quakboard-${VERSION}-Windows-arm64-Setup.exe"
+          copy_sig "aarch64-pc-windows-msvc" "*arm64-setup.exe.sig" "Quakboard-${VERSION}-Windows-arm64-Setup.exe.sig"
 
           # Linux
-          copy_bundle "x86_64-unknown-linux-gnu" "*.AppImage" "GlobalClipboard-${VERSION}-Linux-x64.AppImage"
-          copy_bundle "x86_64-unknown-linux-gnu" "*.deb" "GlobalClipboard-${VERSION}-Linux-x64.deb"
-          copy_bundle "x86_64-unknown-linux-gnu" "*.rpm" "GlobalClipboard-${VERSION}-Linux-x64.rpm"
+          copy_bundle "x86_64-unknown-linux-gnu" "*.AppImage" "Quakboard-${VERSION}-Linux-x64.AppImage"
+          copy_bundle "x86_64-unknown-linux-gnu" "*.deb" "Quakboard-${VERSION}-Linux-x64.deb"
+          copy_bundle "x86_64-unknown-linux-gnu" "*.rpm" "Quakboard-${VERSION}-Linux-x64.rpm"
 
-          copy_bundle "aarch64-unknown-linux-gnu" "*.AppImage" "GlobalClipboard-${VERSION}-Linux-arm64.AppImage"
-          copy_bundle "aarch64-unknown-linux-gnu" "*arm64.deb" "GlobalClipboard-${VERSION}-Linux-arm64.deb"
-          copy_bundle "aarch64-unknown-linux-gnu" "*aarch64.rpm" "GlobalClipboard-${VERSION}-Linux-arm64.rpm"
+          copy_bundle "aarch64-unknown-linux-gnu" "*.AppImage" "Quakboard-${VERSION}-Linux-arm64.AppImage"
+          copy_bundle "aarch64-unknown-linux-gnu" "*arm64.deb" "Quakboard-${VERSION}-Linux-arm64.deb"
+          copy_bundle "aarch64-unknown-linux-gnu" "*aarch64.rpm" "Quakboard-${VERSION}-Linux-arm64.rpm"
 
           (cd release-assets && sha256sum * > SHA256SUMS 2>/dev/null || true)
 
@@ -332,10 +398,10 @@ jobs:
             fi
           }
 
-          MACOS_INTEL_SIG=$(read_sig "GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz.sig")
-          MACOS_ARM_SIG=$(read_sig "GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz.sig")
-          WINDOWS_X64_SIG=$(read_sig "GlobalClipboard-${VERSION}-Windows-x64-Setup.exe.sig")
-          WINDOWS_ARM_SIG=$(read_sig "GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe.sig")
+          MACOS_INTEL_SIG=$(read_sig "Quakboard-${VERSION}-macOS-Intel.app.tar.gz.sig")
+          MACOS_ARM_SIG=$(read_sig "Quakboard-${VERSION}-macOS-AppleSilicon.app.tar.gz.sig")
+          WINDOWS_X64_SIG=$(read_sig "Quakboard-${VERSION}-Windows-x64-Setup.exe.sig")
+          WINDOWS_ARM_SIG=$(read_sig "Quakboard-${VERSION}-Windows-arm64-Setup.exe.sig")
 
           # Create latest.json (Linux updater not supported - AppImage doesn't have signature)
           cat > release-assets/latest.json << EOF
@@ -346,19 +412,19 @@ jobs:
             "platforms": {
               "darwin-x86_64": {
                 "signature": "${MACOS_INTEL_SIG}",
-                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-macOS-Intel.app.tar.gz"
+                "url": "${BASE_URL}/Quakboard-${VERSION}-macOS-Intel.app.tar.gz"
               },
               "darwin-aarch64": {
                 "signature": "${MACOS_ARM_SIG}",
-                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.app.tar.gz"
+                "url": "${BASE_URL}/Quakboard-${VERSION}-macOS-AppleSilicon.app.tar.gz"
               },
               "windows-x86_64": {
                 "signature": "${WINDOWS_X64_SIG}",
-                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-Windows-x64-Setup.exe"
+                "url": "${BASE_URL}/Quakboard-${VERSION}-Windows-x64-Setup.exe"
               },
               "windows-aarch64": {
                 "signature": "${WINDOWS_ARM_SIG}",
-                "url": "${BASE_URL}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe"
+                "url": "${BASE_URL}/Quakboard-${VERSION}-Windows-arm64-Setup.exe"
               }
             }
           }
@@ -378,12 +444,12 @@ jobs:
 
           | Platform | Architecture | Download |
           |----------|-------------|----------|
-          | Windows | x64 | [Setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-x64.msi) |
-          | Windows | ARM64 | [Setup.exe](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Windows-arm64.msi) |
-          | macOS | Intel | [.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-Intel.dmg) |
-          | macOS | Apple Silicon | [.dmg](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-macOS-AppleSilicon.dmg) |
-          | Linux | x64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-x64.rpm) |
-          | Linux | ARM64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/GlobalClipboard-${VERSION}-Linux-arm64.rpm) |
+          | Windows | x64 | [Setup.exe](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Windows-x64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Windows-x64.msi) |
+          | Windows | ARM64 | [Setup.exe](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Windows-arm64-Setup.exe) / [.msi](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Windows-arm64.msi) |
+          | macOS | Intel | [.dmg](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-macOS-Intel.dmg) |
+          | macOS | Apple Silicon | [.dmg](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-macOS-AppleSilicon.dmg) |
+          | Linux | x64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Linux-x64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Linux-x64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Linux-x64.rpm) |
+          | Linux | ARM64 | [.AppImage](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Linux-arm64.AppImage) / [.deb](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Linux-arm64.deb) / [.rpm](https://github.com/${REPO}/releases/download/${TAG}/Quakboard-${VERSION}-Linux-arm64.rpm) |
 
           ## 🔄 Auto-Update
 
@@ -394,7 +460,7 @@ jobs:
           If you see a message saying the app is damaged, run this command in Terminal:
 
           \`\`\`bash
-          sudo xattr -d com.apple.quarantine \"/Applications/Global Clipboard.app\"
+          sudo xattr -d com.apple.quarantine \"/Applications/Quakboard.app\"
           \`\`\`"
 
           {

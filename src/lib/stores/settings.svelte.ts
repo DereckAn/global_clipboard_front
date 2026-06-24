@@ -5,6 +5,7 @@ import {
   tauriEnableAutoStart,
   tauriEnableFeature,
   tauriGetCleanupSettings,
+  tauriGetCurrentShortcut,
   tauriGetDatabaseStats,
   tauriGetLabFeatures,
   tauriGetSetting,
@@ -196,6 +197,10 @@ export class SettingsStore {
       const savedHotkey = await tauriGetSetting("hotkey");
       if (savedHotkey) {
         this.hotkey = savedHotkey;
+      } else {
+        // No saved hotkey: use the backend's platform-aware default
+        // (Super+Shift+V on Linux, CommandOrControl+Shift+V elsewhere).
+        this.hotkey = await tauriGetCurrentShortcut();
       }
     } catch (err) {
       console.log("No saved hotkey found, using default");

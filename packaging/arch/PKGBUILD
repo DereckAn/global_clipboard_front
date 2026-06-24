@@ -1,0 +1,26 @@
+# Maintainer: Dereck Angeles <dereckan@gmail.com>
+pkgname=quakboard-bin
+_appname=quakboard
+pkgver=1.2.1
+pkgrel=1
+pkgdesc="Global clipboard manager (text, code, links, colors, images, files)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/DereckAn/quakboard"
+license=('MIT')
+# Uses the system WebKitGTK 4.1 — never the broken bundled one shipped in AppImages.
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator')
+optdepends=('xdg-utils: open files and links')
+provides=("$_appname")
+conflicts=("$_appname")
+options=('!strip' '!debug')
+source_x86_64=("$_appname-$pkgver-x86_64.deb::$url/releases/download/v$pkgver/Quakboard-$pkgver-Linux-x64.deb")
+source_aarch64=("$_appname-$pkgver-aarch64.deb::$url/releases/download/v$pkgver/Quakboard-$pkgver-Linux-arm64.deb")
+# Replace SKIP with the real checksums from the release SHA256SUMS for AUR submission.
+sha256sums_x86_64=('SKIP')
+sha256sums_aarch64=('SKIP')
+
+package() {
+    # A .deb is an `ar` archive whose data.tar.* holds the /usr tree. libarchive
+    # (bsdtar, a pacman dependency) reads both layers, so no `ar`/dpkg needed.
+    bsdtar -xOf "$_appname-$pkgver-$CARCH.deb" 'data.tar.*' | bsdtar -xf - -C "$pkgdir"
+}

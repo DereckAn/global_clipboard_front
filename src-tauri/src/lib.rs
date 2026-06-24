@@ -20,6 +20,26 @@ use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // WebKitGTK's DMABUF renderer is the correct path on AMD/Intel (and modern
+    // NVIDIA), and it's what makes transparent windows repaint cleanly. But it
+    // blank-screens on the NVIDIA *proprietary* driver under Wayland. Disable it
+    // only for that exact combo so everyone else keeps GPU rendering. Respect an
+    // explicit user override. /proc/driver/nvidia/version exists only with the
+    // proprietary driver (not nouveau, which handles DMABUF fine).
+    #[cfg(target_os = "linux")]
+    {
+        let on_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some()
+            || std::env::var("XDG_SESSION_TYPE").as_deref() == Ok("wayland");
+        let nvidia_proprietary = std::path::Path::new("/proc/driver/nvidia/version").exists();
+
+        if on_wayland
+            && nvidia_proprietary
+            && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
+        {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
+    }
+
     tauri::Builder::default()
         // Debe registrarse PRIMERO. En Wayland (Hyprland) los hotkeys globales no
         // funcionan, así que el atajo se define en el compositor y lanza el binario
@@ -128,12 +148,25 @@ pub fn run() {
             // En Linux release la app se inicia con el sistema (Hyprland exec-once)
             // y debe quedarse oculta en segundo plano hasta que se presione el hotkey.
             // En dev se muestra para poder trabajar con ella.
+            //
+            // Excepción (#8): si el binario se arranca en frío CON `--toggle` (p.ej.
+            // SUPER+V cuando la app no estaba corriendo), mostramos la ventana en vez
+            // de quedar como un proceso invisible en segundo plano.
+            let cold_started_with_toggle = std::env::args().skip(1).any(|arg| arg == "--toggle");
             if let Some(main_window) = app.get_webview_window("main") {
                 #[cfg(all(target_os = "linux", not(debug_assertions)))]
-                let _ = main_window.hide();
+                {
+                    if cold_started_with_toggle {
+                        let _ = main_window.show();
+                        let _ = main_window.set_focus();
+                    } else {
+                        let _ = main_window.hide();
+                    }
+                }
 
                 #[cfg(not(all(target_os = "linux", not(debug_assertions))))]
                 {
+                    let _ = cold_started_with_toggle;
                     let _ = main_window.show();
                     let _ = main_window.set_focus();
                     let _ = main_window.set_always_on_top(true);
@@ -275,7 +308,12 @@ pub fn run() {
                 }
             });
 
-            // Cargar hotkey guardado o usar el predeterminado
+            // Cargar hotkey guardado o usar el predeterminado.
+            // En Linux el default es Super+Shift+V (encaja con Hyprland); en
+            // macOS/Windows se mantiene CommandOrControl+Shift+V.
+            #[cfg(target_os = "linux")]
+            let default_hotkey = "Super+Shift+V";
+            #[cfg(not(target_os = "linux"))]
             let default_hotkey = "CommandOrControl+Shift+V";
             let saved_hotkey = app_data_dir
                 .join("settings.json")
