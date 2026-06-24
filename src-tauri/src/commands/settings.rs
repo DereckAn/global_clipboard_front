@@ -103,29 +103,60 @@ pub fn save_setting<R: Runtime>(
 
 #[tauri::command]
 pub fn update_global_hotkey(app: AppHandle, new_hotkey: String) -> Result<(), String> {
+    use crate::shortcuts::{self, HotkeyBackend};
+
     println!("Updating hotkey to: {new_hotkey}");
 
-    // Save the setting first
+    // Remember the current hotkey so we can roll back if the new one is rejected
+    // (e.g. already taken). A failed change must never leave the user without a
+    // working shortcut.
+    let previous_hotkey = get_setting(app.clone(), "hotkey".to_string()).ok();
+
+    match shortcuts::detect_backend() {
+        HotkeyBackend::Hyprland => {
+            // Native Wayland (#7): drive the compositor bind via hyprctl.
+            if let Some(prev) = previous_hotkey.as_deref() {
+                let _ = shortcuts::hyprland_unbind(prev);
+            }
+            if let Err(e) = shortcuts::hyprland_bind(&new_hotkey) {
+                if let Some(prev) = previous_hotkey.as_deref() {
+                    let _ = shortcuts::hyprland_bind(prev);
+                }
+                return Err(format!("No se pudo aplicar el atajo en Hyprland: {e}"));
+            }
+        }
+        HotkeyBackend::GlobalShortcut => {
+            shortcuts::unregister_all_shortcuts(&app)?;
+            // Small delay to ensure cleanup is complete
+            std::thread::sleep(std::time::Duration::from_millis(100));
+
+            if let Err(e) = shortcuts::register_shortcut(&app, &new_hotkey) {
+                eprintln!("Failed to register '{new_hotkey}': {e}. Rolling back.");
+                if let Some(prev) = previous_hotkey.as_deref() {
+                    let _ = shortcuts::register_shortcut(&app, prev);
+                }
+                return Err(format!(
+                    "No se pudo registrar '{new_hotkey}' (¿ya está en uso por otra app?). \
+                     Se mantuvo el atajo anterior; la ventana sigue disponible desde la bandeja."
+                ));
+            }
+        }
+    }
+
+    // Persist only after a successful registration.
     save_setting(app.clone(), "hotkey".to_string(), new_hotkey.clone())?;
-    println!("Setting saved");
-
-    // Unregister all existing shortcuts AND handlers
-    crate::shortcuts::unregister_all_shortcuts(&app)?;
-    println!("All shortcuts unregistered");
-
-    // Small delay to ensure cleanup is complete
-    std::thread::sleep(std::time::Duration::from_millis(100));
-
-    // Register the new shortcut using the helper function
-    crate::shortcuts::register_shortcut(&app, &new_hotkey)?;
-    println!("New shortcut registered successfully");
+    println!("New shortcut registered and saved: {new_hotkey}");
 
     Ok(())
 }
 
 #[tauri::command]
 pub fn get_current_shortcut(app: AppHandle) -> Result<String, String> {
-    get_setting(app, "hotkey".to_string()).or_else(|_| Ok("CommandOrControl+Shift+V".to_string()))
+    #[cfg(target_os = "linux")]
+    let default = "Super+Shift+V";
+    #[cfg(not(target_os = "linux"))]
+    let default = "CommandOrControl+Shift+V";
+    get_setting(app, "hotkey".to_string()).or_else(|_| Ok(default.to_string()))
 }
 
 /// Save all cleanup settings at once for the background task
@@ -335,7 +366,17 @@ pub fn test_force_cleanup(state: State<Mutex<AppState>>) -> Result<serde_json::V
 
 #[tauri::command]
 pub fn unregister_shortcut(app: AppHandle) -> Result<(), String> {
-    crate::shortcuts::unregister_all_shortcuts(&app)
+    use crate::shortcuts::{self, HotkeyBackend};
+
+    match shortcuts::detect_backend() {
+        HotkeyBackend::Hyprland => {
+            if let Ok(current) = get_setting(app.clone(), "hotkey".to_string()) {
+                let _ = shortcuts::hyprland_unbind(&current);
+            }
+            Ok(())
+        }
+        HotkeyBackend::GlobalShortcut => shortcuts::unregister_all_shortcuts(&app),
+    }
 }
 
 #[tauri::command]

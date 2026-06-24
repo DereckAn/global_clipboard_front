@@ -67,20 +67,111 @@ pub fn register_shortcut(app: &AppHandle, shortcut_str: &str) -> Result<(), Stri
     Ok(())
 }
 
+/// Which mechanism registers the global toggle hotkey for this session.
+///
+/// `tauri-plugin-global-shortcut` relies on X11 grabs and does not work under
+/// native Wayland, so on Hyprland we drive a compositor bind via `hyprctl`
+/// instead (#7).
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum HotkeyBackend {
+    GlobalShortcut,
+    Hyprland,
+}
+
+/// Pick the hotkey mechanism for the current environment.
+pub fn detect_backend() -> HotkeyBackend {
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_some() {
+        return HotkeyBackend::Hyprland;
+    }
+    HotkeyBackend::GlobalShortcut
+}
+
+/// Initialize the global-shortcut plugin. Always needed (screenshot hotkeys and
+/// the shortcut commands depend on it), even when the toggle uses Hyprland.
+pub fn init_global_shortcut_plugin(app: &AppHandle) -> Result<(), String> {
+    app.plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .map_err(|e| e.to_string())
+}
+
+/// Translate a Tauri accelerator ("CommandOrControl+Shift+V") into a Hyprland
+/// `(mods, key)` pair ("CTRL SHIFT", "V").
+fn to_hyprland_bind(hotkey: &str) -> Result<(String, String), String> {
+    let mut mods: Vec<&str> = Vec::new();
+    let mut key: Option<&str> = None;
+
+    for part in hotkey.split('+') {
+        let p = part.trim();
+        match p.to_ascii_lowercase().as_str() {
+            "commandorcontrol" | "cmdorctrl" | "control" | "ctrl" => mods.push("CTRL"),
+            "alt" | "option" => mods.push("ALT"),
+            "shift" => mods.push("SHIFT"),
+            "super" | "meta" | "command" | "cmd" | "win" | "windows" => mods.push("SUPER"),
+            "" => {}
+            _ => key = Some(p),
+        }
+    }
+
+    let key = key.ok_or_else(|| format!("No key found in hotkey '{hotkey}'"))?;
+    Ok((mods.join(" "), key.to_string()))
+}
+
+/// How Hyprland should launch us when the bind fires. Prefer the real AppImage
+/// path ($APPIMAGE) over the ephemeral mount point exposed by current_exe().
+fn launch_command() -> String {
+    let exe = std::env::var("APPIMAGE")
+        .ok()
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .map(|p| p.to_string_lossy().into_owned())
+        })
+        .unwrap_or_else(|| "quakboard".to_string());
+    format!("{exe} --toggle")
+}
+
+fn hyprctl(args: &[&str]) -> Result<(), String> {
+    let output = std::process::Command::new("hyprctl")
+        .args(args)
+        .output()
+        .map_err(|e| format!("hyprctl unavailable: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "hyprctl {args:?} failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    Ok(())
+}
+
+/// Bind `hotkey` to toggle the window via the compositor. Idempotent: drops any
+/// identical pre-existing bind first so app relaunches don't stack duplicates.
+pub fn hyprland_bind(hotkey: &str) -> Result<(), String> {
+    let (mods, key) = to_hyprland_bind(hotkey)?;
+    let _ = hyprctl(&["keyword", "unbind", &format!("{mods}, {key}")]);
+    let value = format!("{mods}, {key}, exec, {}", launch_command());
+    hyprctl(&["keyword", "bind", &value])
+}
+
+/// Remove a previously applied Hyprland bind for `hotkey`.
+pub fn hyprland_unbind(hotkey: &str) -> Result<(), String> {
+    let (mods, key) = to_hyprland_bind(hotkey)?;
+    hyprctl(&["keyword", "unbind", &format!("{mods}, {key}")])
+}
+
 /// Register a shortcut upon application start
 /// This is used during the initial setup in lib.rs
 pub fn register_shortcut_upon_start(app: &AppHandle, shortcut_str: &str) -> Result<(), String> {
-    // Initialize the plugin WITHOUT any shortcuts or handlers
-    // We'll register them separately using register_shortcut()
-    app.plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .map_err(|e| e.to_string())?;
-
+    init_global_shortcut_plugin(app)?;
     println!("Global shortcut plugin initialized");
 
-    // Now register the initial shortcut using the same method as dynamic changes
-    register_shortcut(app, shortcut_str)?;
-
-    Ok(())
+    match detect_backend() {
+        HotkeyBackend::Hyprland => {
+            println!("Hyprland detected — binding toggle via hyprctl");
+            hyprland_bind(shortcut_str)
+        }
+        HotkeyBackend::GlobalShortcut => register_shortcut(app, shortcut_str),
+    }
 }
 
 /// Unregister all shortcuts
