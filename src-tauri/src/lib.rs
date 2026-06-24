@@ -20,13 +20,24 @@ use tauri::{Emitter, Manager};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // WebKitGTK's DMABUF renderer blank-screens/crashes on many Wayland + Mesa
-    // setups (tauri-apps/tauri#8541). Disabling it keeps Wayland native instead
-    // of forcing GDK_BACKEND=x11. Applies to every Linux package format (.deb,
-    // .rpm, AUR, AppImage). Respect an explicit user override.
+    // WebKitGTK's DMABUF renderer is the correct path on AMD/Intel (and modern
+    // NVIDIA), and it's what makes transparent windows repaint cleanly. But it
+    // blank-screens on the NVIDIA *proprietary* driver under Wayland. Disable it
+    // only for that exact combo so everyone else keeps GPU rendering. Respect an
+    // explicit user override. /proc/driver/nvidia/version exists only with the
+    // proprietary driver (not nouveau, which handles DMABUF fine).
     #[cfg(target_os = "linux")]
-    if std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none() {
-        std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    {
+        let on_wayland = std::env::var_os("WAYLAND_DISPLAY").is_some()
+            || std::env::var("XDG_SESSION_TYPE").as_deref() == Ok("wayland");
+        let nvidia_proprietary = std::path::Path::new("/proc/driver/nvidia/version").exists();
+
+        if on_wayland
+            && nvidia_proprietary
+            && std::env::var_os("WEBKIT_DISABLE_DMABUF_RENDERER").is_none()
+        {
+            std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        }
     }
 
     tauri::Builder::default()
