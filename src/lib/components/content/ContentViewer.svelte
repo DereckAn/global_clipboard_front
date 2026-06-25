@@ -13,10 +13,11 @@
   } from "$lib/tauri/commands";
   import type { ClipboardItem } from "$lib/types";
   import { cn } from "$lib/utils/cn";
-  import { sanitizeSvg } from "$lib/utils/svg";
+  import { normalizeSvgSize, sanitizeSvg } from "$lib/utils/svg";
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { openPath } from "@tauri-apps/plugin-opener";
   import Button from "../ui/Button.svelte";
+  import CopyButton from "../ui/CopyButton.svelte";
   import HighlightedText from "../ui/HighlightedText.svelte";
   interface Props {
     item: ClipboardItem | null;
@@ -44,7 +45,7 @@
   const isFile = $derived(item?.contentType === "file");
   const safeSvg = $derived.by(() => {
     if (!isSvg || !item?.contentText) return "";
-    return sanitizeSvg(item.contentText);
+    return normalizeSvgSize(sanitizeSvg(item.contentText));
   });
 
   const parsedMetadata = $derived.by(() => {
@@ -62,7 +63,7 @@
   const fileThumbnailPath = $derived(
     isFile && parsedMetadata?.thumbnail_path
       ? parsedMetadata.thumbnail_path
-      : null
+      : null,
   );
   const fileThumbnailUrl = $derived.by(() => {
     if (!fileThumbnailPath) return null;
@@ -71,12 +72,12 @@
   const textPreview = $derived(parsedMetadata?.text_preview || null);
   const previewLanguage = $derived(parsedMetadata?.preview_language || null);
   const externalPath = $derived(
-    parsedMetadata?.external_path || item?.fileUrl || null
+    parsedMetadata?.external_path || item?.fileUrl || null,
   );
   const externalMissing = $derived(Boolean(parsedMetadata?.external_missing));
   const fileExists = $derived(externalPath && !externalMissing);
   const isExternalImage = $derived(
-    isImage && parsedMetadata?.source === "file"
+    isImage && parsedMetadata?.source === "file",
   );
   const preferredImagePath = $derived.by(() => {
     if (!isImage) return null;
@@ -388,7 +389,6 @@
         </Button>
       </div>
       <div class="h-44 mx-3 mb-3 bg-transparent"></div>
-
     </div>
   {:else if isImage}
     <!-- Image content -->
@@ -449,13 +449,12 @@
         {/if}
       </div>
       <div class="px-3 pb-6">
-        <button
+        <CopyButton
           onclick={() => handleCopy("")}
-          class="w-full px-2 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-        >
-          <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
-          <span>{copied ? "Copied!" : "Copy image to clipboard"}</span>
-        </button>
+          {copied}
+          label="Copy image to clipboard"
+          class="w-full"
+        />
       </div>
       <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
@@ -519,7 +518,7 @@
       <!-- SVG Preview -->
       <div class="flex-1 flex items-center justify-center p-8 overflow-auto">
         <div
-          class="max-w-2xl max-h-full bg-surface rounded-xl border border-border p-8 flex items-center justify-center"
+          class="svg-preview w-full max-w-sm aspect-square max-h-full bg-surface rounded-xl border border-border p-8 flex items-center justify-center"
         >
           {@html safeSvg}
         </div>
@@ -527,13 +526,12 @@
 
       <!-- Copy and View Source buttons -->
       <div class="px-3 pb-6 flex gap-3">
-        <button
+        <CopyButton
           onclick={() => handleCopy(item.contentText || "")}
-          class="flex-1 px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-        >
-          <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
-          <span>{copied ? "Copied!" : "Copy SVG"}</span>
-        </button>
+          {copied}
+          label="Copy SVG"
+          class="flex-1"
+        />
       </div>
       <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
@@ -544,7 +542,7 @@
       <div class="flex-1">
         <pre
           class={cn(
-            "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 text-wrap long-content-guard"
+            "text-xs text-text font-mono whitespace-pre-wrap wrap-break-words p-4 text-wrap long-content-guard",
           )}>{#if searchQuery.trim()}
             <HighlightedText text={item.contentText!} query={searchQuery} />
           {:else}{item.contentText}
@@ -553,13 +551,12 @@
 
       <!-- Copy button -->
       <div class="px-3 pb-6">
-        <button
+        <CopyButton
           onclick={() => handleCopy(item.contentText || "")}
-          class="w-full px-4 py-1 bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
-        >
-          <Icon name={copied ? "check" : "copy"} size={18} class="text-white" />
-          <span>{copied ? "Copied!" : "Copy to clipboard"}</span>
-        </button>
+          {copied}
+          label="Copy to clipboard"
+          class="w-full"
+        />
       </div>
       <div class="h-44 mx-3 mb-3 bg-transparent"></div>
     </div>
@@ -567,6 +564,14 @@
 </div>
 
 <style>
+  /* The SVG is injected via {@html}, so it needs :global to be reached.
+     Fill the fixed preview box while preserving aspect ratio — large SVGs
+     shrink, small ones grow, both land at the same display size. */
+  .svg-preview :global(svg) {
+    width: 100%;
+    height: 100%;
+  }
+
   .line-clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;

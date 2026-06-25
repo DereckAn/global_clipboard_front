@@ -39,6 +39,7 @@ body {
 *::before,
 *::after {
   box-sizing: border-box;
+  overscroll-behavior: none;
 }
 
 /* Custom scrollbar - oculto pero funcional */
