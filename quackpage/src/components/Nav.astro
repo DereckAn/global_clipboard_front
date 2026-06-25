@@ -1,0 +1,84 @@
+---
+import Icon from "./Icon.astro";
+
+const links = [
+  { href: "/", label: "Home" },
+  { href: "/download", label: "Download" },
+  { href: "/docs/getting-started", label: "Docs", match: "/docs" },
+  { href: "/changelog", label: "Changelog" },
+  { href: "/privacy", label: "Privacy" },
+];
+
+const path = Astro.url.pathname;
+const isActive = (l: { href: string; match?: string }) =>
+  l.match ? path.startsWith(l.match) : path === l.href;
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-border-soft bg-bg/80 backdrop-blur-sm"
+>
+  <nav class="shell flex h-16 items-center justify-between gap-6">
+    <a href="/" class="flex items-center gap-2.5" aria-label="Quackboard home">
+      <span
+        class="grid h-7 w-7 place-items-center rounded-md bg-accent text-accent-ink"
+      >
+        <Icon name="clipboard" size={16} stroke={2} />
+      </span>
+      <span class="font-heading text-lg font-semibold tracking-tight"
+        >Quackboard</span
+      >
+    </a>
+
+    <ul class="hidden items-center gap-1 md:flex">
+      {
+        links.map((l) => (
+          <li>
+            <a
+              href={l.href}
+              aria-current={isActive(l) ? "page" : undefined}
+              class={`rounded-md px-3 py-2 text-sm transition-colors hover:text-text ${
+                isActive(l) ? "text-text" : "text-muted"
+              }`}
+            >
+              {l.label}
+              {isActive(l) && (
+                <span class="mx-auto mt-1 block h-px w-4 bg-accent" />
+              )}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="flex items-center gap-3">
+      <a
+        href="/download"
+        class="inline-flex items-center gap-2 rounded-md bg-accent px-3.5 py-2 text-sm font-medium text-accent-ink transition-colors hover:bg-accent-strong"
+      >
+        <Icon name="download" size={16} stroke={2} />
+        <span class="hidden sm:inline">Download</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- mobile nav -->
+  <div class="border-t border-border-soft md:hidden">
+    <ul class="shell flex items-center gap-1 overflow-x-auto py-2 text-sm">
+      {
+        links.map((l) => (
+          <li>
+            <a
+              href={l.href}
+              aria-current={isActive(l) ? "page" : undefined}
+              class={`whitespace-nowrap rounded-md px-3 py-1.5 transition-colors ${
+                isActive(l) ? "bg-surface text-text" : "text-muted"
+              }`}
+            >
+              {l.label}
+            </a>
+          </li>
+        ))
+      }
+    </ul>
+  </div>
+</header>

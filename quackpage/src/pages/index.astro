@@ -1,17 +1,239 @@
 ---
-import "../globals.css";
+import BaseLayout from "../layouts/BaseLayout.astro";
+import AppWindow from "../components/AppWindow.astro";
+import Icon from "../components/Icon.astro";
+
+const features = [
+  {
+    icon: "history",
+    title: "Complete history",
+    body: "Everything you copy is captured automatically — text, code, links, colors, images, and files. Scroll back through days, not just the last clip.",
+  },
+  {
+    icon: "search",
+    title: "Search that's instant",
+    body: "Full-text search across your entire history with ranked results. Find that API key or address from last Tuesday before you finish typing it.",
+  },
+  {
+    icon: "pin",
+    title: "Pinned snippets",
+    body: "Pin the things you paste constantly — signatures, commands, boilerplate — and give them names. They stay one shortcut away, forever.",
+  },
+  {
+    icon: "sync",
+    title: "Optional sync",
+    body: "Turn on end-to-end encrypted sync to share history across your Mac, PC, and Linux box. Off by default. Encrypted before it leaves the device.",
+  },
+  {
+    icon: "bolt",
+    title: "Built to disappear",
+    body: "A global hotkey brings it up, an arrow key picks an entry, Enter pastes. It closes the moment you're done. No window juggling.",
+  },
+  {
+    icon: "shield",
+    title: "Local-first by design",
+    body: "Your clipboard lives in a database on your machine. No account required, no telemetry, works fully offline. You can read every byte.",
+  },
+];
+
+const steps = [
+  {
+    n: "01",
+    title: "Copy like you always do",
+    body: "Quackboard watches the clipboard quietly in the background and saves each new item with smart type detection — no extra step.",
+  },
+  {
+    n: "02",
+    title: "Summon with a shortcut",
+    body: "Press ⌘⇧V (or your own binding) anywhere. The history opens where your cursor is, already focused on the search field.",
+  },
+  {
+    n: "03",
+    title: "Find it, paste it, move on",
+    body: "Type a few letters, arrow to the result, hit Enter. It pastes into the app you were in and gets out of your way.",
+  },
+];
 ---
 
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width" />
-    <meta name="generator" content={Astro.generator} />
-    <title>Astro</title>
-  </head>
-  <body class="bg-black">
-    <h1 class="text-3xl font-bold underline text-white">Hello world!</h1>
-  </body>
-</html>
+<BaseLayout title="Quackboard — a clipboard manager that remembers">
+  <!-- ── HERO (asymmetric, left-weighted) ─────────────────────────────── -->
+  <section class="shell relative pt-20 pb-24 md:pt-28 md:pb-32">
+    <!-- faint amber glow, single hue, no gradient stack -->
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute -top-24 right-0 h-[420px] w-[420px] rounded-full bg-accent/10 blur-[120px]"
+    >
+    </div>
+
+    <div class="grid items-center gap-14 lg:grid-cols-[1.05fr_1fr]">
+      <div data-reveal>
+        <span
+          class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-muted"
+        >
+          <span class="h-1.5 w-1.5 rounded-full bg-accent"></span>
+          v1.1 — now with encrypted sync
+        </span>
+
+        <h1 class="mt-7 text-5xl font-bold sm:text-6xl md:text-7xl">
+          Your clipboard,<br />
+          <span class="text-accent">with a memory.</span>
+        </h1>
+
+        <p class="mt-7 max-w-xl text-lg leading-relaxed text-muted">
+          Quackboard keeps a searchable history of everything you copy, lets you
+          pin the snippets you reuse, and syncs across your devices — without
+          ever sending your clipboard somewhere you can't see.
+        </p>
+
+        <div class="mt-9 flex flex-wrap items-center gap-3">
+          <a
+            href="/download"
+            class="inline-flex items-center gap-2 rounded-lg bg-accent px-5 py-3 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-strong"
+          >
+            <Icon name="download" size={18} stroke={2} />
+            Download for free
+          </a>
+          <a
+            href="/docs/getting-started"
+            class="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-3 text-sm font-medium text-text transition-colors hover:bg-surface"
+          >
+            Read the docs
+            <Icon name="arrow-right" size={16} />
+          </a>
+        </div>
+
+        <p class="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-faint">
+          <span class="flex items-center gap-1.5"
+            ><Icon name="check" size={14} class="text-accent" /> No account needed</span
+          >
+          <span class="flex items-center gap-1.5"
+            ><Icon name="check" size={14} class="text-accent" /> Works offline</span
+          >
+          <span class="flex items-center gap-1.5"
+            ><Icon name="check" size={14} class="text-accent" /> macOS · Windows · Linux</span
+          >
+        </p>
+      </div>
+
+      <!-- the mockup sits lower and slightly off-grid -->
+      <div data-reveal data-delay="120" class="lg:translate-y-6">
+        <AppWindow />
+      </div>
+    </div>
+  </section>
+
+  <!-- ── CORE FEATURES ────────────────────────────────────────────────── -->
+  <section class="shell py-8">
+    <div class="max-w-2xl" data-reveal>
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">
+        What it does
+      </p>
+      <h2 class="mt-4 text-4xl font-bold md:text-5xl">
+        Small tool. Disproportionate relief.
+      </h2>
+      <p class="mt-5 text-lg text-muted">
+        The clipboard is the most-used feature of any computer and the least
+        respected. Quackboard treats it like infrastructure.
+      </p>
+    </div>
+
+    <div class="mt-14 grid gap-px overflow-hidden rounded-xl border border-border bg-border sm:grid-cols-2 lg:grid-cols-3">
+      {
+        features.map((f, i) => (
+          <article
+            class="lift bg-surface p-7"
+            data-reveal
+            data-delay={(i % 3) * 80}
+          >
+            <span class="grid h-10 w-10 place-items-center rounded-lg border border-border bg-bg text-accent">
+              <Icon name={f.icon} size={20} />
+            </span>
+            <h3 class="mt-5 text-lg font-semibold">{f.title}</h3>
+            <p class="mt-2.5 text-sm leading-relaxed text-muted">{f.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ─────────────────────────────────────────────────── -->
+  <section class="shell py-28">
+    <div class="grid gap-14 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
+      <div data-reveal class="lg:sticky lg:top-28">
+        <p class="font-mono text-xs uppercase tracking-widest text-accent">
+          How it works
+        </p>
+        <h2 class="mt-4 text-4xl font-bold md:text-5xl">
+          Three keystrokes from copy to paste.
+        </h2>
+        <p class="mt-5 text-muted">
+          No new habits to learn. Quackboard slots into the muscle memory you
+          already have.
+        </p>
+        <div
+          class="mt-8 inline-flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-3 font-mono text-sm"
+        >
+          <kbd class="rounded bg-surface-2 px-2 py-1 text-xs">⌘</kbd>
+          <kbd class="rounded bg-surface-2 px-2 py-1 text-xs">⇧</kbd>
+          <kbd class="rounded bg-surface-2 px-2 py-1 text-xs">V</kbd>
+          <span class="ml-1 text-faint">— rebind it to anything</span>
+        </div>
+      </div>
+
+      <ol class="space-y-px overflow-hidden rounded-xl border border-border bg-border">
+        {
+          steps.map((s) => (
+            <li class="bg-surface p-8" data-reveal>
+              <div class="flex items-baseline gap-5">
+                <span class="font-heading text-3xl font-bold text-accent/40">
+                  {s.n}
+                </span>
+                <div>
+                  <h3 class="text-xl font-semibold">{s.title}</h3>
+                  <p class="mt-2 leading-relaxed text-muted">{s.body}</p>
+                </div>
+              </div>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </section>
+
+  <!-- ── FOOTER CTA ───────────────────────────────────────────────────── -->
+  <section class="shell">
+    <div
+      class="relative overflow-hidden rounded-2xl border border-border bg-surface px-8 py-16 text-center md:px-16 md:py-20"
+      data-reveal
+    >
+      <div
+        aria-hidden="true"
+        class="pointer-events-none absolute -bottom-32 left-1/2 h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-accent/10 blur-[120px]"
+      >
+      </div>
+      <h2 class="relative mx-auto max-w-2xl text-4xl font-bold md:text-5xl">
+        Stop losing things you just copied.
+      </h2>
+      <p class="relative mx-auto mt-5 max-w-xl text-lg text-muted">
+        Free, local-first, and under 12 MB. Install it in the next minute and
+        never dig through your history by hand again.
+      </p>
+      <div class="relative mt-9 flex flex-wrap justify-center gap-3">
+        <a
+          href="/download"
+          class="inline-flex items-center gap-2 rounded-lg bg-accent px-6 py-3 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-strong"
+        >
+          <Icon name="download" size={18} stroke={2} />
+          Download Quackboard
+        </a>
+        <a
+          href="/privacy"
+          class="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-3 text-sm font-medium text-text transition-colors hover:bg-surface-2"
+        >
+          <Icon name="shield" size={16} />
+          See our privacy promise
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
