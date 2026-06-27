@@ -12,6 +12,10 @@
   let { value = "", onChange, disabled = false }: Props = $props();
   let isRecording = $state(false);
   let recordedKeys = $state<string[]>([]);
+  // Modifiers currently held, tracked from their own key events. Wayland/Hyprland
+  // doesn't keep e.metaKey set on later keydowns (Super is the compositor's
+  // modifier), so flags alone make Super vanish — we track the keys directly.
+  let heldMods = $state<string[]>([]);
   let currentOS = $state<string>("macos");
 
   // Símbolos según el sistema operativo
@@ -74,6 +78,28 @@
     key === "Option" ||
     key === "Shift";
 
+  // Map a modifier KEY (not flag) to our canonical name. We match on both e.key
+  // and e.code because the spelling varies by platform/engine — WebKitGTK reports
+  // Super as key="Super" code="OSLeft", others use "Meta"/"MetaLeft".
+  const modName = (e: KeyboardEvent): string | null => {
+    const k = e.key;
+    const c = e.code;
+    if (
+      k === "Meta" || k === "Super" || k === "OS" ||
+      c === "MetaLeft" || c === "MetaRight" ||
+      c === "OSLeft" || c === "OSRight" ||
+      c === "SuperLeft" || c === "SuperRight"
+    )
+      return "Command";
+    if (k === "Control" || c === "ControlLeft" || c === "ControlRight")
+      return "Control";
+    if (k === "Alt" || c === "AltLeft" || c === "AltRight") return "Alt";
+    if (k === "Shift" || c === "ShiftLeft" || c === "ShiftRight") return "Shift";
+    return null;
+  };
+
+  const orderedMods = () => MODIFIER_ORDER.filter((m) => heldMods.includes(m));
+
   const displayText = $derived.by(() =>
     isRecording
       ? recordedKeys.length > 0
@@ -86,11 +112,13 @@
     if (disabled) return;
     isRecording = true;
     recordedKeys = [];
+    heldMods = [];
   };
 
   const cancelRecording = () => {
     isRecording = false;
     recordedKeys = [];
+    heldMods = [];
   };
 
   const finishRecording = () => {
@@ -102,6 +130,7 @@
       const hotkey = recordedKeys.join("+");
       onChange(hotkey);
     }
+    heldMods = [];
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -115,37 +144,31 @@
     e.preventDefault();
     e.stopPropagation();
 
-    const keys: string[] = [];
-
-    // Recolectar modificadores
-    if (e.metaKey) keys.push("Command");
-    if (e.ctrlKey) keys.push("Control");
-    if (e.altKey) keys.push("Alt");
-    if (e.shiftKey) keys.push("Shift");
-
-    if (
-      e.key !== "Meta" &&
-      e.key !== "Control" &&
-      e.key !== "Alt" &&
-      e.key !== "Shift"
-    ) {
-      keys.push(e.key.toUpperCase());
+    const mod = modName(e);
+    if (mod) {
+      // A modifier key: remember it's held. Don't trust the flags — track the key.
+      if (!heldMods.includes(mod)) heldMods = [...heldMods, mod];
+      recordedKeys = orderedMods();
+      return;
     }
 
-    // Ordenar modificadores consistentemente
-    const mods = MODIFIER_ORDER.filter((m) => keys.includes(m));
-    const main = keys.filter((k) => !isModifier(k));
-    recordedKeys = [...mods, ...main];
+    // A non-modifier key completes the combo with whatever modifiers are held.
+    recordedKeys = [...orderedMods(), e.key.toUpperCase()];
   };
 
-  const handleKeyUp = () => {
+  const handleKeyUp = (e: KeyboardEvent) => {
     if (!isRecording || disabled) return;
+
+    // Lock in a complete combo before the released modifier is dropped.
     const hasMain = recordedKeys.some((k) => !isModifier(k));
     const hasModifierKey = recordedKeys.some(isModifier);
-
     if (recordedKeys.length > 0 && hasMain && hasModifierKey) {
       finishRecording();
+      return;
     }
+
+    const mod = modName(e);
+    if (mod) heldMods = heldMods.filter((m) => m !== mod);
   };
 
   const handleBlur = () => {
