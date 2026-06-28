@@ -1,0 +1,82 @@
+---
+import "../globals.css";
+import Nav from "../components/Nav.astro";
+import Footer from "../components/Footer.astro";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const {
+  title,
+  description = "Quackboard is a local-first clipboard manager: full clipboard history, instant search, pinned snippets, and optional end-to-end encrypted sync.",
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Fonts: Space Grotesk (headings) · Inter (body) · JetBrains Mono (code) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      rel="preconnect"
+      href="https://fonts.gstatic.com"
+      crossorigin
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap"
+    />
+
+    <title>{title}</title>
+  </head>
+  <body class="min-h-screen">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink"
+      >Skip to content</a
+    >
+    <Nav />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer />
+
+    <script>
+      // Soft fade/slide-in on scroll. Respects prefers-reduced-motion via CSS.
+      const reduce = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      const els = document.querySelectorAll("[data-reveal]");
+
+      if (reduce || !("IntersectionObserver" in window)) {
+        els.forEach((el) => el.classList.add("is-visible"));
+      } else {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                const el = entry.target as HTMLElement;
+                const delay = el.dataset.delay;
+                if (delay) el.style.transitionDelay = `${delay}ms`;
+                el.classList.add("is-visible");
+                io.unobserve(el);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.1 },
+        );
+        els.forEach((el) => io.observe(el));
+      }
+    </script>
+  </body>
+</html>

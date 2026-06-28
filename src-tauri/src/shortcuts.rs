@@ -1,3 +1,6 @@
+use std::env::var_os;
+use std::fs::{read_to_string, write};
+use std::path::PathBuf;
 use std::sync::Mutex;
 
 use tauri::{AppHandle, Manager};
@@ -144,13 +147,74 @@ fn hyprctl(args: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
+// Hyprland's config dir: $XDG_CONFIG_HOME/hypr or $HOME/.config/hypr
+fn hypr_config_dir() -> Option<PathBuf> {
+    let base = var_os("XDG_CONFIG_HOME")
+        .map(PathBuf::from)
+        .or_else(|| var_os("HOME").map(|h| PathBuf::from(h).join(".config")))?;
+    Some(base.join("hypr"))
+}
+
+/// Write the managed config (bind + widnows rules)/ The live "hyprctl" bind only
+/// lasts the session; this file is sourced on every Hyprland start, so the
+/// hotkey and windows behavior survive a roboot. Regenerated on every bind so it
+/// always matches the curren hotkey. Window class is 'quakboard' ( verified via
+/// 'hyprctl clients')
+fn write_managed_config(hotkey: &str) -> Result<(), String> {
+    let dir = hypr_config_dir().ok_or("Could not resolve hyprland config directory")?;
+    let (mods, key) = to_hyprland_bind(hotkey)?;
+    let contents = format!(
+        "# Managed by Quakboard — do not edit by hand.\n\
+         # Regenerated whenever you change the hotkey in Settings.\n\
+         \n\
+         bind = {mods}, {key}, exec, {launch}\n\
+         \n\
+         windowrule {{\n\
+         name = quakboard\n\
+         match:class = (quakboard)\n\
+         float = true\n\
+         center = true\n\
+         size = 750 480\n\
+         rounding = 20\n\
+         }}\n",
+        launch = launch_command(),
+    );
+
+    write(dir.join("quakboard.conf"), contents).map_err(|e| e.to_string())
+}
+
+///Make sure custom.conf sourcs our managed file (append-once, idempotent).
+/// Custom.conf is sourced last by hyperland.congf, sol our rules win.
+fn ensure_custom_sources_managed() -> Result<(), String> {
+    let dir = hypr_config_dir().ok_or("Could not resolve Hyprland config dir")?;
+    let custom = dir.join("conf").join("custom.conf");
+    let existing = read_to_string(&custom).unwrap_or_default();
+    if existing.contains("quakboard.conf") {
+        return Ok(());
+    }
+    let mut updated = existing;
+    if !updated.is_empty() && !updated.ends_with('\n') {
+        updated.push('\n');
+    }
+    updated.push_str(
+        "\n# Quakboard global hotkey + window rules\nsource = ~/.config/hypr/quakboard.conf\n",
+    );
+    write(&custom, updated).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 /// Bind `hotkey` to toggle the window via the compositor. Idempotent: drops any
 /// identical pre-existing bind first so app relaunches don't stack duplicates.
 pub fn hyprland_bind(hotkey: &str) -> Result<(), String> {
     let (mods, key) = to_hyprland_bind(hotkey)?;
     let _ = hyprctl(&["keyword", "unbind", &format!("{mods}, {key}")]);
     let value = format!("{mods}, {key}, exec, {}", launch_command());
-    hyprctl(&["keyword", "bind", &value])
+    hyprctl(&["keyword", "bind", &value])?;
+
+    // Persist so the bind + window rules survive a reboot / compositor reload.
+    write_managed_config(hotkey)?;
+    ensure_custom_sources_managed()?;
+    Ok(())
 }
 
 /// Remove a previously applied Hyprland bind for `hotkey`.

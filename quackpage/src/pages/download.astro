@@ -1,0 +1,216 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Icon from "../components/Icon.astro";
+
+const VERSION = "1.1.0";
+const RELEASED = "June 18, 2026";
+
+const builds = [
+  {
+    os: "macOS",
+    icon: "apple",
+    primary: { label: "Download .dmg", note: "Universal · Apple Silicon & Intel" },
+    secondary: "Homebrew",
+    secondaryCmd: "brew install --cask quackboard",
+    size: "11.4 MB",
+    formats: [".dmg", ".app"],
+  },
+  {
+    os: "Windows",
+    icon: "windows",
+    primary: { label: "Download .msi", note: "64-bit · Windows 10 and 11" },
+    secondary: "winget",
+    secondaryCmd: "winget install Quackboard.Quackboard",
+    size: "9.8 MB",
+    formats: [".msi", ".exe"],
+  },
+  {
+    os: "Linux",
+    icon: "linux",
+    primary: { label: "Download .AppImage", note: "x86_64 · most distributions" },
+    secondary: "Debian / Ubuntu",
+    secondaryCmd: "sudo dpkg -i quackboard_1.1.0_amd64.deb",
+    size: "13.1 MB",
+    formats: [".AppImage", ".deb"],
+  },
+];
+
+const requirements = [
+  {
+    os: "macOS",
+    icon: "apple",
+    rows: [
+      ["Version", "macOS 11 Big Sur or later"],
+      ["Architecture", "Apple Silicon or Intel"],
+      ["Memory", "~40 MB resident"],
+      ["Permissions", "Accessibility (for paste)"],
+    ],
+  },
+  {
+    os: "Windows",
+    icon: "windows",
+    rows: [
+      ["Version", "Windows 10 (1809+) or 11"],
+      ["Architecture", "x86-64"],
+      ["Runtime", "WebView2 (auto-installed)"],
+      ["Memory", "~55 MB resident"],
+    ],
+  },
+  {
+    os: "Linux",
+    icon: "linux",
+    rows: [
+      ["Display", "X11 or Wayland"],
+      ["Dependencies", "WebKitGTK 4.1, libayatana"],
+      ["Architecture", "x86-64"],
+      ["Memory", "~50 MB resident"],
+    ],
+  },
+];
+---
+
+<BaseLayout title="Download Quackboard — macOS, Windows & Linux">
+  <section class="shell pt-20 pb-12 md:pt-24">
+    <div class="max-w-2xl" data-reveal>
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">
+        Download
+      </p>
+      <h1 class="mt-4 text-5xl font-bold md:text-6xl">Get Quackboard</h1>
+      <p class="mt-6 text-lg text-muted">
+        One free download per platform. No sign-up, no license key — install it
+        and it works. Sync is optional and can be turned on later.
+      </p>
+      <div class="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+        <span class="flex items-center gap-2 text-muted">
+          <Icon name="bolt" size={16} class="text-accent" />
+          Version <span class="font-mono text-text">{VERSION}</span>
+        </span>
+        <span class="flex items-center gap-2 text-muted">
+          <Icon name="history" size={16} class="text-accent" />
+          Released {RELEASED}
+        </span>
+        <a
+          href="/changelog"
+          class="flex items-center gap-1.5 text-accent transition-colors hover:text-accent-strong"
+        >
+          What's new <Icon name="arrow-right" size={15} />
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- OS download cards -->
+  <section class="shell">
+    <div class="grid gap-6 md:grid-cols-3">
+      {
+        builds.map((b, i) => (
+          <article
+            class="lift flex flex-col rounded-xl border border-border bg-surface p-7"
+            data-reveal
+            data-delay={i * 80}
+          >
+            <div class="flex items-center gap-3">
+              <span class="grid h-11 w-11 place-items-center rounded-lg border border-border bg-bg text-text">
+                <Icon name={b.icon} size={22} />
+              </span>
+              <div>
+                <h2 class="text-xl font-semibold">{b.os}</h2>
+                <p class="font-mono text-xs text-faint">
+                  {b.size} · {b.formats.join(" / ")}
+                </p>
+              </div>
+            </div>
+
+            <a
+              href="#"
+              class="mt-7 inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-4 py-3 text-sm font-semibold text-accent-ink transition-colors hover:bg-accent-strong"
+            >
+              <Icon name="download" size={17} stroke={2} />
+              {b.primary.label}
+            </a>
+            <p class="mt-2.5 text-center text-xs text-faint">{b.primary.note}</p>
+
+            <div class="mt-6 border-t border-border-soft pt-5">
+              <p class="text-xs font-medium uppercase tracking-wide text-faint">
+                or via {b.secondary}
+              </p>
+              <code class="mt-2 block overflow-x-auto rounded-md border border-border bg-bg px-3 py-2 font-mono text-xs text-muted">
+                {b.secondaryCmd}
+              </code>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+
+    <p class="mt-6 text-center text-sm text-faint" data-reveal>
+      Looking for an older build or the source?
+      <a href="/changelog" class="text-accent hover:underline">Browse the changelog</a
+      >.
+    </p>
+  </section>
+
+  <!-- System requirements -->
+  <section class="shell pt-24">
+    <div class="max-w-2xl" data-reveal>
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">
+        System requirements
+      </p>
+      <h2 class="mt-4 text-3xl font-bold md:text-4xl">
+        Light enough you'll forget it's running.
+      </h2>
+      <p class="mt-4 text-muted">
+        Quackboard is a native Tauri app — a few megabytes on disk and tens of
+        megabytes in memory, not a browser pretending to be an app.
+      </p>
+    </div>
+
+    <div class="mt-12 grid gap-6 md:grid-cols-3">
+      {
+        requirements.map((r) => (
+          <div
+            class="rounded-xl border border-border bg-surface p-6"
+            data-reveal
+          >
+            <div class="flex items-center gap-2.5 border-b border-border-soft pb-4">
+              <Icon name={r.icon} size={18} class="text-accent" />
+              <h3 class="font-semibold">{r.os}</h3>
+            </div>
+            <dl class="mt-4 space-y-3 text-sm">
+              {r.rows.map(([k, v]) => (
+                <div class="flex justify-between gap-4">
+                  <dt class="text-faint">{k}</dt>
+                  <dd class="text-right text-muted">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- integrity note -->
+  <section class="shell pt-16">
+    <div
+      class="flex flex-col gap-4 rounded-xl border border-border bg-surface p-7 sm:flex-row sm:items-center"
+      data-reveal
+    >
+      <span class="grid h-11 w-11 shrink-0 place-items-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+        <Icon name="shield" size={22} />
+      </span>
+      <div class="flex-1">
+        <h3 class="font-semibold">Signed and notarized</h3>
+        <p class="mt-1 text-sm text-muted">
+          macOS builds are notarized by Apple and Windows builds are
+          code-signed. Every release ships with SHA-256 checksums so you can
+          verify what you downloaded.
+        </p>
+      </div>
+      <code
+        class="shrink-0 rounded-md border border-border bg-bg px-3 py-2 font-mono text-xs text-faint"
+        >sha256: 9f2c…a41e</code
+      >
+    </div>
+  </section>
+</BaseLayout>

@@ -26,6 +26,13 @@
   } | null>(null);
   let showQuitConfirm = $state(false);
 
+  // settingsStore.hotkey loads asynchronously from the backend, so the initial
+  // snapshot above is the placeholder default. Mirror the store once the real
+  // value arrives (the global hotkey saves immediately, so they stay in sync).
+  $effect(() => {
+    globalHotkey = settingsStore.hotkey;
+  });
+
   const handleSave = async () => {
     if (enableAnalytics !== settingsStore.enableAnalytics) {
       settingsStore.toggleAnalytics();

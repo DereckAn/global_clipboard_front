@@ -1,0 +1,232 @@
+---
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Icon from "../components/Icon.astro";
+
+const promises = [
+  {
+    icon: "device",
+    title: "Local by default",
+    body: "Out of the box, your entire clipboard history stays in one database on your machine. Nothing is uploaded, because there's nowhere to upload it to until you say so.",
+  },
+  {
+    icon: "lock",
+    title: "Encrypted before it leaves",
+    body: "Turn on sync and every item is encrypted on your device first. Our relay only ever holds ciphertext — we couldn't read your clipboard if we tried.",
+  },
+  {
+    icon: "eye",
+    title: "No telemetry, ever",
+    body: "No analytics, no tracking, no usage pings, no crash reports with your data in them. The app works fully offline and stays that way unless you enable sync.",
+  },
+];
+
+// Plain-language: local vs synced.
+const local = [
+  "Full clipboard history (text, code, links, colors)",
+  "Copied images and files",
+  "Pinned snippets and their names",
+  "Your settings and shortcuts",
+  "Search index for instant lookup",
+];
+
+const synced = [
+  "Only what you choose: history and snippets",
+  "Each item encrypted on-device first",
+  "Images & files only if you opt in",
+  "Stored as ciphertext we can't decrypt",
+  "Anything marked local-only stays put",
+];
+
+const neverLeaves = [
+  "Items copied while capture is paused",
+  "Passwords from password managers (auto-skipped)",
+  "Content matching your exclusion rules",
+  "Your sync passphrase — we never receive it",
+];
+---
+
+<BaseLayout title="Privacy — Quackboard">
+  <!-- hero -->
+  <section class="shell relative pt-20 pb-16 md:pt-28">
+    <div
+      aria-hidden="true"
+      class="pointer-events-none absolute -top-20 right-10 h-[360px] w-[360px] rounded-full bg-accent/10 blur-[120px]"
+    >
+    </div>
+    <div class="max-w-3xl" data-reveal>
+      <span
+        class="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-muted"
+      >
+        <Icon name="shield" size={14} class="text-accent" />
+        Our privacy promise
+      </span>
+      <h1 class="mt-7 text-5xl font-bold md:text-6xl">
+        Your clipboard is<br /><span class="text-accent">nobody's business but yours.</span>
+      </h1>
+      <p class="mt-7 text-lg leading-relaxed text-muted">
+        A clipboard manager sees the most sensitive things you touch all day —
+        passwords mid-paste, private messages, account numbers. We designed
+        Quackboard so that handling all of it never means handing it over. Here's
+        exactly what happens to your data, in plain language.
+      </p>
+    </div>
+  </section>
+
+  <!-- three promises -->
+  <section class="shell">
+    <div class="grid gap-px overflow-hidden rounded-xl border border-border bg-border md:grid-cols-3">
+      {
+        promises.map((p, i) => (
+          <article class="bg-surface p-7" data-reveal data-delay={i * 80}>
+            <span class="grid h-10 w-10 place-items-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+              <Icon name={p.icon} size={20} />
+            </span>
+            <h2 class="mt-5 text-lg font-semibold">{p.title}</h2>
+            <p class="mt-2.5 text-sm leading-relaxed text-muted">{p.body}</p>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <!-- local vs synced -->
+  <section class="shell pt-24">
+    <div class="max-w-2xl" data-reveal>
+      <p class="font-mono text-xs uppercase tracking-widest text-accent">
+        Stored locally vs. synced
+      </p>
+      <h2 class="mt-4 text-3xl font-bold md:text-4xl">
+        Two clear states. You're always in one you chose.
+      </h2>
+      <p class="mt-4 text-muted">
+        Sync is a deliberate switch, not a default. Until you flip it, the right
+        column simply doesn't exist for your data.
+      </p>
+    </div>
+
+    <div class="mt-12 grid gap-6 lg:grid-cols-2">
+      <!-- local -->
+      <div class="rounded-xl border border-border bg-surface p-7" data-reveal>
+        <div class="flex items-center gap-3 border-b border-border-soft pb-5">
+          <span class="grid h-10 w-10 place-items-center rounded-lg border border-border bg-bg text-text">
+            <Icon name="device" size={20} />
+          </span>
+          <div>
+            <h3 class="font-semibold">On your device</h3>
+            <p class="text-xs text-faint">Always. Sync on or off.</p>
+          </div>
+        </div>
+        <ul class="mt-5 space-y-3">
+          {
+            local.map((item) => (
+              <li class="flex items-start gap-3 text-sm text-muted">
+                <Icon name="check" size={16} class="mt-0.5 shrink-0 text-accent" />
+                {item}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+
+      <!-- synced -->
+      <div class="rounded-xl border border-accent/30 bg-surface p-7" data-reveal data-delay="80">
+        <div class="flex items-center gap-3 border-b border-border-soft pb-5">
+          <span class="grid h-10 w-10 place-items-center rounded-lg border border-accent/30 bg-accent/10 text-accent">
+            <Icon name="sync" size={20} />
+          </span>
+          <div>
+            <h3 class="font-semibold">Synced — only if you opt in</h3>
+            <p class="text-xs text-faint">Encrypted end-to-end.</p>
+          </div>
+        </div>
+        <ul class="mt-5 space-y-3">
+          {
+            synced.map((item) => (
+              <li class="flex items-start gap-3 text-sm text-muted">
+                <Icon name="lock" size={16} class="mt-0.5 shrink-0 text-accent" />
+                {item}
+              </li>
+            ))
+          }
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- never leaves -->
+  <section class="shell pt-20">
+    <div
+      class="rounded-xl border border-border bg-surface p-8 md:p-10"
+      data-reveal
+    >
+      <div class="flex items-center gap-3">
+        <Icon name="shield" size={22} class="text-accent" />
+        <h2 class="text-2xl font-bold">What never leaves your device — period</h2>
+      </div>
+      <p class="mt-3 max-w-2xl text-muted">
+        Some things shouldn't be remembered at all. These are excluded from
+        history and sync no matter your settings.
+      </p>
+      <ul class="mt-7 grid gap-3 sm:grid-cols-2">
+        {
+          neverLeaves.map((item) => (
+            <li class="flex items-start gap-3 rounded-lg border border-border-soft bg-bg px-4 py-3 text-sm text-muted">
+              <Icon name="lock" size={16} class="mt-0.5 shrink-0 text-accent" />
+              {item}
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+
+  <!-- you're in control -->
+  <section class="shell pt-20">
+    <div class="grid gap-8 md:grid-cols-[1fr_1.1fr] md:items-center">
+      <div data-reveal>
+        <h2 class="text-3xl font-bold md:text-4xl">And you can prove it.</h2>
+        <p class="mt-4 text-muted">
+          We don't ask you to take our word for it. Quackboard is auditable:
+          the database is plain SQLite you can open yourself, the sync relay is
+          open source, and there's no account standing between you and your data.
+        </p>
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a
+            href="/docs/privacy"
+            class="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+          >
+            Technical data reference
+            <Icon name="arrow-right" size={16} />
+          </a>
+          <a
+            href="/docs/sync"
+            class="inline-flex items-center gap-2 rounded-lg border border-border px-5 py-2.5 text-sm font-medium text-text transition-colors hover:bg-surface"
+          >
+            How sync encryption works
+          </a>
+        </div>
+      </div>
+
+      <ul class="space-y-px overflow-hidden rounded-xl border border-border bg-border" data-reveal data-delay="80">
+        {
+          [
+            ["No account required", "Use the whole app without ever signing up."],
+            ["Delete means delete", "Erase history locally and on every synced device at once."],
+            ["Open & inspectable", "Read your own database; review the sync code on GitHub."],
+            ["Offline-capable", "Pull the network cable — Quackboard keeps working."],
+          ].map(([t, d]) => (
+            <li class="bg-surface px-6 py-5">
+              <div class="flex items-start gap-3">
+                <Icon name="check" size={18} class="mt-0.5 shrink-0 text-accent" />
+                <div>
+                  <p class="font-medium text-text">{t}</p>
+                  <p class="mt-0.5 text-sm text-muted">{d}</p>
+                </div>
+              </div>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  </section>
+</BaseLayout>
