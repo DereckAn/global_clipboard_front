@@ -318,6 +318,34 @@ pub fn unregister_all_shortcuts(app: &AppHandle) -> Result<(), String>
 3. Register new shortcut with handler
 4. No restart required!
 
+#### Wayland / Hyprland hotkeys (resolved in #7, #8)
+
+`tauri-plugin-global-shortcut` relies on X11 grabs and does **not** work under
+native Wayland. `detect_backend()` picks the mechanism at runtime: X11 / macOS /
+Windows use `global-shortcut`; Hyprland uses a compositor bind via `hyprctl`.
+Non-obvious gotchas worth knowing before touching this code:
+
+- **The hotkey must persist a reboot.** A live `hyprctl keyword bind` is
+  session-only. `write_managed_config()` writes the bind **and** the window
+  rules to `~/.config/hypr/quakboard.conf`, and `ensure_custom_sources_managed()`
+  appends a one-time `source = …` line to `conf/custom.conf` so Hyprland reloads
+  it on boot. The bind is `exec … --toggle`, so it works even when the app isn't
+  running (it cold-launches and shows the window — see the `--toggle` handling in
+  `lib.rs`, #8).
+- **The recorder couldn't capture Super.** WebKitGTK reports the Super key as
+  `e.key === "Super"` / `e.code === "OSLeft"` (not `Meta`), and Wayland drops the
+  `metaKey` flag on subsequent keydowns. `HotkeyRecorder.svelte` tracks modifiers
+  by `e.key`/`e.code`, never the flags.
+- **Stored modifier name is `Command`.** `to_hyprland_bind()` maps
+  `command`/`super`/`meta` → `SUPER`; the `global-shortcut` parser accepts
+  `Command` as Meta/Super/Win per OS. Same string works everywhere.
+- **Window sizing under fractional scale.** `resizable: false` pinned the webview
+  to its logical size while the compositor (scale 1.5) allocated a larger
+  toplevel, leaving a transparent gap. Fix is `resizable: true` + a Hyprland
+  `windowrule { float; size 750 480; rounding 20 }` (block syntax — Hyprland
+  ≥0.45 dropped the inline `windowrule = rule, matcher` form). Rounding comes from
+  the compositor, not CSS.
+
 ### macOS-Specific Features
 
 **Hide from Dock**:
