@@ -1,5 +1,7 @@
 <script lang="ts">
   import type { TabIcon } from "$lib/types";
+  import { getVersion } from "@tauri-apps/api/app";
+  import { onMount } from "svelte";
   import Icon from "../icons/Icon.svelte";
   import Button from "../ui/Button.svelte";
 
@@ -19,9 +21,22 @@
     activeTab,
     onTabChange,
     onBack,
-    version = "1.0.1",
+    version,
     tauriVersion = "Tauri v2",
   }: Props = $props();
+
+  // Pull the real app version from tauri.conf.json at runtime unless a caller
+  // passed one explicitly, so it never drifts from the packaged build.
+  let appVersion = $state(version ?? "");
+  onMount(async () => {
+    if (!version) {
+      try {
+        appVersion = await getVersion();
+      } catch {
+        // Non-Tauri context (e.g. plain browser preview) — leave blank.
+      }
+    }
+  });
 </script>
 
 <aside
@@ -54,6 +69,6 @@
     {/each}
   </nav>
   <div class="px-2 text-xs text-text-muted">
-    Version {version} · {tauriVersion}
+    Version {appVersion} · {tauriVersion}
   </div>
 </aside>
